@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//  Auth 
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  username  String   @unique
+  avatar    String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favorites   Favorite[]
+  predictions Prediction[]
+
+  @@index([email])
+  @@map("users")
+}
+
+enum Role { USER ADMIN }
+
+//  League 
+model League {
+  id      Int     @id
+  name    String  @unique
+  country String
+  season  Int
+  emblem  String?
+
+  teams     Team[]
+  matches   Match[]
+  standings Standing[]
+
+  @@map("leagues")
+}
+
+//  Team 
+model Team {
+  id        Int     @id
+  name      String
+  shortName String
+  crest     String?
+  founded   Int?
+  venue     String?
+
+  leagueId  Int
+  league    League @relation(fields: [leagueId], references: [id])
+
+  players     Player[]
+  homeMatches Match[]   @relation("homeTeam")
+  awayMatches Match[]   @relation("awayTeam")
+  standings   Standing[]
+  stats       TeamStats?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leagueId])
+  @@index([name])
+  @@map("teams")
+}
+
+//  Player 
+model Player {
+  id          Int       @id
+  name        String
+  position    Position
+  dateOfBirth DateTime?
+  nationality String?
+  photo       String?
+  shirtNumber Int?
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  stats PlayerStats?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([name])
+  @@map("players")
+}
+
+enum Position { GOALKEEPER DEFENDER MIDFIELDER FORWARD }
+
+//  Match 
+model Match {
+  id          Int         @id
+  utcDate     DateTime
+  status      MatchStatus
+  stage       String?
+  lastUpdated DateTime?
+
+  homeTeamId Int
+  homeTeam   Team @relation("homeTeam", fields: [homeTeamId], references: [id])
+
+  awayTeamId Int
+  awayTeam   Team @relation("awayTeam", fields: [awayTeamId], references: [id])
+
+  leagueId Int
+  league   League @relation(fields: [leagueId], references: [id])
+
+  score      MatchScore?
+  statistics MatchStatistic[]
+  goals      MatchGoal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leagueId])
+  @@index([status])
+  @@index([utcDate])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@map("matches")
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PLAY
+  PAUSED
+  FINISHED
+  POSTPONED
+  CANCELLED
+  SUSPENDED
+}
+
+model MatchScore {
+  id              String  @id @default(cuid())
+  matchId         Int     @unique
+  match           Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  homeTeamGoals   Int
+  awayTeamGoals   Int
+  homeTeamGoalsHT Int?
+  awayTeamGoalsHT Int?
+  winner          Winner?
+  duration        Duration?
+
+  @@map("match_scores")
+}
+
+enum Winner   { HOME AWAY DRAW }
+enum Duration { REGULAR EXTRA_TIME PENALTY }
+
+model MatchGoal {
+  id          String  @id @default(cuid())
+  matchId     Int
+  match       Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  minute      Int
+  minuteExtra Int?
+  team        Side
+  scorerId    Int
+  assisterId  Int?
+  penalty     Boolean @default(false)
+  ownGoal     Boolean @default(false)
+
+  @@index([matchId])
+  @@map("match_goals")
+}
+
+model MatchStatistic {
+  id            String @id @default(cuid())
+  matchId       Int
+  match         Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team          Side
+  shots         Int?
+  shotsOnTarget Int?
+  possession    Int?
+  passes        Int?
+  passAccuracy  Float?
+  fouls         Int?
+  yellowCards   Int?
+  redCards      Int?
+  corners       Int?
+
+  @@index([matchId])
+  @@map("match_statistics")
+}
+
+enum Side { HOME AWAY }
+
+//  Standing 
+model Standing {
+  id             String @id @default(cuid())
+  leagueId       Int
+  league         League @relation(fields: [leagueId], references: [id])
+  teamId         Int
+  team           Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  position       Int
+  playedGames    Int
+  wins           Int
+  draws          Int
+  losses         Int
+  points         Int
+  goalsFor       Int
+  goalsAgainst   Int
+  goalDifference Int
+  updatedAt      DateTime @updatedAt
+
+  @@unique([leagueId, teamId])
+  @@index([leagueId, position])
+  @@map("standings")
+}
+
+//  Stats 
+model TeamStats {
+  id               String   @id @default(cuid())
+  teamId           Int      @unique
+  team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  totalMatches     Int      @default(0)
+  wins             Int      @default(0)
+  draws            Int      @default(0)
+  losses           Int      @default(0)
+  goalsFor         Int      @default(0)
+  goalsAgainst     Int      @default(0)
+  avgGoalsPerMatch Float?
+  updatedAt        DateTime @updatedAt
+
+  @@map("team_stats")
+}
+
+model PlayerStats {
+  id            String   @id @default(cuid())
+  playerId      Int      @unique
+  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  matchesPlayed Int      @default(0)
+  goals         Int      @default(0)
+  assists       Int      @default(0)
+  yellowCards   Int      @default(0)
+  redCards      Int      @default(0)
+  minutesPlayed Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@map("player_stats")
+}
+
+// User features 
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType FavType
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId])
+  @@map("favorites")
+}
+
+enum FavType { TEAM PLAYER LEAGUE MATCH }
+
+model Prediction {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId    Int
+  prediction PredResult
+  confidence Float
+  correct    Boolean?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId])
+  @@map("predictions")
+}
+
+enum PredResult { HOME_WIN AWAY_WIN DRAW }
+
+//  Sync log 
+model SyncLog {
+  id        String    @id @default(cuid())
+  entity    String
+  status    SyncStatus
+  message   String?
+  itemCount Int       @default(0)
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+  durationMs Int?
+
+  @@index([entity, startTime])
+  @@map("sync_logs")
+}
+
+enum SyncStatus { SUCCESS FAILED RUNNING }

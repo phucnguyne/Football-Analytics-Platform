@@ -28,7 +28,7 @@ docker/.env
 
 
 .github/.secrets
-
+.github/
 
 scripts/*.local.sh
 
@@ -71,4 +71,6 @@ apps/web/next-env.d.ts
 
 INSTALLATION.md
 
-.scripts/
+scripts/
+
+npmrc
