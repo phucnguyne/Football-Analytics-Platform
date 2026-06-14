@@ -48,9 +48,9 @@ export function StandingsTable({ competition = 'PL' }: Props) {
                   </Link>
                 </td>
                 <td className="px-3 py-3 text-center text-muted-foreground">{s.playedGames}</td>
-                <td className="px-3 py-3 text-center text-muted-foreground">{s.wins}</td>
-                <td className="px-3 py-3 text-center text-muted-foreground">{s.draws}</td>
-                <td className="px-3 py-3 text-center text-muted-foreground">{s.losses}</td>
+                <td className="px-3 py-3 text-center text-muted-foreground">{s.won}</td>
+                <td className="px-3 py-3 text-center text-muted-foreground">{s.draw}</td>
+                <td className="px-3 py-3 text-center text-muted-foreground">{s.lost}</td>
                 <td className="px-3 py-3 text-center text-muted-foreground">
                   {s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}
                 </td>

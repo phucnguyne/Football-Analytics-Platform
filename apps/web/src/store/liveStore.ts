@@ -4,7 +4,7 @@ import type { Match } from '../types/TypesBarrel'
 interface LiveState {
   liveMatches: Match[]
   setLive:     (matches: Match[]) => void
-  updateScore: (matchId: number, home: number, away: number) => void
+  updateScore: (matchId: string, home: number, away: number) => void
 }
 
 export const useLiveStore = create<LiveState>((set) => ({

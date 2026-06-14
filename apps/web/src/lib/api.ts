@@ -116,7 +116,7 @@ export async function getStandings(competition = 'PL'): Promise<Standing[]> {
 // ══════════════════════════════════════════════════════════════
 function normalizeTeam(t: any): Team {
   return {
-    id:        parseInt(t.idTeam ?? t.id),
+    id:        String(t.idTeam ?? t.id),
     name:      t.strTeam ?? t.name,
     shortName: t.strTeamShort ?? t.shortName ?? t.strTeam?.slice(0, 3).toUpperCase(),
     crest:     t.strTeamBadge ?? t.strBadge ?? t.crest,
@@ -127,25 +127,28 @@ function normalizeTeam(t: any): Team {
 
 function normalizePlayer(p: any): Player {
   return {
-    id:           parseInt(p.idPlayer ?? p.id),
+    id:           String(p.idPlayer ?? p.id),
     name:         p.strPlayer ?? p.name,
     position:     mapPosition(p.strPosition ?? p.position),
     dateOfBirth:  p.dateBorn ?? p.dateOfBirth,
     nationality:  p.strNationality ?? p.nationality,
     photo:        p.strCutout ?? p.strThumb ?? p.photo,
     shirtNumber:  p.strNumber ? parseInt(p.strNumber) : undefined,
-    teamId:       parseInt(p.idTeam ?? p.teamId ?? '0'),
+    teamId:       String(p.idTeam ?? p.teamId ?? '0'),
   }
 }
 
 function normalizeMatch(m: any): Match {
   return {
-    id:      parseInt(m.idEvent ?? m.id),
+    id:      String(m.idEvent ?? m.id),
     utcDate: m.dateEvent ?? m.utcDate ?? new Date().toISOString(),
     status:  mapStatus(m.strStatus ?? m.status),
     stage:   m.strRound ?? m.stage,
-    homeTeam: { id: parseInt(m.idHomeTeam ?? '0'), name: m.strHomeTeam ?? '', shortName: '' },
-    awayTeam: { id: parseInt(m.idAwayTeam ?? '0'), name: m.strAwayTeam ?? '', shortName: '' },
+    homeTeam: { id: String(m.idHomeTeam ?? '0'), name: m.strHomeTeam ?? '', shortName: '' },
+    awayTeam: { id: String(m.idAwayTeam ?? '0'), name: m.strAwayTeam ?? '', shortName: '' },
+    homeGoals: m.intHomeScore != null ? parseInt(m.intHomeScore) : null,
+    awayGoals: m.intAwayScore != null ? parseInt(m.intAwayScore) : null,
+    competition: { id: String(m.idLeague ?? '0'), name: m.strLeague ?? '', code: '' },
     score: m.intHomeScore != null ? {
       homeTeamGoals: parseInt(m.intHomeScore),
       awayTeamGoals: parseInt(m.intAwayScore),
@@ -155,12 +158,15 @@ function normalizeMatch(m: any): Match {
 
 function normalizeFdMatch(m: any): Match {
   return {
-    id:      m.id,
+    id:      String(m.id),
     utcDate: m.utcDate,
     status:  m.status as MatchStatus,
     stage:   m.stage,
     homeTeam: normalizeTeam(m.homeTeam),
     awayTeam: normalizeTeam(m.awayTeam),
+    homeGoals: m.score?.fullTime?.home ?? null,
+    awayGoals: m.score?.fullTime?.away ?? null,
+    competition: m.competition ?? { id: '', name: '', code: '' },
     score: m.score?.fullTime ? {
       homeTeamGoals: m.score.fullTime.home ?? 0,
       awayTeamGoals: m.score.fullTime.away ?? 0,
@@ -173,9 +179,9 @@ function normalizeStanding(s: any): Standing {
     position:       s.position,
     team:           normalizeTeam(s.team),
     playedGames:    s.playedGames,
-    wins:           s.won,
-    draws:          s.draw,
-    losses:         s.lost,
+    won:            s.won ?? s.wins,
+    draw:           s.draw ?? s.draws,
+    lost:           s.lost ?? s.losses,
     points:         s.points,
     goalsFor:       s.goalsFor,
     goalsAgainst:   s.goalsAgainst,

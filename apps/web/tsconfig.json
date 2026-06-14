@@ -18,12 +18,14 @@
       "@/*":            ["./src/*"],
       "@/components/*": ["./src/components/*"],
       "@/lib/*":        ["./src/lib/*"],
+      "@/lib":          ["./src/lib/UtilsBarrel"],
       "@/hooks/*":      ["./src/hooks/*"],
+      "@/hooks":        ["./src/hooks/HooksBarrel"],
       "@/store/*":      ["./src/store/*"],
+      "@/store":        ["./src/store/StoreBarrel"],
       "@/types":        ["./src/types/TypesBarrel.ts"],
       "@/types/*":      ["./src/types/*"],
-      "@/utils":        ["./src/utils/UtilsBarrel.ts"],
-      "@/utils/*":      ["./src/utils/*"],
+      
       "@/config/*":     ["./src/config/*"]
     }
   },

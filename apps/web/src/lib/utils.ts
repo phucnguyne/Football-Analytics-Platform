@@ -1,32 +1,36 @@
-import { type ClassValue, clsx } from 'clsx'
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]): string {
-  return clsx(inputs)
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
+// Focus ring utility
+export const focusRing = cn(
+  "focus-visible:outline-none focus-visible:ring-2",
+  "focus-visible:ring-ring focus-visible:ring-offset-2",
+);
 
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day:     'numeric',
-    month:   'short',
-  })
+// Disabled utility
+export const disabled = "disabled:pointer-events-none disabled:opacity-50";
+
+import { format, isToday, isTomorrow, isYesterday } from 'date-fns'
+
+export function formatDate(dateString: string) {
+  if (!dateString) return ''
+  return format(new Date(dateString), 'MMM d, yyyy')
 }
 
-export function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('en-GB', {
-    hour:   '2-digit',
-    minute: '2-digit',
-  })
+export function formatTime(dateString: string) {
+  if (!dateString) return ''
+  return format(new Date(dateString), 'HH:mm')
 }
 
-export function formatRelativeDate(dateStr: string): string {
-  const now  = new Date()
-  const date = new Date(dateStr)
-  const diff = Math.floor((date.getTime() - now.getTime()) / 86_400_000)
-
-  if (diff === 0)  return 'Today'
-  if (diff === 1)  return 'Tomorrow'
-  if (diff === -1) return 'Yesterday'
-  return formatDate(dateStr)
+export function formatRelativeDate(dateString: string) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (isToday(date)) return 'Today'
+  if (isTomorrow(date)) return 'Tomorrow'
+  if (isYesterday(date)) return 'Yesterday'
+  return format(date, 'MMM d')
 }
