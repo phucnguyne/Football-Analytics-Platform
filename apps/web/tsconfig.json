@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -11,29 +15,59 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*":            ["./src/*"],
-      "@/components/*": ["./src/components/*"],
-      "@/lib/*":        ["./src/lib/*"],
-      "@/lib":          ["./src/lib/UtilsBarrel"],
-      "@/hooks/*":      ["./src/hooks/*"],
-      "@/hooks":        ["./src/hooks/HooksBarrel"],
-      "@/store/*":      ["./src/store/*"],
-      "@/store":        ["./src/store/StoreBarrel"],
-      "@/types":        ["./src/types/TypesBarrel.ts"],
-      "@/types/*":      ["./src/types/*"],
-      
-      "@/config/*":     ["./src/config/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/lib": [
+        "./src/lib/UtilsBarrel"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@/hooks": [
+        "./src/hooks/HooksBarrel"
+      ],
+      "@/store/*": [
+        "./src/store/*"
+      ],
+      "@/store": [
+        "./src/store/StoreBarrel"
+      ],
+      "@/types": [
+        "./src/types/TypesBarrel.ts"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/config/*": [
+        "./src/config/*"
+      ]
     }
   },
   "include": [
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "dist"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist"
+  ]
 }

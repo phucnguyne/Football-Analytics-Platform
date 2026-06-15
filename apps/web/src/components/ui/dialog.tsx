@@ -7,7 +7,7 @@ const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close
 
-export function DialogOverlay({
+function DialogOverlay({
   className,
   ref,
   ...props
@@ -27,7 +27,7 @@ export function DialogOverlay({
   )
 }
 
-export function DialogContent({
+function DialogContent({
   className,
   children,
   ref,
