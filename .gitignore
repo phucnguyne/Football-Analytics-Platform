@@ -75,3 +75,8 @@ implementation_plan.md
 scripts/
 
 npmrc
+
+apps/api/dist/
+
+# Prisma generated client
+apps/api/generated/

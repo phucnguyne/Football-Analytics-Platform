@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  homeTeam    String
+  awayTeam    String
+  homeScore   Int         @default(0)
+  awayScore   Int         @default(0)
+  status      MatchStatus @default(SCHEDULED)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  scoreEvents ScoreEvent[]
+
+  @@map("matches")
+}
+
+model ScoreEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  homeScore Int
+  awayScore Int
+  minute    Int?
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+  @@map("score_events")
+}
+
