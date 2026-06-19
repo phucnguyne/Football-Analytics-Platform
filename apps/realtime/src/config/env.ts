@@ -26,6 +26,10 @@ export const env = {
   // Database (Prisma)
   databaseUrl: required("DATABASE_URL"),
 
+  // Secret dùng để xác thực request HTTP nội bộ từ service `api` gọi sang
+  // route /internal/emit. Phải khớp với INTERNAL_SERVICE_SECRET ở apps/api.
+  internalServiceSecret: optional("INTERNAL_SERVICE_SECRET", ""),
+
   nodeEnv: optional("NODE_ENV", "development"),
   isDev: optional("NODE_ENV", "development") === "development",
 } as const;

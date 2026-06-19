@@ -70,6 +70,30 @@ export async function updateMatchStatus(
   return match;
 }
 
+// ── Tạo hoặc cập nhật toàn bộ tỉ số (dùng khi nhận dữ liệu từ service `api`) ─
+// Khác với recordGoal (chỉ +1 điểm), hàm này set thẳng giá trị mới nhất,
+// vì nguồn sự thật (DB) đã nằm ở `api`, cache ở đây chỉ phục vụ broadcast.
+export async function upsertLiveScore(
+  matchId: string,
+  data: Partial<Omit<LiveScore, "matchId">>
+): Promise<LiveScore> {
+  const existing = liveScoreCache.get(matchId);
+
+  const merged: LiveScore = {
+    matchId,
+    homeTeam: data.homeTeam ?? existing?.homeTeam ?? "Home",
+    awayTeam: data.awayTeam ?? existing?.awayTeam ?? "Away",
+    homeScore: data.homeScore ?? existing?.homeScore ?? 0,
+    awayScore: data.awayScore ?? existing?.awayScore ?? 0,
+    minute: data.minute ?? existing?.minute ?? 0,
+    status: data.status ?? existing?.status ?? "LIVE",
+    updatedAt: new Date(),
+  };
+
+  liveScoreCache.set(matchId, merged);
+  return merged;
+}
+
 // ── Seed 1 trận demo vào cache (dùng khi dev) ──────────────────────────────
 export function seedDemoMatch(): void {
   liveScoreCache.set("match-001", {

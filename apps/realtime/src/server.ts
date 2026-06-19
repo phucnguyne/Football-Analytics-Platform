@@ -11,10 +11,12 @@ import { authMiddleware } from "./middleware/auth";
 import { loggerMiddleware } from "./middleware/logger";
 import { rateLimitMiddleware } from "./middleware/rateLimit";
 import { registerSockets } from "./socket";
+import { createInternalRouter } from "./routes/internal";
 import { seedDemoMatch } from "./service/match.service";
 
 // ── HTTP app (chỉ dùng để tạo httpServer, không cần route) ──────────────────
 const app = express();
+app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
@@ -24,6 +26,9 @@ const httpServer = createServer(app);
 
 // ── Socket.io ────────────────────────────────────────────────────────────────
 const io = createSocketServer(httpServer);
+
+// Route HTTP nội bộ — chỉ service `api` gọi sang để trigger broadcast
+app.use("/internal", createInternalRouter(io));
 
 // Middleware chạy theo thứ tự: auth → logger → rateLimit
 io.use(authMiddleware);
