@@ -71,10 +71,12 @@ apps/web/next-env.d.ts
 
 INSTALLATION.md
 implementation_plan.md
+project_analysis_guide.md
+walkthrough.md
 
 scripts/
 
-npmrc
+.npmrc
 
 apps/api/dist/
 
