@@ -1,7 +1,7 @@
 // ─── server.ts ────────────────────────────────────────────────────────────────
 // Entry point của realtime server. Chỉ làm 1 việc: khởi động HTTP + Socket.io.
 // Business logic KHÔNG nằm ở đây.
-
+import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 

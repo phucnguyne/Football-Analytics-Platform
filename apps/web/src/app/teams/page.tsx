@@ -29,7 +29,7 @@ export default function TeamsPage() {
 
       <Grid cols={4} gap="lg">
         {teams?.map((team) => (
-          <Link key={team.id} href={`/team/${team.id}`}>
+          <Link key={team.id} href={`/players?team=${team.id}`}>
             <Card className="group hover:border-primary/50 transition-all cursor-pointer h-full">
               <CardHeader className="items-center text-center pb-2">
                 {team.crest ? (

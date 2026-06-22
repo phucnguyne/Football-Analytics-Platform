@@ -7,7 +7,7 @@ import type { Match, Team, Player, Standing, League, MatchStatus, Position } fro
 
 // const SPORTS_DB = process.env.NEXT_PUBLIC_SPORTS_DB_URL ?? 'https://www.thesportsdb.com/api/v1/json/1'
 const FD_URL = process.env.FOOTBALL_DATA_API_URL ?? 'https://api.football-data.org/v4'
-const FD_KEY = process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY ?? ''
+const FD_KEY = process.env.FOOTBALL_DATA_API_KEY ?? ''
 
 // ── Simple in-memory cache ────────────────────────────────────
 const cache = new Map<string, { data: unknown; ts: number }>()
@@ -28,14 +28,9 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 //   return res.json()
 // }
 
-// ── football-data.org helpers ─────────────────────────────────
 async function fdFetch<T>(path: string): Promise<T> {
-  if (!FD_KEY) throw new Error('Missing NEXT_PUBLIC_FOOTBALL_DATA_API_KEY')
-  const res = await fetch(`${FD_URL}${path}`, {
-    headers: { 'X-Auth-Token': FD_KEY },
-    next: { revalidate: 300 },
-  } as any)
-  if (!res.ok) throw new Error(`football-data error: ${res.status}`)
+  const res = await fetch(`/api${path}`)   // e.g. /api/matches?competition=PL
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
 
@@ -87,8 +82,9 @@ export async function getTeam(teamId: string): Promise<Team | null> {
 /** Fetch all players (squad) for a team */
 export async function getPlayers(teamId: string): Promise<Player[]> {
   return cached(`players:${teamId}`, async () => {
-    const data = await fdFetch<{ squad: any[]; id: number }>(`/teams/${teamId}`)
-    return (data.squad ?? []).map((p) => normalizePlayer(p, String(data.id)))
+    const data = await fdFetch<{ squad: any[]; players: any[]; id: number }>(`/teams/${teamId}`)
+    const roster = data.squad ?? data.players ?? []
+    return roster.map((p) => normalizePlayer(p, String(data.id)))
   })
 }
 
@@ -137,6 +133,7 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 export async function getLeagueMatches(competitionCode: string): Promise<Match[]> {
   return cached(`matches:competition:${competitionCode}`, async () => {
     const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches?status=FINISHED`)
+    //const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches`)
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
@@ -181,7 +178,7 @@ function normalizePlayer(p: any, teamId: string): Player {
     position:     mapPosition(p.position),
     dateOfBirth:  p.dateOfBirth,
     nationality:  p.nationality,
-    photo:        undefined,
+    photo:        p.photo ?? undefined,
     shirtNumber:  p.shirtNumber ?? undefined,
     teamId,
   }
@@ -260,6 +257,8 @@ function normalizeStanding(s: any): Standing {
     goalDifference: s.goalDifference,
   }
 }
+
+
 
 function mapPosition(p: string): Position {
   const s = p?.toUpperCase() ?? ''
