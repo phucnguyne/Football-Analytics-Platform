@@ -7,7 +7,7 @@ import type { Match, Team, Player, Standing, League, MatchStatus, Position } fro
 
 // const SPORTS_DB = process.env.NEXT_PUBLIC_SPORTS_DB_URL ?? 'https://www.thesportsdb.com/api/v1/json/1'
 const FD_URL = process.env.FOOTBALL_DATA_API_URL ?? 'https://api.football-data.org/v4'
-const FD_KEY = process.env.FOOTBALL_DATA_API_KEY ?? ''
+const FD_KEY = process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY ?? 'server-side-auth'
 
 // ── Simple in-memory cache ────────────────────────────────────
 const cache = new Map<string, { data: unknown; ts: number }>()
@@ -133,14 +133,13 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 export async function getLeagueMatches(competitionCode: string): Promise<Match[]> {
   return cached(`matches:competition:${competitionCode}`, async () => {
     const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches?status=FINISHED`)
-    //const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches`)
+
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
 
 /** Live & in-play matches across all competitions */
 export async function getLiveMatches(): Promise<Match[]> {
-  if (!FD_KEY) return []
   return cached('matches:live', async () => {
     const data = await fdFetch<{ matches: any[] }>('/matches?status=LIVE,IN_PLAY,PAUSED')
     return (data.matches ?? []).map(normalizeMatch)
@@ -149,7 +148,6 @@ export async function getLiveMatches(): Promise<Match[]> {
 
 /** Standings table for a competition */
 export async function getStandings(competition = 'PL'): Promise<Standing[]> {
-  if (!FD_KEY) return []
   return cached(`standings:${competition}`, async () => {
     const data = await fdFetch<{ standings: any[] }>(`/competitions/${competition}/standings`)
     const table = data.standings?.find((s) => s.type === 'TOTAL')?.table ?? data.standings?.[0]?.table
