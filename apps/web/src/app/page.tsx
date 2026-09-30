@@ -1,10 +1,13 @@
+import Link from 'next/link'
 import { Container, Grid } from '@/components/ui/grid'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+// import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Activity, TrendingUp, Users, Shield, ArrowRight } from 'lucide-react'
+import { RequestDemoDialog } from '@/components/request-demo-dialog'
+
 
 export default function Home() {
   return (
@@ -25,37 +28,12 @@ export default function Home() {
             Advanced tactical insights, player performance tracking, and predictive modeling for the modern football professional.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 animate-slide-in [animation-delay:300ms]">
-            <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-              Start Analysis <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="h-12 px-8 text-base">
-                  Request Demo
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Request a Personalized Demo</DialogTitle>
-                  <DialogDescription>
-                    Fill out the form below and our analytics experts will reach out to schedule your demo.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" placeholder="Jurgen Klopp" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="club">Club / Organization</Label>
-                    <Input id="club" placeholder="Liverpool FC" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit">Submit Request</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Link href="/matches">
+              <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+                Start Analysis <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <RequestDemoDialog />
           </div>
         </Container>
       </section>

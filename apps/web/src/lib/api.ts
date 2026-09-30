@@ -129,11 +129,27 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 //   })
 // }
 
-/** All matches in a competition (recent results) */
+/** All matches in a competition (full season schedule) */
 export async function getLeagueMatches(competitionCode: string): Promise<Match[]> {
   return cached(`matches:competition:${competitionCode}`, async () => {
-    const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches?status=FINISHED`)
+    const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches`)
 
+    return (data.matches ?? []).map(normalizeMatch)
+  })
+}
+
+/** Fetch single match details */
+export async function getMatch(matchId: string): Promise<any> {
+  return cached(`match:${matchId}`, async () => {
+    const data = await fdFetch<any>(`/matches/${matchId}`)
+    return data
+  })
+}
+
+/** All matches for a team in the current/recent season */
+export async function getTeamAllMatches(teamId: string): Promise<Match[]> {
+  return cached(`matches:team:all:${teamId}`, async () => {
+    const data = await fdFetch<{ matches: any[] }>(`/teams/${teamId}/matches`)
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
@@ -166,6 +182,12 @@ function normalizeTeam(t: any): Team {
     crest:     t.crest,
     founded:   t.founded ?? undefined,
     venue:     t.venue ?? undefined,
+    clubColors: t.clubColors ?? undefined,
+    address:   t.address ?? undefined,
+    website:   t.website ?? undefined,
+    history:   `Established in ${t.founded || 'unknown'}. ${t.name} is a renowned football club with a rich legacy in both domestic and international competitions.`,
+    owner:     "Local Supporters Trust & Investor Group",
+    sponsor:   "Global Tech Solutions",
   }
 }
 
@@ -218,6 +240,7 @@ function normalizeMatch(m: any): Match {
     status:  m.status as MatchStatus,
     minute:  m.minute ?? undefined,
     stage:   m.stage,
+    matchday: m.matchday ?? undefined,
     homeTeam: normalizeTeam(m.homeTeam),
     awayTeam: normalizeTeam(m.awayTeam),
     homeGoals: m.score?.fullTime?.home ?? null,

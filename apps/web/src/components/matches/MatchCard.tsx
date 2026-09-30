@@ -14,51 +14,58 @@ export function MatchCard({ match }: MatchCardProps) {
   const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED'
 
   return (
-    <Link href={`/matches/${match.id}`}>
-      <div className={`card p-4 hover:shadow-md transition-all duration-200 cursor-pointer ${isLive ? 'ring-1 ring-red-300' : ''}`}>
-        {/* Top row: status + date */}
-        <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
+    <div className={`group p-4 rounded-xl bg-card border-3 border-border/50 hover:border-primary/50 transition-all duration-300 ${isLive ? 'ring-1 ring-red-500/50' : ''}`}>
+      {/* Top row: status + date */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-2">
           <StatusBadge status={match.status} />
-          <span>{formatDate(match.utcDate)} {formatTime(match.utcDate)}</span>
+          {match.competition && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wider">{match.competition.name}</span>
+          )}
         </div>
+        <div className="text-[10px] text-muted-foreground text-right leading-tight">
+          <p>{formatDate(match.utcDate)}</p>
+          <p>{formatTime(match.utcDate)}</p>
+        </div>
+      </div>
 
-        {/* Score row */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Home */}
-          <div className="flex-1 flex items-center gap-3 min-w-0">
-            {home.crest && (
-              <Image src={home.crest} alt={home.name} width={32} height={32} className="object-contain flex-shrink-0" />
-            )}
-            <span className="font-semibold truncate">{home.shortName || home.name}</span>
-          </div>
+      {/* Score row */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Home */}
+        <Link href={`/teams/${home.id}`} className="flex-1 flex items-center gap-2 min-w-0 hover:text-primary transition-colors cursor-pointer" title={home.name}>
+          {home.crest && (
+            <Image src={home.crest} alt={home.name} width={28} height={28} className="object-contain flex-shrink-0" />
+          )}
+          <span className="font-bold text-sm truncate">{home.shortName || home.name}</span>
+        </Link>
 
-          {/* Score / time */}
-          <div className="flex-shrink-0 text-center">
+        {/* Center column: Score, Details, HT */}
+        <div className="flex-shrink-0 w-20 flex flex-col items-center">
+          <Link href={`/matches/${match.id}`} className="flex flex-col items-center hover:text-primary transition-colors group/link">
             {score ? (
-              <span className="score-box">
-                {score.homeTeamGoals} – {score.awayTeamGoals}
+              <span className="text-lg font-black tracking-tight mb-1">
+                {score.homeTeamGoals} - {score.awayTeamGoals}
               </span>
             ) : (
-              <span className="text-sm font-medium text-muted-foreground">vs</span>
+              <span className="text-sm font-medium text-muted-foreground mb-1">vs</span>
             )}
-          </div>
-
-          {/* Away */}
-          <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
-            <span className="font-semibold truncate text-right">{away.shortName || away.name}</span>
-            {away.crest && (
-              <Image src={away.crest} alt={away.name} width={32} height={32} className="object-contain flex-shrink-0" />
-            )}
-          </div>
+            <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold group-hover/link:text-primary transition-colors">Details</span>
+          </Link>
+          {score?.homeTeamGoalsHT !== undefined && score.homeTeamGoalsHT !== null && (
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+              HT {score.homeTeamGoalsHT} - {score.awayTeamGoalsHT}
+            </p>
+          )}
         </div>
 
-        {/* HT score */}
-        {score?.homeTeamGoalsHT !== undefined && (
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            HT {score.homeTeamGoalsHT} – {score.awayTeamGoalsHT}
-          </p>
-        )}
+        {/* Away */}
+        <Link href={`/teams/${away.id}`} className="flex-1 flex items-center justify-end gap-2 min-w-0 hover:text-primary transition-colors cursor-pointer" title={away.name}>
+          <span className="font-bold text-sm truncate text-right">{away.shortName || away.name}</span>
+          {away.crest && (
+            <Image src={away.crest} alt={away.name} width={28} height={28} className="object-contain flex-shrink-0" />
+          )}
+        </Link>
       </div>
-    </Link>
+    </div>
   )
 }

@@ -9,6 +9,9 @@ import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { cn } from '@/lib/utils'
 
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect } from 'react'
+
 // Premier League competition code on football-data.org
 const DEFAULT_LEAGUE = 'PL'
 
@@ -26,9 +29,18 @@ function PositionBadge({ position }: { position: string }) {
   )
 }
 
-export default function PlayersPage() {
+function PlayersContent() {
+  const searchParams = useSearchParams()
+  const urlTeamId = searchParams.get('teamId')
+  
   const [selectedTeamId, setSelectedTeamId] = useState('')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    if (urlTeamId) {
+      setSelectedTeamId(urlTeamId)
+    }
+  }, [urlTeamId])
 
   const { data: teams } = useTeams(DEFAULT_LEAGUE)
   const activeTeam = selectedTeamId || teams?.[0]?.id || ''
@@ -75,10 +87,12 @@ export default function PlayersPage() {
         {filtered?.map((player) => (
           <Card key={player.id} className="group hover:border-primary/50 transition-all">
             <CardHeader className="items-center text-center pb-2">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
-                <span className="text-xl font-bold text-muted-foreground">
-                  {player.name.charAt(0)}
-                </span>
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-2 overflow-hidden border-2 border-primary/20">
+                {player.photo ? (
+                  <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
+                ) : (
+                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random&size=128`} alt={player.name} className="w-full h-full object-cover" />
+                )}
               </div>
               <CardTitle className="text-sm group-hover:text-primary transition-colors">
                 {player.name}
@@ -99,5 +113,13 @@ export default function PlayersPage() {
         ))}
       </Grid>
     </Container>
+  )
+}
+
+export default function PlayersPage() {
+  return (
+    <Suspense fallback={<PageSpinner />}>
+      <PlayersContent />
+    </Suspense>
   )
 }
