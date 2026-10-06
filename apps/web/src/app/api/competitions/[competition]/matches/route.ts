@@ -1,34 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-/** Returns the starting year of the last completed season.
- *  PL seasons run Aug–May, so if we're before August the last season
- *  started the previous calendar year (e.g. June 2026 → season 2025). */
-function lastCompletedSeason(): number {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1 // 1-based
-  return month >= 8 ? year : year - 1
-}
+import prisma from '@app/database/src/client'
+import { toMatchResponse } from '@/lib/db-helpers'
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ competition: string }> }
 ) {
   const { competition } = await params
-  const status = req.nextUrl.searchParams.get('status') ?? 'FINISHED'
-  // Allow callers to override season; default to last completed season so we
-  // never return an empty array during the summer off-season.
-  const season =
-    req.nextUrl.searchParams.get('season') ?? String(lastCompletedSeason())
 
-  const res = await fetch(
-    `${process.env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches?status=${status}&season=${season}`,
-    { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
-  )
+  try {
+    // Find the current season for this league
+    const season = await prisma.season.findFirst({
+      where: { isCurrent: true },
+      include: { league: true },
+    })
 
-  if (!res.ok) {
-    return NextResponse.json({ error: 'upstream error' }, { status: res.status })
+    if (!season) {
+      // Fallback: proxy to external API if no season data
+      const res = await fetch(
+        `${process.env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches`,
+        { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+      )
+      if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: res.status })
+      return NextResponse.json(await res.json())
+    }
+
+    const matches = await prisma.match.findMany({
+      where: { seasonId: season.id },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        score: true,
+        league: true,
+      },
+      orderBy: { utcDate: 'asc' },
+    })
+
+    return NextResponse.json({
+      matches: matches.map(toMatchResponse),
+    })
+  } catch (error) {
+    console.error('Error fetching competition matches:', error)
+    return NextResponse.json({ error: 'internal error' }, { status: 500 })
   }
-
-  return NextResponse.json(await res.json())
 }

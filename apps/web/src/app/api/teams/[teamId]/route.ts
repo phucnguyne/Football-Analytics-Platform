@@ -1,41 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-function lastCompletedSeason(): number {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  return month >= 8 ? year : year - 1
-}
+import prisma from '@app/database/src/client'
+import { toTeamResponse } from '@/lib/db-helpers'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ teamId: string }> }
 ) {
   const { teamId } = await params
+  const id = parseInt(teamId)
 
-  const res = await fetch(
-    `${process.env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
-    { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
-  )
-  if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: res.status })
-
-  const data = await res.json()
-
-  // Off-season: squad is empty because clubs haven't registered for the new season yet.
-  // Re-fetch with the last completed season so players are always visible.
-  if (!data.squad?.length) {
-    const season = lastCompletedSeason()
-    const fallback = await fetch(
-      `${process.env.FOOTBALL_DATA_API_URL}/teams/${teamId}?season=${season}`,
-      { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
-    )
-    if (fallback.ok) {
-      const fallbackData = await fallback.json()
-      if (fallbackData.squad?.length) {
-        return NextResponse.json(fallbackData)
-      }
-    }
+  if (isNaN(id)) {
+    return NextResponse.json({ error: 'invalid team id' }, { status: 400 })
   }
 
-  return NextResponse.json(data)
+  try {
+    const team = await prisma.team.findUnique({
+      where: { id },
+      include: {
+        players: {
+          include: { player: true },
+        },
+      },
+    })
+
+    if (!team) {
+      // Team not in DB, fallback to external API
+      const res = await fetch(
+        `${process.env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
+        { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+      )
+      if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: res.status })
+      return NextResponse.json(await res.json())
+    }
+
+    // If no players in PlayerTeam, fallback to external API for squad
+    if (team.players.length === 0) {
+      const res = await fetch(
+        `${process.env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
+        { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        return NextResponse.json({
+          ...toTeamResponse(team),
+          squad: data.squad ?? data.players ?? [],
+        })
+      }
+    }
+
+    return NextResponse.json({
+      ...toTeamResponse(team),
+      squad: team.players.map(pt => ({
+        id: pt.player.id,
+        name: pt.player.name,
+        position: pt.player.position,
+        dateOfBirth: pt.player.dateOfBirth?.toISOString()?.split('T')[0] ?? null,
+        nationality: pt.player.nationality,
+        shirtNumber: pt.shirtNumber ?? pt.player.shirtNumber,
+      })),
+    })
+  } catch (error) {
+    console.error('Error fetching team:', error)
+    return NextResponse.json({ error: 'internal error' }, { status: 500 })
+  }
 }
