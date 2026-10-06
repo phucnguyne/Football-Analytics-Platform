@@ -1,33 +1,32 @@
-# Stage 1: base 
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
-# Enable pnpm via corepack (built into Node 16+)
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Stage 1: base
+FROM node:22-alpine AS base
+RUN apk add --no-cache libc6-compat openssl
+RUN npm install -g pnpm@11.24.0
 WORKDIR /app
 
-# Stage 2: install deps 
-FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN pnpm install --frozen-lockfile
-
-# Stage 3: build 
+# Stage 2: install + build
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm prisma generate
+RUN pnpm install --frozen-lockfile
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm build
+RUN pnpm --filter ./packages/database exec prisma generate
+RUN pnpm --filter web build
 
-# Stage 4: runner (production)
-FROM node:20-alpine AS runner
+# Stage 3: runner (production)
+FROM node:22-alpine AS runner
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static    ./.next/static
+
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
 USER nextjs
 EXPOSE 3000
-ENV PORT=3000
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]

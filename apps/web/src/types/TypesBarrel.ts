@@ -17,8 +17,7 @@ export type {
 export type {
   Role,
   MatchScore,
-  MatchGoal,
-  // MatchEvent,
+  MatchEvent,
   MatchStatistic,
   Side,
   Winner,

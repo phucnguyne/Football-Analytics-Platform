@@ -3,11 +3,11 @@ services:
     image: postgres:16-alpine3.21
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB:       football_analytics
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,8 +31,8 @@ services:
 
   app:
     build:
-      context: ./apps/web
-      dockerfile: ../../docker/Dockerfile
+      context: .
+      dockerfile: docker/Dockerfile
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -40,10 +40,10 @@ services:
       postgres: { condition: service_healthy }
       redis:    { condition: service_healthy }
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/football_analytics
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       NODE_ENV:     production
     env_file:
-      - ./apps/web/.env.local
+      - ./apps/web/.env
 
 volumes:
   postgres_data:

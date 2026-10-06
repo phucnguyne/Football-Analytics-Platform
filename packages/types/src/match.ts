@@ -19,4 +19,5 @@ export interface Match {
   competition: League
   minute?: number
   stage?: string
+  matchday?: number
 }

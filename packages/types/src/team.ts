@@ -5,4 +5,10 @@ export interface Team {
   crest?: string
   founded?: number
   venue?: string
+  clubColors?: string
+  address?: string
+  website?: string
+  history?: string
+  owner?: string
+  sponsor?: string
 }
