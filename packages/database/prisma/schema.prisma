@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -10,20 +11,54 @@ datasource db {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  username  String   @unique
-  avatar    String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  username      String?   @unique
+  avatar        String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
+  accounts    Account[]
+  sessions    Session[]
   favorites   Favorite[]
   predictions Prediction[]
 
-  @@index([email])
   @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
 }
 
 enum Role {
@@ -31,20 +66,35 @@ enum Role {
   ADMIN
 }
 
-// ── League ────────────────────────────────────────────────────────────────────
+// ── Competition & Season ──────────────────────────────────────────────────────
 
 model League {
   id      Int     @id
   name    String  @unique
   country String
-  season  Int
   emblem  String?
 
-  teams     Team[]
-  matches   Match[]
-  standings Standing[]
+  seasons Season[]
+  matches Match[]
 
   @@map("leagues")
+}
+
+model Season {
+  id        Int      @id @default(autoincrement())
+  leagueId  Int
+  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  year      Int
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  matches   Match[]
+  standings Standing[]
+  teams     TeamSeason[]
+
+  @@unique([leagueId, year])
+  @@map("seasons")
 }
 
 // ── Team ──────────────────────────────────────────────────────────────────────
@@ -57,21 +107,29 @@ model Team {
   founded   Int?
   venue     String?
 
-  leagueId Int
-  league   League @relation(fields: [leagueId], references: [id])
-
-  players     Player[]
-  homeMatches Match[]    @relation("homeTeam")
-  awayMatches Match[]    @relation("awayTeam")
-  standings   Standing[]
-  stats       TeamStats?
+  seasons      TeamSeason[]
+  players      PlayerTeam[]
+  homeMatches  Match[]       @relation("homeTeam")
+  awayMatches  Match[]       @relation("awayTeam")
+  standings    Standing[]
+  stats        TeamStats?
+  matchLineups MatchLineup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([leagueId])
   @@index([name])
   @@map("teams")
+}
+
+model TeamSeason {
+  teamId   Int
+  seasonId Int
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, seasonId])
+  @@map("team_seasons")
 }
 
 // ── Player ────────────────────────────────────────────────────────────────────
@@ -85,17 +143,32 @@ model Player {
   photo       String?
   shirtNumber Int?
 
-  teamId Int
-  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  stats PlayerStats?
+  teams         PlayerTeam[]
+  stats         PlayerStats?
+  events        MatchEvent[]  @relation("eventPlayer")
+  relatedEvents MatchEvent[]  @relation("eventRelated")
+  lineups       MatchLineup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([teamId])
   @@index([name])
   @@map("players")
+}
+
+model PlayerTeam {
+  id          String    @id @default(cuid())
+  playerId    Int
+  player      Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId      Int
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  from        DateTime?
+  to          DateTime?
+  shirtNumber Int?
+
+  @@index([playerId])
+  @@index([teamId])
+  @@map("player_teams")
 }
 
 enum Position {
@@ -111,7 +184,12 @@ model Match {
   id          Int         @id
   utcDate     DateTime
   status      MatchStatus
+  minute      Int?
   stage       String?
+  matchday    Int?
+  venueId     Int?
+  refereeId   Int?
+  attendance  Int?
   lastUpdated DateTime?
 
   homeTeamId Int
@@ -123,14 +201,22 @@ model Match {
   leagueId Int
   league   League @relation(fields: [leagueId], references: [id])
 
-  score      MatchScore?
-  statistics MatchStatistic[]
-  goals      MatchGoal[]
+  seasonId Int?
+  season   Season? @relation(fields: [seasonId], references: [id])
+
+  score       MatchScore?
+  statistics  MatchStatistic[]
+  events      MatchEvent[]
+  lineups     MatchLineup[]
+  predictions Prediction[]
+
+  rawData Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([leagueId])
+  @@index([seasonId])
   @@index([status])
   @@index([utcDate])
   @@index([homeTeamId])
@@ -140,6 +226,7 @@ model Match {
 
 enum MatchStatus {
   SCHEDULED
+  TIMED
   IN_PLAY
   PAUSED
   FINISHED
@@ -149,15 +236,19 @@ enum MatchStatus {
 }
 
 model MatchScore {
-  id              String    @id @default(cuid())
-  matchId         Int       @unique
-  match           Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  homeTeamGoals   Int
-  awayTeamGoals   Int
-  homeTeamGoalsHT Int?
-  awayTeamGoalsHT Int?
-  winner          Winner?
-  duration        Duration?
+  id                 String    @id @default(cuid())
+  matchId            Int       @unique
+  match              Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  homeTeamGoals      Int
+  awayTeamGoals      Int
+  homeTeamGoalsHT    Int?
+  awayTeamGoalsHT    Int?
+  scoreExtraTimeHome Int?
+  scoreExtraTimeAway Int?
+  scorePenaltyHome   Int?
+  scorePenaltyAway   Int?
+  winner             Winner?
+  duration           Duration?
 
   @@map("match_scores")
 }
@@ -174,20 +265,34 @@ enum Duration {
   PENALTY
 }
 
-model MatchGoal {
-  id          String  @id @default(cuid())
-  matchId     Int
-  match       Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  minute      Int
-  minuteExtra Int?
-  team        Side
-  scorerId    Int
-  assisterId  Int?
-  penalty     Boolean @default(false)
-  ownGoal     Boolean @default(false)
+model MatchEvent {
+  id              String    @id @default(cuid())
+  matchId         Int
+  match           Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  type            EventType
+  minute          Int
+  minuteExtra     Int?
+  team            Side
+  playerId        Int?
+  player          Player?   @relation("eventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  relatedPlayerId Int?
+  relatedPlayer   Player?   @relation("eventRelated", fields: [relatedPlayerId], references: [id], onDelete: SetNull)
+  detail          String?
 
-  @@index([matchId])
-  @@map("match_goals")
+  @@index([matchId, minute])
+  @@map("match_events")
+}
+
+enum EventType {
+  GOAL
+  OWN_GOAL
+  PENALTY_GOAL
+  PENALTY_MISSED
+  YELLOW_CARD
+  SECOND_YELLOW
+  RED_CARD
+  SUBSTITUTION
+  VAR
 }
 
 model MatchStatistic {
@@ -204,9 +309,29 @@ model MatchStatistic {
   yellowCards   Int?
   redCards      Int?
   corners       Int?
+  xG            Float?
+  offsides      Int?
+  saves         Int?
 
-  @@index([matchId])
+  @@unique([matchId, team])
   @@map("match_statistics")
+}
+
+model MatchLineup {
+  id          String  @id @default(cuid())
+  matchId     Int
+  match       Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId      Int
+  team        Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId    Int
+  player      Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  isStarter   Boolean @default(true)
+  position    String?
+  shirtNumber Int?
+
+  @@unique([matchId, teamId, playerId])
+  @@index([matchId])
+  @@map("match_lineups")
 }
 
 enum Side {
@@ -217,11 +342,13 @@ enum Side {
 // ── Standing ──────────────────────────────────────────────────────────────────
 
 model Standing {
-  id             String   @id @default(cuid())
-  leagueId       Int
-  league         League   @relation(fields: [leagueId], references: [id])
+  id             String       @id @default(cuid())
+  seasonId       Int
+  season         Season       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   teamId         Int
-  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  type           StandingType @default(TOTAL)
+  group          String?
   position       Int
   playedGames    Int
   wins           Int
@@ -231,11 +358,17 @@ model Standing {
   goalsFor       Int
   goalsAgainst   Int
   goalDifference Int
-  updatedAt      DateTime @updatedAt
+  updatedAt      DateTime     @updatedAt
 
-  @@unique([leagueId, teamId])
-  @@index([leagueId, position])
+  @@unique([seasonId, teamId, type, group])
+  @@index([seasonId, position])
   @@map("standings")
+}
+
+enum StandingType {
+  TOTAL
+  HOME
+  AWAY
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -243,6 +376,7 @@ model Standing {
 model TeamStats {
   id               String   @id @default(cuid())
   teamId           Int      @unique
+  seasonId         Int?
   team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   totalMatches     Int      @default(0)
   wins             Int      @default(0)
@@ -259,6 +393,7 @@ model TeamStats {
 model PlayerStats {
   id            String   @id @default(cuid())
   playerId      Int      @unique
+  seasonId      Int?
   player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   matchesPlayed Int      @default(0)
   goals         Int      @default(0)
@@ -298,11 +433,13 @@ model Prediction {
   userId     String
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   matchId    Int
+  match      Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
   prediction PredResult
   confidence Float
   correct    Boolean?
   createdAt  DateTime   @default(now())
 
+  @@unique([userId, matchId])
   @@index([userId])
   @@map("predictions")
 }
