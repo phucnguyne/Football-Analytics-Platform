@@ -11,4 +11,10 @@ export interface Team {
   history?: string
   owner?: string
   sponsor?: string
+  coach?: {
+    id: string
+    name: string
+    dateOfBirth?: string
+    nationality?: string
+  }
 }

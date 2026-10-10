@@ -211,6 +211,9 @@ model Match {
   predictions Prediction[]
 
   rawData Json?
+  winProbHome Float?
+  winProbDraw Float?
+  winProbAway Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -278,6 +281,9 @@ model MatchEvent {
   relatedPlayerId Int?
   relatedPlayer   Player?   @relation("eventRelated", fields: [relatedPlayerId], references: [id], onDelete: SetNull)
   detail          String?
+  xG              Float?
+  x               Float?
+  y               Float?
 
   @@index([matchId, minute])
   @@map("match_events")
@@ -293,6 +299,7 @@ enum EventType {
   RED_CARD
   SUBSTITUTION
   VAR
+  SHOT
 }
 
 model MatchStatistic {
@@ -395,13 +402,24 @@ model PlayerStats {
   playerId      Int      @unique
   seasonId      Int?
   player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  matchesPlayed Int      @default(0)
-  goals         Int      @default(0)
-  assists       Int      @default(0)
-  yellowCards   Int      @default(0)
-  redCards      Int      @default(0)
-  minutesPlayed Int      @default(0)
-  updatedAt     DateTime @updatedAt
+  matchesPlayed     Int      @default(0)
+  minutesPlayed     Int      @default(0)
+  goals             Int      @default(0)
+  assists           Int      @default(0)
+  yellowCards       Int      @default(0)
+  redCards          Int      @default(0)
+
+  // Advanced Stats
+  xG                Float?   @default(0)
+  xA                Float?   @default(0)
+  shotsPer90        Float?   @default(0)
+  passCompletion    Float?   @default(0)
+  progressivePasses Float?   @default(0)
+  tacklesPer90      Float?   @default(0)
+  interceptions     Float?   @default(0)
+  dribblesSuccess   Float?   @default(0)
+
+  updatedAt         DateTime @updatedAt
 
   @@map("player_stats")
 }
