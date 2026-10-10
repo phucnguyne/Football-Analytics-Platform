@@ -66,6 +66,22 @@ export function MatchCard({ match }: MatchCardProps) {
           )}
         </Link>
       </div>
+
+      {/* Mini Prediction Bar for upcoming matches */}
+      {(match as any).prediction && (match.status === 'SCHEDULED' || match.status === 'TIMED') && (
+        <div className="mt-3 pt-3 border-t border-border/30">
+          <div className="flex h-1.5 rounded-full overflow-hidden">
+            <div style={{ width: `${((match as any).prediction.homeWin * 100).toFixed(0)}%` }} className="bg-blue-500" title={`${home.shortName}: ${((match as any).prediction.homeWin * 100).toFixed(0)}%`}></div>
+            <div style={{ width: `${((match as any).prediction.draw * 100).toFixed(0)}%` }} className="bg-neutral-400" title={`Draw: ${((match as any).prediction.draw * 100).toFixed(0)}%`}></div>
+            <div style={{ width: `${((match as any).prediction.awayWin * 100).toFixed(0)}%` }} className="bg-red-500" title={`${away.shortName}: ${((match as any).prediction.awayWin * 100).toFixed(0)}%`}></div>
+          </div>
+          <div className="flex justify-between text-[9px] text-muted-foreground mt-1 font-medium tabular-nums">
+            <span>{((match as any).prediction.homeWin * 100).toFixed(0)}%</span>
+            <span>{((match as any).prediction.draw * 100).toFixed(0)}%</span>
+            <span>{((match as any).prediction.awayWin * 100).toFixed(0)}%</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
