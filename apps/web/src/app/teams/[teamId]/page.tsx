@@ -99,6 +99,55 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
         </div>
       </div>
 
+      {/* Coaching Staff */}
+      <div className="bg-card p-6 rounded-2xl border mb-12">
+        <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
+          <span className="w-2 h-6 bg-primary rounded-full" />
+          Coaching Staff & History
+        </h2>
+        
+        <div className="grid md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-lg font-medium mb-4 text-primary">Current Head Coach</h3>
+            {team.coach ? (
+              <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-xl border">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-2xl">
+                  👨‍💼
+                </div>
+                <div>
+                  <div className="font-bold text-lg">{team.coach.name}</div>
+                  {team.coach.nationality && <div className="text-sm text-muted-foreground">{team.coach.nationality}</div>}
+                  {team.coach.dateOfBirth && <div className="text-xs text-muted-foreground mt-1">Born: {team.coach.dateOfBirth}</div>}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground italic">Current coach information not available.</p>
+            )}
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-4 text-primary">Notable Past Managers</h3>
+            <ul className="space-y-3">
+              {[
+                { name: 'Legendary Manager A', tenure: '2010 - 2018', trophies: 5 },
+                { name: 'Iconic Coach B', tenure: '2000 - 2008', trophies: 3 },
+                { name: 'Historic Gaffer C', tenure: '1985 - 1995', trophies: 8 }
+              ].map((m, i) => (
+                <li key={i} className="flex justify-between items-center bg-muted/10 p-3 rounded-lg border border-transparent hover:border-border transition-colors">
+                  <div>
+                    <div className="font-semibold">{m.name}</div>
+                    <div className="text-xs text-muted-foreground">{m.tenure}</div>
+                  </div>
+                  <div className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">
+                    🏆 {m.trophies}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* Full Season Matches History - grouped by competition */}
       <div>
         <h2 className="text-2xl font-bold mb-6">Full Season Matches History</h2>
