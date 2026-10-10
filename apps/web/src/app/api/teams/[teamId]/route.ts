@@ -43,13 +43,28 @@ export async function GET(
         const data = await res.json()
         return NextResponse.json({
           ...toTeamResponse(team),
+          coach: data.coach,
           squad: data.squad ?? data.players ?? [],
         })
       }
     }
 
+    // Try to get coach even if we have players (using a quick fetch to football-data)
+    let coachData;
+    try {
+      const res = await fetch(
+        `${process.env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
+        { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        coachData = data.coach;
+      }
+    } catch (e) {}
+
     return NextResponse.json({
       ...toTeamResponse(team),
+      coach: coachData,
       squad: team.players.map(pt => ({
         id: pt.player.id,
         name: pt.player.name,

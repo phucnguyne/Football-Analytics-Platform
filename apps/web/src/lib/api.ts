@@ -188,6 +188,12 @@ function normalizeTeam(t: any): Team {
     history:   `Established in ${t.founded || 'unknown'}. ${t.name} is a renowned football club with a rich legacy in both domestic and international competitions.`,
     owner:     "Local Supporters Trust & Investor Group",
     sponsor:   "Global Tech Solutions",
+    coach:     t.coach ? {
+      id: String(t.coach.id),
+      name: t.coach.name,
+      dateOfBirth: t.coach.dateOfBirth,
+      nationality: t.coach.nationality
+    } : undefined
   }
 }
 

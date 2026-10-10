@@ -76,6 +76,11 @@ export function toMatchResponse(m: MatchWithIncludes) {
       name: m.league.name,
       emblem: m.league.emblem,
     },
+    prediction: m.winProbHome != null ? {
+      homeWin: m.winProbHome,
+      draw: m.winProbDraw,
+      awayWin: m.winProbAway
+    } : null,
   }
 }
 
@@ -96,6 +101,25 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
         : { id: m.awayTeam.id, name: m.awayTeam.name },
       scorer: e.player ? { id: e.player.id, name: e.player.name } : null,
       assist: e.relatedPlayer ? { id: e.relatedPlayer.id, name: e.relatedPlayer.name } : null,
+      xG: (e as any).xG,
+      x: (e as any).x,
+      y: (e as any).y
+    }))
+
+  // Build shots from SHOT events
+  const shots = m.events
+    .filter(e => e.type === 'SHOT')
+    .sort((a, b) => a.minute - b.minute)
+    .map(e => ({
+      minute: e.minute,
+      type: 'SHOT',
+      team: e.team === 'HOME'
+        ? { id: m.homeTeam.id, name: m.homeTeam.name }
+        : { id: m.awayTeam.id, name: m.awayTeam.name },
+      player: e.player ? { id: e.player.id, name: e.player.name } : null,
+      xG: (e as any).xG,
+      x: (e as any).x,
+      y: (e as any).y
     }))
 
   // Build bookings from YELLOW_CARD/SECOND_YELLOW/RED_CARD events
@@ -146,6 +170,7 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
   return {
     ...base,
     goals,
+    shots,
     bookings,
     substitutions,
     homeTeam: {
