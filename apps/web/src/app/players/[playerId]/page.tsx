@@ -8,6 +8,7 @@ import { Container } from '@/components/ui/grid'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { PlayerRadarChart } from '@/components/players/PlayerRadarChart'
+import { PlayerHeatmapCard } from '@/components/players/PlayerHeatmapCard'
 
 async function getPlayer(id: string) {
   const res = await fetch(`/api/persons/${id}`)
@@ -114,6 +115,8 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
             playerName={player.name}
             position={player.position?.replace('_', ' ') || 'Unknown'} 
           />
+
+          <PlayerHeatmapCard player={player} />
 
           {stats && (
             <div className="bg-card p-6 rounded-2xl border">

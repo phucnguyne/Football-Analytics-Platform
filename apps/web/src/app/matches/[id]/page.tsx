@@ -16,6 +16,7 @@ import { LivePredictionGame } from '@/components/matches/LivePredictionGame'
 import { MatchChat } from '@/components/matches/MatchChat'
 import { ShotMap } from '@/components/matches/ShotMap'
 import { AlgorithmicPrediction } from '@/components/matches/AlgorithmicPrediction'
+import { TacticalInsights } from '@/components/tactics/TacticalInsights'
 
 export default function MatchDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -195,6 +196,8 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
           <LiveStatsBars matchId={id} isLive={currentStatus === 'IN_PLAY' || currentStatus === 'PAUSED'} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
           
           <ShotMap matchId={id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} events={allEvents} />
+          
+          <TacticalInsights matchId={id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
 
           <div className="bg-card p-6 rounded-2xl border">
             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
