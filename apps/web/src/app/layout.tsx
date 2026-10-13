@@ -79,6 +79,13 @@ export default function RootLayout({
 
                       <a
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
+                        href="/players/compare"
+                      >
+                        Compare
+                      </a>
+
+                      <a
+                        className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/predictions"
                       >
                         Predictions

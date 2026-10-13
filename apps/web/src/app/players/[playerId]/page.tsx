@@ -9,6 +9,9 @@ import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { PlayerRadarChart } from '@/components/players/PlayerRadarChart'
 import { PlayerHeatmapCard } from '@/components/players/PlayerHeatmapCard'
+import { PlayerFormTrend } from '@/components/players/PlayerFormTrend'
+import { SimilarPlayersCard } from '@/components/players/SimilarPlayersCard'
+import { PlayerComparisonDashboard } from '@/components/players/PlayerComparisonDashboard'
 
 async function getPlayer(id: string) {
   const res = await fetch(`/api/persons/${id}`)
@@ -116,7 +119,11 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
             position={player.position?.replace('_', ' ') || 'Unknown'} 
           />
 
+          <PlayerFormTrend playerId={player.id} playerName={player.name} />
+
           <PlayerHeatmapCard player={player} />
+
+          <SimilarPlayersCard playerId={player.id} playerName={player.name} />
 
           {stats && (
             <div className="bg-card p-6 rounded-2xl border">
@@ -183,6 +190,11 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
           )}
         </div>
 
+      </div>
+
+      {/* Head-to-Head Comparison Tool Section */}
+      <div id="compare" className="mt-12">
+        <PlayerComparisonDashboard initialPlayer1Id={player.id} />
       </div>
     </Container>
   )
