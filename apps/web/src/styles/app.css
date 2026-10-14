@@ -182,3 +182,62 @@
     transform: scale(0.95);
   }
 }
+
+/* ── Print / PDF styles for Scouting Report ──────────────────────────────── */
+@media print {
+  /* Hide navigation, headers, and UI chrome */
+  nav,
+  header,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset background to white for print */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+
+  /* Remove max-width restriction */
+  .container,
+  [class*="max-w-"] {
+    max-width: 100% !important;
+    padding-left: 1cm !important;
+    padding-right: 1cm !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+
+  /* Avoid breaking cards across pages */
+  .print\:border,
+  [class*="rounded-"] {
+    page-break-inside: avoid;
+  }
+
+  /* Make grid single column on narrow prints, 3-col on landscape */
+  .lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Ensure charts and images print cleanly */
+  img,
+  svg,
+  canvas {
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+
+  /* Cards: light border, no shadow on print */
+  .bg-card,
+  [class*="shadow"] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+}
+

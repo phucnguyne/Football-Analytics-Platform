@@ -56,12 +56,20 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
           <h1 className="text-4xl font-bold">{team.name}</h1>
           <p className="text-xl text-muted-foreground">{team.shortName}</p>
         </div>
-        <Link
-          href={`/players?teamId=${teamId}`}
-          className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors shadow-lg"
-        >
-          View All Players
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href={`/players?teamId=${teamId}`}
+            className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors shadow-lg text-center"
+          >
+            View All Players
+          </Link>
+          <Link
+            href={`/teams/${teamId}/scouting`}
+            className="px-6 py-3 rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 transition-colors shadow-lg text-center flex items-center gap-2 justify-center"
+          >
+            🔍 Scouting Report
+          </Link>
+        </div>
       </div>
 
       {/* Info cards */}
