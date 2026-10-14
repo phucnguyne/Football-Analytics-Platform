@@ -33,6 +33,38 @@ export interface PassingLink {
   direction: 'source_to_target' | 'target_to_source' | 'bidirectional'
 }
 
+export interface BuildUpMetrics {
+  /** Possession percentage (0-100) */
+  possession: number
+  /** Build-up style preference */
+  buildUpStyle: 'Short-Passing' | 'Direct' | 'Mixed' | 'Long-Ball'
+  /** Avg passes per sequence before a final-third entry */
+  passesPerSequence: number
+  /** Final-third entry method breakdown (%) */
+  finalThirdEntries: {
+    carry: number    // dribble / progressive carry
+    pass: number     // ground or aerial pass
+    setPiece: number // corner / throw-in / free kick
+  }
+  /** Progressive carries per 90 minutes */
+  progressiveCarriesPer90: number
+  /** Field zones where team most often triggers the press (% of press events) */
+  pressTriggerZones: {
+    ownHalf: number
+    middleThird: number
+    highPress: number // opponent half
+  }
+  /** Ball retention under pressure (%) */
+  retentionUnderPressure: number
+  /** Vertical compactness: distance between def/att lines (metres, lower = more compact) */
+  compactness: number
+  /** Counter-attack speed: avg seconds from regain to shot attempt */
+  counterAttackSpeed: number
+  /** PPDA split: own half vs opponent half */
+  ppdaOwn: number
+  ppdaOpp: number
+}
+
 export interface TeamTactics {
   id: number
   name: string
@@ -46,6 +78,8 @@ export interface TeamTactics {
   defensiveLineHeight: 'Deep' | 'Mid' | 'High'
   turnoversWonHigh: number
   counterPressRecoveries: number
+  /** Phase 11: Attacking build-up & ball control metrics */
+  buildUp: BuildUpMetrics
   passingNetwork: {
     nodes: PassingNode[]
     links: PassingLink[]
@@ -241,6 +275,46 @@ export function generateTacticalData(
     const ppdaBase = isHome ? 8.2 + seededRandom(seed + 1) * 4.5 : 10.5 + seededRandom(seed + 2) * 6.0
     const fieldTilt = isHome ? 58 - Math.floor(seededRandom(seed + 3) * 12) : 42 + Math.floor(seededRandom(seed + 4) * 10)
 
+    // ── Build-Up Metrics (Phase 11) ──────────────────────────────────────────
+    const possession = isHome
+      ? Math.round(46 + seededRandom(seed + 50) * 18)
+      : Math.round(38 + seededRandom(seed + 51) * 18)
+
+    const styleIdx   = Math.floor(seededRandom(seed + 52) * 4)
+    const STYLES: BuildUpMetrics['buildUpStyle'][] = ['Short-Passing', 'Direct', 'Mixed', 'Long-Ball']
+    const buildUpStyle = STYLES[styleIdx]
+
+    const carryPct    = Math.round(20 + seededRandom(seed + 53) * 30)  // 20-50
+    const setPiecePct = Math.round(8  + seededRandom(seed + 54) * 15)  // 8-23
+    const passPct     = 100 - carryPct - setPiecePct
+
+    // Pressing trigger zone split (must sum to 100)
+    const ownHalfPress    = Math.round(15 + seededRandom(seed + 55) * 20) // 15-35
+    const highPressZone   = Math.round(20 + seededRandom(seed + 56) * 35) // 20-55
+    const midThirdPress   = 100 - ownHalfPress - highPressZone
+
+    const buildUp: BuildUpMetrics = {
+      possession,
+      buildUpStyle,
+      passesPerSequence:        parseFloat((3.5 + seededRandom(seed + 57) * 4.5).toFixed(1)),
+      finalThirdEntries: {
+        carry:    carryPct,
+        pass:     passPct,
+        setPiece: setPiecePct,
+      },
+      progressiveCarriesPer90:  parseFloat((6 + seededRandom(seed + 58) * 12).toFixed(1)),
+      pressTriggerZones: {
+        ownHalf:     ownHalfPress,
+        middleThird: Math.max(10, midThirdPress),
+        highPress:   highPressZone,
+      },
+      retentionUnderPressure:   Math.round(55 + seededRandom(seed + 59) * 30),
+      compactness:              parseFloat((22 + seededRandom(seed + 60) * 18).toFixed(1)),
+      counterAttackSpeed:       parseFloat((5.5 + seededRandom(seed + 61) * 7).toFixed(1)),
+      ppdaOwn:                  parseFloat((ppdaBase * 0.85).toFixed(1)),
+      ppdaOpp:                  parseFloat((ppdaBase * 1.25).toFixed(1)),
+    }
+
     return {
       id: team.id,
       name: team.name,
@@ -254,6 +328,7 @@ export function generateTacticalData(
       defensiveLineHeight: ppdaBase < 10.5 ? 'High' : ppdaBase < 14 ? 'Mid' : 'Deep',
       turnoversWonHigh: Math.floor(7 + seededRandom(seed + 7) * 9),
       counterPressRecoveries: Math.floor(18 + seededRandom(seed + 8) * 16),
+      buildUp,
       passingNetwork: {
         nodes,
         links,

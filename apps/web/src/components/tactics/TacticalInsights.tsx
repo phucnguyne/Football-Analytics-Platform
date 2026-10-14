@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PassingNetwork } from './PassingNetwork'
 import { PlayerHeatmap } from './PlayerHeatmap'
 import { PPDAMeter } from './PPDAMeter'
+import { BuildUpInsights } from './BuildUpInsights'
 import { PageSpinner } from '@/components/ui/Spinner'
 import type { MatchTacticsResponse } from '@/lib/tactics-generator'
 
@@ -15,7 +16,7 @@ interface TacticalInsightsProps {
 }
 
 export function TacticalInsights({ matchId, homeTeam, awayTeam }: TacticalInsightsProps) {
-  const [activeTab, setActiveTab] = useState<'passing' | 'heatmap' | 'ppda'>('passing')
+  const [activeTab, setActiveTab] = useState<'passing' | 'heatmap' | 'ppda' | 'buildup'>('passing')
   const [activeTeamSide, setActiveTeamSide] = useState<'home' | 'away'>('home')
 
   const { data: tactics, isLoading, isError } = useQuery<MatchTacticsResponse>({
@@ -96,11 +97,21 @@ export function TacticalInsights({ matchId, homeTeam, awayTeam }: TacticalInsigh
           >
             ⚡ Pressing & PPDA
           </button>
+          <button
+            onClick={() => setActiveTab('buildup')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'buildup'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🏗️ Build-Up
+          </button>
         </div>
       </div>
 
       {/* Team Toggle for Passing and Heatmap Tabs */}
-      {activeTab !== 'ppda' && (
+      {(activeTab === 'passing' || activeTab === 'heatmap') && (
         <div className="flex items-center justify-center">
           <div className="inline-flex items-center p-1 bg-muted rounded-xl border gap-1">
             <button
@@ -169,7 +180,13 @@ export function TacticalInsights({ matchId, homeTeam, awayTeam }: TacticalInsigh
           summary={tactics.summary}
         />
       )}
+
+      {activeTab === 'buildup' && (
+        <BuildUpInsights
+          homeTeam={tactics.homeTeam}
+          awayTeam={tactics.awayTeam}
+        />
+      )}
     </div>
   )
 }
-
