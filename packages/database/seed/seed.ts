@@ -55,7 +55,7 @@ async function main() {
     if (existingSeason) {
       season = await prisma.season.update({
         where: { id: existingSeason.id },
-        update: {
+        data: {
           startDate: new Date(currentSeasonData.startDate),
           endDate: new Date(currentSeasonData.endDate),
           isCurrent: true,

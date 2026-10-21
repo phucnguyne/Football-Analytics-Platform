@@ -3,34 +3,50 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { notifyRealtime } from "../lib/realtime-client.js";
 
+// ── Validation schemas ────────────────────────────────────────────────────────
+
 const updateScoreSchema = z.object({
-  homeScore: z.number().int().min(0),
-  awayScore: z.number().int().min(0),
+  homeTeamGoals: z.number().int().min(0),
+  awayTeamGoals: z.number().int().min(0),
+  homeTeamGoalsHT: z.number().int().min(0).optional(),
+  awayTeamGoalsHT: z.number().int().min(0).optional(),
   minute: z.number().int().min(0).max(130).optional(),
-  note: z.string().max(280).optional(),
 });
 
-const createMatchSchema = z.object({
-  homeTeam: z.string().min(1),
-  awayTeam: z.string().min(1),
-});
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Common include block so every returned match is fully typed. */
+const matchInclude = {
+  homeTeam: { select: { id: true, name: true, shortName: true, crest: true } },
+  awayTeam: { select: { id: true, name: true, shortName: true, crest: true } },
+  score: true,
+  events: { orderBy: { minute: "desc" as const }, take: 20 },
+} as const;
+
+// ── Routes ────────────────────────────────────────────────────────────────────
 
 export async function liveScoresRoutes(app: FastifyInstance) {
-  // GET /api/live-scores - danh sách trận đang LIVE (và gần đây)
-  app.get("/live-scores", async (request, reply) => {
+  // GET /api/live-scores – list of currently live (IN_PLAY / PAUSED) matches
+  app.get("/live-scores", async (_request, reply) => {
     const matches = await prisma.match.findMany({
-      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+      where: { status: { in: ["IN_PLAY", "PAUSED"] } },
+      include: matchInclude,
+      orderBy: [{ utcDate: "asc" }],
       take: 50,
     });
     return reply.send({ data: matches });
   });
 
-  // GET /api/live-scores/:id - chi tiết 1 trận + lịch sử điểm
+  // GET /api/live-scores/:id – single match detail with recent events
   app.get<{ Params: { id: string } }>("/live-scores/:id", async (request, reply) => {
-    const { id } = request.params;
+    const id = parseInt(request.params.id, 10);
+    if (isNaN(id)) {
+      return reply.status(400).send({ error: "Invalid match id" });
+    }
+
     const match = await prisma.match.findUnique({
       where: { id },
-      include: { scoreEvents: { orderBy: { createdAt: "desc" }, take: 20 } },
+      include: matchInclude,
     });
 
     if (!match) {
@@ -39,28 +55,14 @@ export async function liveScoresRoutes(app: FastifyInstance) {
     return reply.send({ data: match });
   });
 
-  // POST /api/live-scores - tạo trận mới
-  app.post("/live-scores", async (request, reply) => {
-    const parsed = createMatchSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.flatten() });
+  // PATCH /api/live-scores/:id – update score → write to DB + notify realtime server
+  app.patch<{ Params: { id: string } }>("/live-scores/:id", async (request, reply) => {
+    const id = parseInt(request.params.id, 10);
+    if (isNaN(id)) {
+      return reply.status(400).send({ error: "Invalid match id" });
     }
 
-    const match = await prisma.match.create({
-      data: {
-        homeTeam: parsed.data.homeTeam,
-        awayTeam: parsed.data.awayTeam,
-      },
-    });
-
-    return reply.status(201).send({ data: match });
-  });
-
-  // PATCH /api/live-scores/:id - cập nhật tỉ số -> ghi DB + báo realtime server
-  app.patch<{ Params: { id: string } }>("/live-scores/:id", async (request, reply) => {
-    const { id } = request.params;
     const parsed = updateScoreSchema.safeParse(request.body);
-
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.flatten() });
     }
@@ -70,33 +72,50 @@ export async function liveScoresRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Match not found" });
     }
 
-    const { homeScore, awayScore, minute, note } = parsed.data;
+    const { homeTeamGoals, awayTeamGoals, homeTeamGoalsHT, awayTeamGoalsHT, minute } =
+      parsed.data;
+
+    // Transition TIMED / SCHEDULED → IN_PLAY when score is first updated
+    const newStatus =
+      existing.status === "TIMED" || existing.status === "SCHEDULED"
+        ? "IN_PLAY"
+        : existing.status;
 
     const [updatedMatch] = await prisma.$transaction([
       prisma.match.update({
         where: { id },
         data: {
-          homeScore,
-          awayScore,
-          status: existing.status === "SCHEDULED" ? "LIVE" : existing.status,
-          startedAt: existing.startedAt ?? new Date(),
+          status: newStatus,
+          minute: minute ?? existing.minute,
         },
       }),
-      prisma.scoreEvent.create({
-        data: { matchId: id, homeScore, awayScore, minute, note },
+      // Upsert the MatchScore record (1-to-1 relation)
+      prisma.matchScore.upsert({
+        where: { matchId: id },
+        create: {
+          matchId: id,
+          homeTeamGoals,
+          awayTeamGoals,
+          homeTeamGoalsHT,
+          awayTeamGoalsHT,
+        },
+        update: {
+          homeTeamGoals,
+          awayTeamGoals,
+          ...(homeTeamGoalsHT !== undefined && { homeTeamGoalsHT }),
+          ...(awayTeamGoalsHT !== undefined && { awayTeamGoalsHT }),
+        },
       }),
     ]);
 
-    // Báo cho socket.io server broadcast tới các client đang subscribe "live-scores"
+    // Notify socket.io server to broadcast to clients in "live-scores" room
     await notifyRealtime({
       event: "score:updated",
       room: "live-scores",
       data: {
         matchId: updatedMatch.id,
-        homeTeam: updatedMatch.homeTeam,
-        awayTeam: updatedMatch.awayTeam,
-        homeScore: updatedMatch.homeScore,
-        awayScore: updatedMatch.awayScore,
+        homeTeamGoals,
+        awayTeamGoals,
         minute: minute ?? null,
         updatedAt: updatedMatch.updatedAt,
       },
@@ -105,18 +124,25 @@ export async function liveScoresRoutes(app: FastifyInstance) {
     return reply.send({ data: updatedMatch });
   });
 
-  // PATCH /api/live-scores/:id/finish - kết thúc trận
+  // PATCH /api/live-scores/:id/finish – mark a match as FINISHED
   app.patch<{ Params: { id: string } }>("/live-scores/:id/finish", async (request, reply) => {
-    const { id } = request.params;
+    const id = parseInt(request.params.id, 10);
+    if (isNaN(id)) {
+      return reply.status(400).send({ error: "Invalid match id" });
+    }
 
-    const existing = await prisma.match.findUnique({ where: { id } });
+    const existing = await prisma.match.findUnique({
+      where: { id },
+      include: { score: true },
+    });
     if (!existing) {
       return reply.status(404).send({ error: "Match not found" });
     }
 
     const updatedMatch = await prisma.match.update({
       where: { id },
-      data: { status: "FINISHED", finishedAt: new Date() },
+      data: { status: "FINISHED" },
+      include: { score: true },
     });
 
     await notifyRealtime({
@@ -125,8 +151,8 @@ export async function liveScoresRoutes(app: FastifyInstance) {
       data: {
         matchId: updatedMatch.id,
         status: updatedMatch.status,
-        homeScore: updatedMatch.homeScore,
-        awayScore: updatedMatch.awayScore,
+        homeTeamGoals: updatedMatch.score?.homeTeamGoals ?? null,
+        awayTeamGoals: updatedMatch.score?.awayTeamGoals ?? null,
       },
     });
 

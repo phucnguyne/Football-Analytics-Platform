@@ -33,7 +33,7 @@
         "./src/lib/*"
       ],
       "@/lib": [
-        "./src/lib/UtilsBarrel"
+        "./src/lib/utilsBarrel"
       ],
       "@/hooks/*": [
         "./src/hooks/*"

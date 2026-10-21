@@ -1,16 +1,5 @@
-import { PrismaClient } from "../../generated/prisma";
-// Tránh tạo nhiều PrismaClient instance khi dev server reload (tsx watch)
-declare global {
-  // eslint-disable-next-line no-var
-  var __prisma: PrismaClient | undefined;
-}
-
-export const prisma =
-  global.__prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
-
-if (process.env.NODE_ENV === "development") {
-  global.__prisma = prisma;
-}
+// Re-export the shared Prisma singleton and types from @app/database.
+// @prisma/client lives in packages/database — importing directly from
+// @prisma/client here would fail because it is not in this package's deps.
+export { prisma } from "@app/database";
+export type { PrismaClient } from "@app/database";
