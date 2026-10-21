@@ -38,6 +38,8 @@ export async function GET(
               goalDifference: s.goalDifference,
             })),
           }],
+        }, {
+          headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
         })
       }
     }

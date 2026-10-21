@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { PitchCanvas } from './PitchCanvas'
 import type { PassingNode, PassingLink } from '@/lib/tactics-generator'
 
@@ -26,8 +26,9 @@ export function PassingNetwork({
 
   const activeLinks = links.filter((l) => l.count >= filterMinPasses)
 
-  const getNodeById = (id: number) => nodes.find((n) => n.id === id)
-  const hoveredNode = hoveredNodeId ? getNodeById(hoveredNodeId) : null
+  // O(1) Map lookup instead of O(n) nodes.find() called per link during render.
+  const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
+  const hoveredNode = hoveredNodeId ? nodeMap.get(hoveredNodeId) ?? null : null
 
   return (
     <div className="space-y-4">
@@ -77,8 +78,8 @@ export function PassingNetwork({
 
             {/* Passing Links */}
             {activeLinks.map((link, idx) => {
-              const src = getNodeById(link.source)
-              const tgt = getNodeById(link.target)
+              const src = nodeMap.get(link.source)
+              const tgt = nodeMap.get(link.target)
               if (!src || !tgt) return null
 
               const isConnectedToHovered =

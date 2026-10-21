@@ -45,7 +45,9 @@ export async function GET(req: NextRequest) {
         : null,
     }))
 
-    return NextResponse.json({ players: formatted })
+    return NextResponse.json({ players: formatted }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+    })
   } catch (error) {
     console.error('Error querying players:', error)
     return NextResponse.json({ error: 'internal error' }, { status: 500 })

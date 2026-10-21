@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer,
@@ -17,6 +17,51 @@ import type { FormMatch, FormSummary } from '@/lib/player-analytics'
 interface PlayerFormTrendProps {
   playerId: number
   playerName: string
+}
+
+// Defined outside the component so Recharts gets a stable reference and
+// doesn't unmount/remount the tooltip overlay on every parent re-render.
+function FormCustomTooltip({ active, payload }: any) {
+  if (active && payload && payload.length) {
+    const d = payload[0].payload
+    return (
+      <div className="bg-popover border text-popover-foreground shadow-2xl p-3.5 rounded-xl text-xs space-y-1.5 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3 border-b pb-1.5 font-bold">
+          <span className="flex items-center gap-1.5">
+            <span>vs</span>
+            <span>{d.opponent}</span>
+          </span>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+              d.result === 'W'
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : d.result === 'D'
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'bg-rose-500/20 text-rose-400'
+            }`}
+          >
+            {d.result} ({d.score})
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
+          <span className="text-muted-foreground">Match Rating:</span>
+          <span className="font-bold text-primary">{d.rating} / 10</span>
+          <span className="text-muted-foreground">Minutes Played:</span>
+          <span className="font-semibold">{d.minutes}'</span>
+          <span className="text-muted-foreground">xG / xA:</span>
+          <span className="font-semibold text-foreground">
+            {d.xG} / {d.xA}
+          </span>
+          <span className="text-muted-foreground">Goals / Assists:</span>
+          <span className="font-semibold text-emerald-400">
+            {d.goals}G, {d.assists}A
+          </span>
+        </div>
+      </div>
+    )
+  }
+  return null
 }
 
 export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) {
@@ -54,62 +99,24 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
 
   const { matches, summary } = data
 
-  const chartData = matches.map((m, idx) => ({
-    matchLabel: `GW${idx + 1}`,
-    opponent: m.opponent.shortName,
-    crest: m.opponent.crest,
-    result: m.result,
-    score: m.score,
-    rating: m.rating,
-    xG: m.xG,
-    xA: m.xA,
-    goals: m.goals,
-    assists: m.assists,
-    minutes: m.minutes,
-  }))
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload
-      return (
-        <div className="bg-popover border text-popover-foreground shadow-2xl p-3.5 rounded-xl text-xs space-y-1.5 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3 border-b pb-1.5 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span>vs</span>
-              <span>{d.opponent}</span>
-            </span>
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                d.result === 'W'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : d.result === 'D'
-                  ? 'bg-amber-500/20 text-amber-400'
-                  : 'bg-rose-500/20 text-rose-400'
-              }`}
-            >
-              {d.result} ({d.score})
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
-            <span className="text-muted-foreground">Match Rating:</span>
-            <span className="font-bold text-primary">{d.rating} / 10</span>
-            <span className="text-muted-foreground">Minutes Played:</span>
-            <span className="font-semibold">{d.minutes}'</span>
-            <span className="text-muted-foreground">xG / xA:</span>
-            <span className="font-semibold text-foreground">
-              {d.xG} / {d.xA}
-            </span>
-            <span className="text-muted-foreground">Goals / Assists:</span>
-            <span className="font-semibold text-emerald-400">
-              {d.goals}G, {d.assists}A
-            </span>
-          </div>
-        </div>
-      )
-    }
-    return null
-  }
+  // Memoized so switching the metric toggle doesn't re-derive the array.
+  const chartData = useMemo(
+    () =>
+      matches.map((m, idx) => ({
+        matchLabel: `GW${idx + 1}`,
+        opponent: m.opponent.shortName,
+        crest: m.opponent.crest,
+        result: m.result,
+        score: m.score,
+        rating: m.rating,
+        xG: m.xG,
+        xA: m.xA,
+        goals: m.goals,
+        assists: m.assists,
+        minutes: m.minutes,
+      })),
+    [matches]
+  )
 
   return (
     <div className="bg-card p-6 rounded-2xl border space-y-5 shadow-sm">
@@ -234,7 +241,7 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
               className="text-muted-foreground font-medium"
             />
 
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<FormCustomTooltip />} />
 
             {metric === 'rating' && (
               <Area

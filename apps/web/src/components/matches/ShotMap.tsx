@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 
 interface ShotMapProps {
   matchId: string
@@ -10,10 +10,21 @@ interface ShotMapProps {
 }
 
 export function ShotMap({ homeTeam, awayTeam, events }: ShotMapProps) {
-  const shots = events.filter(e => 
-    (e.type === 'SHOT' || e.type === 'GOAL' || e.type === 'PENALTY_GOAL' || e.eventType === 'goal') && 
-    e.x !== undefined && e.x !== null && 
-    e.y !== undefined && e.y !== null
+  // Memoized so the filter doesn't re-run on unrelated parent re-renders.
+  const shots = useMemo(
+    () =>
+      events.filter(
+        (e) =>
+          (e.type === 'SHOT' ||
+            e.type === 'GOAL' ||
+            e.type === 'PENALTY_GOAL' ||
+            e.eventType === 'goal') &&
+          e.x !== undefined &&
+          e.x !== null &&
+          e.y !== undefined &&
+          e.y !== null
+      ),
+    [events]
   )
 
   if (shots.length === 0) {

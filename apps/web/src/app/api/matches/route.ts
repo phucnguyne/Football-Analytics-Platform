@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       matches: matches.map(toMatchResponse),
+    }, {
+      // Live/in-play data — short TTL to stay near-real-time.
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
     })
   } catch (error) {
     console.error('Error fetching matches:', error)

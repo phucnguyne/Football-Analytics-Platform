@@ -38,6 +38,8 @@ export async function GET(
 
     return NextResponse.json({
       matches: matches.map(toMatchResponse),
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
     })
   } catch (error) {
     console.error('Error fetching competition matches:', error)
