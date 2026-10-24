@@ -1,13 +1,10 @@
 /// <reference types="node" />
 /**
  * Football API client backed by football-data.org.
- * Free tier: 100 requests/day. Requires NEXT_PUBLIC_FOOTBALL_DATA_API_KEY.
+ * Free tier: 100 requests/day. The API key stays on the server; requests use
+ * the app's API routes as a proxy.
  */
 import type { Match, Team, Player, Standing, League, MatchStatus, Position } from '../types/TypesBarrel'
-
-// const SPORTS_DB = process.env.NEXT_PUBLIC_SPORTS_DB_URL ?? 'https://www.thesportsdb.com/api/v1/json/1'
-const FD_URL = process.env.FOOTBALL_DATA_API_URL ?? 'https://api.football-data.org/v4'
-const FD_KEY = process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY ?? 'server-side-auth'
 
 // ── Simple in-memory cache ────────────────────────────────────
 const cache = new Map<string, { data: unknown; ts: number }>()
@@ -157,7 +154,7 @@ export async function getTeamAllMatches(teamId: string): Promise<Match[]> {
 /** Live & in-play matches across all competitions */
 export async function getLiveMatches(): Promise<Match[]> {
   return cached('matches:live', async () => {
-    const data = await fdFetch<{ matches: any[] }>('/matches?status=LIVE,IN_PLAY,PAUSED')
+    const data = await fdFetch<{ matches: any[] }>('/matches?status=IN_PLAY,PAUSED')
     return (data.matches ?? []).map(normalizeMatch)
   })
 }

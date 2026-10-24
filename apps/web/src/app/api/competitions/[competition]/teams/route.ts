@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { toTeamResponse } from '@/lib/db-helpers'
+import { env } from '@/lib/env'
 
 export async function GET(
   _req: NextRequest,
@@ -16,8 +17,8 @@ export async function GET(
     if (!season) {
       // Fallback to external API
       const res = await fetch(
-        `${process.env.FOOTBALL_DATA_API_URL}/competitions/${competition}/teams`,
-        { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+        `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/teams`,
+        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
       )
       if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: res.status })
       return NextResponse.json(await res.json())

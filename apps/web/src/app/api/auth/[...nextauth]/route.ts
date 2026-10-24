@@ -3,12 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@app/database";
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from 'next/server'
+import { env } from '@/lib/env'
 
 export async function GET(req: NextRequest) {
   const competition = req.nextUrl.searchParams.get('competition') ?? 'PL'
   const res = await fetch(
-    `${process.env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches?status=FINISHED`,
-    { headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY! } }
+    `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches?status=FINISHED`,
+    { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
   )
   if (!res.ok) {
     return NextResponse.json({ error: 'upstream error' }, { status: res.status })

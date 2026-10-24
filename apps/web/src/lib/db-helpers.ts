@@ -22,6 +22,10 @@ type MatchWithDetails = Prisma.MatchGetPayload<{
   }
 }>
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /** Convert a Prisma Team row to football-data.org API shape */
 export function toTeamResponse(t: { id: number; name: string; shortName: string; crest: string | null; founded: number | null; venue: string | null }) {
   return {
@@ -87,9 +91,13 @@ export function toMatchResponse(m: MatchWithIncludes) {
 /** Convert a Prisma Match with full details to the football-data.org single-match shape */
 export function toMatchDetailResponse(m: MatchWithDetails) {
   const base = toMatchResponse(m as MatchWithIncludes)
+  const rawData = isRecord(m.rawData) ? m.rawData : {}
+  const providerHomeTeam = isRecord(rawData.homeTeam) ? rawData.homeTeam : {}
+  const providerAwayTeam = isRecord(rawData.awayTeam) ? rawData.awayTeam : {}
+  const providerArray = (value: unknown) => Array.isArray(value) ? value : null
 
   // Build goals from MatchEvents of type GOAL/OWN_GOAL/PENALTY_GOAL
-  const goals = m.events
+  const storedGoals = m.events
     .filter(e => ['GOAL', 'OWN_GOAL', 'PENALTY_GOAL'].includes(e.type))
     .sort((a, b) => a.minute - b.minute)
     .map(e => ({
@@ -106,24 +114,12 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
       y: (e as any).y
     }))
 
-  // Build shots from SHOT events
-  const shots = m.events
-    .filter(e => e.type === 'SHOT')
-    .sort((a, b) => a.minute - b.minute)
-    .map(e => ({
-      minute: e.minute,
-      type: 'SHOT',
-      team: e.team === 'HOME'
-        ? { id: m.homeTeam.id, name: m.homeTeam.name }
-        : { id: m.awayTeam.id, name: m.awayTeam.name },
-      player: e.player ? { id: e.player.id, name: e.player.name } : null,
-      xG: (e as any).xG,
-      x: (e as any).x,
-      y: (e as any).y
-    }))
+  const goals = providerArray(rawData.goals) ?? storedGoals
+  // Legacy SHOT rows have no verified provenance; only provider shot data is exposed.
+  const shots = providerArray(rawData.shots) ?? []
 
   // Build bookings from YELLOW_CARD/SECOND_YELLOW/RED_CARD events
-  const bookings = m.events
+  const storedBookings = m.events
     .filter(e => ['YELLOW_CARD', 'SECOND_YELLOW', 'RED_CARD'].includes(e.type))
     .sort((a, b) => a.minute - b.minute)
     .map(e => ({
@@ -136,7 +132,7 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
     }))
 
   // Build substitutions from SUBSTITUTION events
-  const substitutions = m.events
+  const storedSubstitutions = m.events
     .filter(e => e.type === 'SUBSTITUTION')
     .sort((a, b) => a.minute - b.minute)
     .map(e => ({
@@ -147,6 +143,9 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
       playerOut: e.player ? { id: e.player.id, name: e.player.name } : null,
       playerIn: e.relatedPlayer ? { id: e.relatedPlayer.id, name: e.relatedPlayer.name } : null,
     }))
+
+  const bookings = providerArray(rawData.bookings) ?? storedBookings
+  const substitutions = providerArray(rawData.substitutions) ?? storedSubstitutions
 
   // Build lineups
   const homeLineup = m.lineups
@@ -175,15 +174,14 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
     substitutions,
     homeTeam: {
       ...base.homeTeam,
-      lineup: homeLineup.filter(l => m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
-      bench: homeLineup.filter(l => !m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
+      lineup: providerArray(providerHomeTeam.lineup) ?? homeLineup.filter(l => m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
+      bench: providerArray(providerHomeTeam.bench) ?? homeLineup.filter(l => !m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
     },
     awayTeam: {
       ...base.awayTeam,
-      lineup: awayLineup.filter(l => m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
-      bench: awayLineup.filter(l => !m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
+      lineup: providerArray(providerAwayTeam.lineup) ?? awayLineup.filter(l => m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
+      bench: providerArray(providerAwayTeam.bench) ?? awayLineup.filter(l => !m.lineups.find(ml => ml.playerId === l.id)?.isStarter),
     },
-    referees: [],
+    referees: providerArray(rawData.referees) ?? [],
   }
 }
-

@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
-import { generateTacticalData } from '@/lib/tactics-generator'
 
 export async function GET(
-  req: NextRequest,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const matchId = parseInt(id)
+  const matchId = Number(id)
 
-  if (isNaN(matchId)) {
+  if (!Number.isInteger(matchId) || matchId <= 0) {
     return NextResponse.json({ error: 'invalid match id' }, { status: 400 })
   }
 
@@ -20,63 +19,46 @@ export async function GET(
         homeTeam: true,
         awayTeam: true,
         lineups: {
-          include: { player: true, team: true },
+          include: { player: true },
+          orderBy: [{ isStarter: 'desc' }, { shirtNumber: 'asc' }],
         },
       },
     })
 
     if (!match) {
-      // Return synthetic tactical insights for non-DB matches as fallback
-      const fallbackTactics = generateTacticalData(
-        matchId,
-        { id: 1, name: 'Home Team', shortName: 'Home' },
-        { id: 2, name: 'Away Team', shortName: 'Away' }
-      )
-      return NextResponse.json(fallbackTactics)
+      return NextResponse.json({ error: 'match not found' }, { status: 404 })
     }
 
-    const homeLineup = match.lineups
-      .filter((l) => l.teamId === match.homeTeamId)
-      .map((l) => ({
-        id: l.player.id,
-        name: l.player.name,
-        shirtNumber: l.shirtNumber,
-        position: l.position,
-        isStarter: l.isStarter,
-      }))
+    const getLineup = (teamId: number) =>
+      match.lineups
+        .filter((lineup) => lineup.teamId === teamId)
+        .map((lineup) => ({
+          id: lineup.player.id,
+          name: lineup.player.name,
+          shirtNumber: lineup.shirtNumber ?? lineup.player.shirtNumber,
+          position: lineup.position,
+          isStarter: lineup.isStarter,
+        }))
 
-    const awayLineup = match.lineups
-      .filter((l) => l.teamId === match.awayTeamId)
-      .map((l) => ({
-        id: l.player.id,
-        name: l.player.name,
-        shirtNumber: l.shirtNumber,
-        position: l.position,
-        isStarter: l.isStarter,
-      }))
-
-    const tactics = generateTacticalData(
-      matchId,
-      {
-        id: match.homeTeam.id,
-        name: match.homeTeam.name,
-        shortName: match.homeTeam.shortName,
-        crest: match.homeTeam.crest ?? undefined,
-        lineup: homeLineup,
-      },
-      {
-        id: match.awayTeam.id,
-        name: match.awayTeam.name,
-        shortName: match.awayTeam.shortName,
-        crest: match.awayTeam.crest ?? undefined,
-        lineup: awayLineup,
-      }
-    )
-
-    return NextResponse.json(tactics)
+    return NextResponse.json({
+      available: false,
+      reason:
+        'Match-level passing, player-position, and defensive-action data are not available from the configured data source.',
+      teams: [
+        {
+          id: match.homeTeam.id,
+          name: match.homeTeam.name,
+          lineup: getLineup(match.homeTeamId),
+        },
+        {
+          id: match.awayTeam.id,
+          name: match.awayTeam.name,
+          lineup: getLineup(match.awayTeamId),
+        },
+      ],
+    })
   } catch (error) {
     console.error('Error serving tactics data:', error)
     return NextResponse.json({ error: 'internal error' }, { status: 500 })
   }
 }
-
