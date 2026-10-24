@@ -1,10 +1,15 @@
+import 'dotenv/config'
+import { env, getFootballDataEnv } from '@app/config'
 import { PrismaClient, MatchStatus, Winner, Duration } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+  datasources: {
+    db: { url: env.DATABASE_URL },
+  },
+})
 
-// Read API Key directly from env if set, or hardcoded for seed
-const API_KEY = process.env.FOOTBALL_DATA_API_KEY || '52f127abc9f54e359f4b73994f7c681b'
-const API_URL = 'https://api.football-data.org/v4'
+const { FOOTBALL_DATA_API_KEY: API_KEY, FOOTBALL_DATA_API_URL: API_URL } =
+  getFootballDataEnv()
 const COMPETITION_CODE = 'PL'
 
 const headers = {
