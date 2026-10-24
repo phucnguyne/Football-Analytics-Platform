@@ -1,7 +1,12 @@
 import { PrismaClient } from '@prisma/client'
+import { env } from '@app/config'
 
 const prismaClientSingleton = () => {
-  return new PrismaClient()
+  return new PrismaClient({
+    datasources: {
+      db: { url: env.DATABASE_URL },
+    },
+  })
 }
 
 declare global {
@@ -12,4 +17,4 @@ const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
 
 export default prisma
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
+if (env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma

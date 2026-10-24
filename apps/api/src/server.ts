@@ -1,25 +1,23 @@
+import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { healthRoutes } from "./routes/health.js";
 import { liveScoresRoutes } from "./routes/live-scores.js";
 import { prisma } from "./lib/prisma.js";
-
-const PORT = Number(process.env.PORT ?? 3001);
-const HOST = process.env.HOST ?? "0.0.0.0";
-const WEB_APP_URL = process.env.WEB_APP_URL ?? "http://localhost:3000";
+import { env } from "./lib/env.js";
 
 async function buildServer() {
   const app = Fastify({
     logger: {
       transport:
-        process.env.NODE_ENV === "development"
+        env.NODE_ENV === "development"
           ? { target: "pino-pretty", options: { colorize: true } }
           : undefined,
     },
   });
 
   await app.register(cors, {
-    origin: [WEB_APP_URL],
+    origin: [env.WEB_APP_URL],
     credentials: true,
   });
 
@@ -51,8 +49,8 @@ async function start() {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 
   try {
-    await app.listen({ port: PORT, host: HOST });
-    app.log.info(`🚀 API server đang chạy tại http://${HOST}:${PORT}`);
+    await app.listen({ port: env.PORT, host: env.HOST });
+    app.log.info(`🚀 API server đang chạy tại http://${env.HOST}:${env.PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

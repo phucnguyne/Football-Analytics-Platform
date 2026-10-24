@@ -9,8 +9,7 @@
  * mà là một HTTP call nội bộ, xác thực bằng header secret riêng.
  */
 
-const REALTIME_INTERNAL_URL = process.env.REALTIME_INTERNAL_URL ?? "http://localhost:3002";
-const INTERNAL_SERVICE_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "";
+import { env } from "./env.js";
 
 interface EmitPayload {
   /** Tên event phía client sẽ lắng nghe, ví dụ: "score:updated" */
@@ -29,11 +28,11 @@ interface EmitPayload {
  */
 export async function notifyRealtime(payload: EmitPayload): Promise<void> {
   try {
-    const res = await fetch(`${REALTIME_INTERNAL_URL}/internal/emit`, {
+    const res = await fetch(`${env.REALTIME_INTERNAL_URL}/internal/emit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-internal-secret": INTERNAL_SERVICE_SECRET,
+        "x-internal-secret": env.INTERNAL_SERVICE_SECRET,
       },
       body: JSON.stringify(payload),
       // Không để request này treo quá lâu, realtime server phải trả lời nhanh
