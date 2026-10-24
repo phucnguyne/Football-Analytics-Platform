@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client'
-import { env } from '@app/config'
+import { publicEnv } from '@/lib/public-env'
 
 class SocketClient {
   private static instance: SocketClient
@@ -16,7 +16,7 @@ class SocketClient {
 
   public connect() {
     if (!this.socket) {
-      this.socket = io(env.SOCKET_URL, {
+      this.socket = io(publicEnv.NEXT_PUBLIC_WEBSOCKET_URL, {
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,

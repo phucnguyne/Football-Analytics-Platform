@@ -30,7 +30,8 @@ export function ShotMap({ homeTeam, awayTeam, events }: ShotMapProps) {
   if (shots.length === 0) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground">
-        Shot Map data not available for this match.
+        Shot locations and xG are unavailable because the match feed does not include shot
+        coordinates.
       </div>
     )
   }
@@ -124,4 +125,3 @@ export function ShotMap({ homeTeam, awayTeam, events }: ShotMapProps) {
     </div>
   )
 }
-

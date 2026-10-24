@@ -1,7 +1,8 @@
 import prisma from '@app/database/src/client'
+import { env } from './env'
 
-const API_URL = process.env.FOOTBALL_DATA_API_URL ?? 'https://api.football-data.org/v4'
-const API_KEY = process.env.FOOTBALL_DATA_API_KEY ?? ''
+const API_URL = env.FOOTBALL_DATA_API_URL
+const API_KEY = env.FOOTBALL_DATA_API_KEY
 
 type PollerState = 'LIVE' | 'PRE_MATCH' | 'IDLE' | 'NIGHT'
 
@@ -268,5 +269,5 @@ class SmartPoller {
 // Singleton
 const globalForPoller = globalThis as unknown as { poller?: SmartPoller }
 export const poller = globalForPoller.poller ?? new SmartPoller()
-if (process.env.NODE_ENV !== 'production') globalForPoller.poller = poller
+if (env.NODE_ENV !== 'production') globalForPoller.poller = poller
 

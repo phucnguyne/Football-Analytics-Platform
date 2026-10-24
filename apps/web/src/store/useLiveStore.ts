@@ -40,7 +40,7 @@ export const useLiveStore = create<LiveStoreState>((set, get) => ({
 
     if (get().isInitializing) {
       try {
-        const res = await fetch('/api/matches?status=LIVE,IN_PLAY,PAUSED');
+        const res = await fetch('/api/matches?status=IN_PLAY,PAUSED');
         if (res.ok) {
           const data = await res.json();
           const initialMap: Record<number, LiveMatchUpdate> = {};

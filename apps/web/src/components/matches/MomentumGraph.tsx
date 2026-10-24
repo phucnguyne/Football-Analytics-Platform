@@ -14,7 +14,19 @@ export function MomentumGraph({ matchId, isLive, homeTeam, awayTeam }: { matchId
     refetchInterval: isLive ? 60000 : false,
   })
 
-  if (!stats || !stats.momentum || stats.momentum.length === 0) return null;
+  if (!stats) return null
+
+  if (!stats.momentum || stats.momentum.length === 0) {
+    return (
+      <div className="bg-card p-6 rounded-2xl border mb-6">
+        <h3 className="text-xl font-bold mb-2">Match Momentum</h3>
+        <p className="text-sm text-muted-foreground">
+          Momentum is unavailable because the match feed does not provide time-based pressure
+          or attacking-event data.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-card p-6 rounded-2xl border mb-6">
@@ -22,7 +34,7 @@ export function MomentumGraph({ matchId, isLive, homeTeam, awayTeam }: { matchId
         <span className="w-2 h-6 bg-primary rounded-full" />
         Match Momentum
       </h3>
-      <p className="text-xs text-muted-foreground mb-6">Real-time pressure and dominance</p>
+      <p className="text-xs text-muted-foreground mb-6">Pressure and attacking dominance</p>
 
       <div className="h-[200px] w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -77,4 +89,3 @@ export function MomentumGraph({ matchId, isLive, homeTeam, awayTeam }: { matchId
     </div>
   )
 }
-

@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { io } from 'socket.io-client'
 import { useLiveStore } from '@/store/liveStore'
+import { publicEnv } from '@/lib/public-env'
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:4000'
+const SOCKET_URL = publicEnv.NEXT_PUBLIC_WEBSOCKET_URL
 
 export function useLiveScoreSocket() {
   const { updateScore } = useLiveStore()

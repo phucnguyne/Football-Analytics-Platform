@@ -13,7 +13,7 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
     refetchInterval: isLive ? 60000 : false,
   })
 
-  if (!stats || Object.keys(stats).length === 0 || (stats.shots?.home === 0 && stats.shots?.away === 0 && stats.possession?.home === 50)) {
+  if (!stats || !stats.available) {
     return null;
   }
 
@@ -46,9 +46,9 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
           return (
             <div key={i}>
               <div className="flex justify-between text-xs font-semibold mb-1">
-                <span>{row.home}</span>
+                <span>{row.home ?? '—'}</span>
                 <span className="text-muted-foreground uppercase">{row.label}</span>
-                <span>{row.away}</span>
+                <span>{row.away ?? '—'}</span>
               </div>
               <div className="flex h-2 rounded-full overflow-hidden bg-muted">
                 <div className="bg-blue-500 transition-all duration-1000 ease-out" style={{ width: `${homePct}%` }} />
@@ -61,4 +61,3 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
     </div>
   )
 }
-

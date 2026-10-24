@@ -157,7 +157,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
                     <span className="font-bold">{g.scorer?.name}</span>
                     <span className="text-muted-foreground">{g.minute}'{g.injuryTime ? `+${g.injuryTime}` : ''}</span>
                     {g.type === 'PENALTY' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-600 font-bold uppercase">Pen</span>}
-                    {g.type === 'OWN_GOAL' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
+                    {['OWN', 'OWN_GOAL'].includes(g.type) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
                     {g.assist?.name && <span className="text-xs text-muted-foreground">(assist: {g.assist.name})</span>}
                   </li>
                 ))}
@@ -175,7 +175,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
                     <span className="font-bold">{g.scorer?.name}</span>
                     <span className="text-muted-foreground">{g.minute}'{g.injuryTime ? `+${g.injuryTime}` : ''}</span>
                     {g.type === 'PENALTY' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-600 font-bold uppercase">Pen</span>}
-                    {g.type === 'OWN_GOAL' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
+                    {['OWN', 'OWN_GOAL'].includes(g.type) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
                     {g.assist?.name && <span className="text-xs text-muted-foreground">(assist: {g.assist.name})</span>}
                   </li>
                 ))}
@@ -197,7 +197,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
           
           <ShotMap matchId={id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} events={allEvents} />
           
-          <TacticalInsights matchId={id} homeTeam={match.homeTeam} awayTeam={match.awayTeam} />
+          <TacticalInsights matchId={id} />
 
           <div className="bg-card p-6 rounded-2xl border">
             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -220,7 +220,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
                           <span className="font-bold">{ev.scorer?.name}</span>
                           {ev.assist?.name && <span className="text-muted-foreground text-xs">(assist: {ev.assist.name})</span>}
                           {ev.type === 'PENALTY' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-600 font-bold uppercase">Pen</span>}
-                          {ev.type === 'OWN_GOAL' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
+                          {['OWN', 'OWN_GOAL'].includes(ev.type) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">OG</span>}
                         </div>
                       )}
                       {ev.eventType === 'booking' && (
@@ -249,7 +249,9 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
               </div>
             ) : (
               <p className="text-muted-foreground text-center py-8">
-                {match.status === 'FINISHED' ? 'No detailed events available for this match (free tier API limitation).' : 'Match events will appear once the match is played.'}
+                {match.status === 'FINISHED'
+                  ? 'The match feed does not include detailed events for this match.'
+                  : 'No match events are available in the current feed.'}
               </p>
             )}
           </div>
@@ -347,7 +349,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
               </>
             ) : (
               <p className="text-muted-foreground text-center py-8">
-                {match.status === 'FINISHED' ? 'Line-ups not available (free tier API limitation).' : 'Line-ups will be published before kick-off.'}
+                The current match feed does not include confirmed line-ups for this match.
               </p>
             )}
           </div>
