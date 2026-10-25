@@ -2,8 +2,8 @@
 
 # ⚽ Football Analytics Platform
 
-**A production-ready fullstack monorepo for real-time football data,  
-match analytics, tactical insights, and player/team statistics.**
+**A fullstack monorepo prototype for football data, match analytics,
+tactical insights, and player/team statistics.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
@@ -11,9 +11,7 @@ match analytics, tactical insights, and player/team statistics.**
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql)](https://postgresql.org)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?style=flat-square&logo=prisma)](https://prisma.io)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-
-[Live Demo](#) · [API Docs](#-api-reference)
+[API Docs](#-api-reference)
 
 </div>
 
@@ -23,7 +21,7 @@ match analytics, tactical insights, and player/team statistics.**
 
 | Feature | Description |
 |---------|-------------|
-| 🟢 **Live Scores** | Real-time score updates via WebSocket (Socket.io) |
+| 🟢 **Live Scores** | Live-score API and a Socket.io server are included; end-to-end delivery is not verified |
 | 📅 **Fixtures** | Full fixture calendar with filters by league & date |
 | 📊 **Match Stats** | Shots, possession, xG, cards, corners per match |
 | 🗺️ **Shot Map** | xG-weighted shot map rendered on a pitch canvas |
@@ -32,8 +30,8 @@ match analytics, tactical insights, and player/team statistics.**
 | 👥 **Teams** | Team profiles, squad lists, scouting reports |
 | ⭐ **Players** | Search, profiles, radar charts, form trend, career stats |
 | 📈 **Analytics** | Heatmaps, build-up patterns, PPDA meter, comparisons |
-| 🔐 **Auth** | NextAuth.js session — register, login, user favourites |
-| 🆓 **Free APIs** | Works with football-data.org (free tier, 100 req/day) |
+| 🔐 **Auth** | NextAuth.js Credentials login |
+| 🆓 **External data** | Uses football-data.org when a valid API key is configured |
 
 ---
 
@@ -62,8 +60,8 @@ match analytics, tactical insights, and player/team statistics.**
         └─────────────┘
 ```
 
-> **Docker** chỉ chạy **PostgreSQL + Redis** (infrastructure).  
-> Cả 3 Node.js apps chạy local bằng `pnpm dev`.
+> **Docker Compose** cung cấp **PostgreSQL + Redis** và có một service build web.
+> Khi phát triển, các Node.js apps chạy local bằng `pnpm dev`.
 
 ---
 
@@ -94,7 +92,7 @@ match analytics, tactical insights, and player/team statistics.**
 |------|---------|---------|
 | PostgreSQL | 16 | Primary relational database |
 | Prisma | 5 | Type-safe ORM + migrations |
-| Redis | 7 | Socket.io adapter / pub-sub |
+| Redis | 7 | Local infrastructure service; the current realtime code uses in-memory state |
 | Docker Compose | v2 | Local DB + Redis containers |
 
 ---
@@ -154,7 +152,7 @@ Football-Analytics-Platform/          ← monorepo root
 ### Step 1 — Clone & install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Football-Analytics-Platform.git
+git clone <your-repository-url>
 cd Football-Analytics-Platform
 
 pnpm install
@@ -339,21 +337,29 @@ All routes are served by `apps/web` (`/api/*`).
 
 ---
 
-## 🔌 WebSocket Events
+## 🔌 WebSocket Events (current server contract)
 
 Connected to `apps/realtime` (default `http://localhost:3001`).
 
 ```
 Client emits:
-  subscribe:match         { matchId }    – subscribe to a single match
-  subscribe:live-scores                  – subscribe to all live matches
+  match:join               { matchId }    – join a match room
+  match:leave              { matchId }    – leave a match room
+  match:get-score          { matchId }    – request the current score
+  match:get-all-live                       – request all live matches
+  notification:subscribe   { matchId }    – subscribe to match notifications
 
 Server broadcasts:
-  score:updated           { matchId, homeGoals, awayGoals, minute }
-  match:<id>:event        { type, minute, team, player }
-  player:stats:updated    { playerId, stats }
-  notification:new        { message, type }
+  match:score             LiveScore
+  match:goal              { event, score }
+  match:status             LiveScore
+  player:stats             PlayerStats
+  notification:push        Notification
 ```
+
+The web hook currently contains older event names, so this integration has not
+been verified end to end. Redis is not used as a Socket.io adapter yet; live
+scores and rate-limit state are currently in memory.
 
 ---
 
@@ -366,7 +372,7 @@ docker compose up -d postgres redis
 # Stop infrastructure
 docker compose down
 
-# Production — build and run the Compose services (web app, PostgreSQL, Redis)
+# Build and run the Compose services (web app, PostgreSQL, Redis)
 docker compose up -d --build
 
 # View logs
@@ -423,22 +429,20 @@ pnpm --filter @app/realtime  dev
 
 ---
 
-## 🚢 Deployment
+## ✅ Verification status
 
-### Vercel (Recommended for `apps/web`)
+The following checks were run locally:
 
-1. Push to GitHub
-2. Import project in [vercel.com](https://vercel.com)
-3. Set root directory to `apps/web`
-4. Add all environment variables from `apps/web/.env`
-5. Deploy automatically on every push to `main`
+| Check | Result |
+|-------|--------|
+| `pnpm type-check` | Passed |
+| `pnpm build` | Passed |
+| `pnpm lint` | Failed: `next lint` is not supported by the current Next.js CLI setup |
+| `pnpm test -- --runInBand` | Failed: no test files are present |
+| WebSocket, Redis, CI/CD | Not verified; no automated workflow is included |
 
-### Manual (all apps)
-
-```bash
-pnpm build
-pnpm start
-```
+The repository contains local Docker and app startup configuration, but it does
+not currently include a live demo URL, CI/CD workflow, or automated test suite.
 
 ---
 
@@ -452,11 +456,6 @@ pnpm start
 
 ---
 
-## 📄 License
-
-[MIT](LICENSE) © 2025
-
----
 
 <div align="center">
   Built with ⚽ and lots of ☕
