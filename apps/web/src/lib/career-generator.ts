@@ -219,7 +219,7 @@ function buildClubHistory(seasons: CareerSeason[]): ClubHistoryEntry[] {
   const clubMap: Map<number, ClubHistoryEntry> = new Map()
   const orderList: number[] = []  // track insertion order
 
-  const startYear = 2024 - seasons.length + 1
+  const startYear = new Date().getFullYear() - 1 - seasons.length + 1
 
   for (let i = 0; i < seasons.length; i++) {
     const s = seasons[i]
@@ -289,8 +289,8 @@ export function generateCareerStats(input: CareerInput): CareerStats {
   const baseMatches = currentStats?.matchesPlayed ?? iRange(22, 38, seed, 7)
   const baseMinutes = currentStats?.minutesPlayed ?? baseMatches * iRange(65, 90, seed, 8)
 
-  // Current season label
-  const currentYear = 2025
+  // Current season label — derived from the current calendar year so it stays accurate
+  const currentYear = new Date().getFullYear()
   const currentLabel = `${currentYear - 1}/${String(currentYear).slice(2)}`
 
   // Build current season entry
