@@ -2,20 +2,6 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@app/database";
 import bcrypt from "bcryptjs";
-import { NextRequest, NextResponse } from 'next/server'
-import { env } from '@/lib/env'
-
-export async function GET(req: NextRequest) {
-  const competition = req.nextUrl.searchParams.get('competition') ?? 'PL'
-  const res = await fetch(
-    `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches?status=FINISHED`,
-    { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
-  )
-  if (!res.ok) {
-    return NextResponse.json({ error: 'upstream error' }, { status: res.status })
-  }
-  return NextResponse.json(await res.json())
-}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -29,7 +15,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
         }
-        
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email }
         });
@@ -70,4 +56,4 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-export { handler as POST };
+export { handler as GET, handler as POST };
