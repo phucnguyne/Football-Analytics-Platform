@@ -1,15 +1,32 @@
+'use client'
+
 import Link from 'next/link'
 import { Container, Grid } from '@/components/ui/grid'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-// import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Activity, TrendingUp, Users, Shield, ArrowRight } from 'lucide-react'
 import { RequestDemoDialog } from '@/components/request-demo-dialog'
+import { useQuery } from '@tanstack/react-query'
 
+interface PlatformStats {
+  matchCount: number
+  playerCount: number
+  finishedCount: number
+  leagueCount: number
+}
+
+function StatValue({ value, fallback }: { value: number | undefined; fallback: string }) {
+  if (value === undefined) return <span className="text-muted-foreground text-lg">—</span>
+  return <>{value.toLocaleString()}</>
+}
 
 export default function Home() {
+  const { data: stats } = useQuery<PlatformStats>({
+    queryKey: ['platform-stats'],
+    queryFn: () => fetch('/api/platform-stats').then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  })
+
   return (
     <div className="flex flex-col gap-16 pb-16">
       {/* Hero Section */}
@@ -47,45 +64,54 @@ export default function Home() {
       <Container>
         <div className="mb-8">
           <h2 className="text-2xl font-bold tracking-tight mb-2">Platform Overview</h2>
-          <p className="text-muted-foreground">Real-time metrics powering the next generation of football.</p>
+          <p className="text-muted-foreground">Live metrics from the database.</p>
         </div>
         <Grid cols={4} gap="lg">
           <Card className="group hover:border-primary/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Matches Analyzed</CardTitle>
+              <CardTitle className="text-sm font-medium">Matches Tracked</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">14,231</div>
+              <div className="text-2xl font-bold">
+                <StatValue value={stats?.matchCount} fallback="—" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                +20% from last month
+                {stats ? `${stats.finishedCount.toLocaleString()} finished` : 'Loading…'}
               </p>
             </CardContent>
           </Card>
+
           <Card className="group hover:border-primary/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Player Profiles</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">89,402</div>
+              <div className="text-2xl font-bold">
+                <StatValue value={stats?.playerCount} fallback="—" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Across 150+ leagues
+                {stats
+                  ? `Across ${stats.leagueCount} league${stats.leagueCount !== 1 ? 's' : ''}`
+                  : 'Loading…'}
               </p>
             </CardContent>
           </Card>
+
           <Card className="group hover:border-primary/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Predictive Accuracy</CardTitle>
+              <CardTitle className="text-sm font-medium">Predictive Model</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">84.2%</div>
+              <div className="text-2xl font-bold">Poisson</div>
               <p className="text-xs text-muted-foreground mt-1">
-                xG and Match outcomes
+                xG · Monte Carlo · Dixon-Coles
               </p>
             </CardContent>
           </Card>
+
           <Card className="group hover:border-primary/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Data Integrity</CardTitle>
