@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { toMatchDetailResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
+import { computeTeamStrengths, computeMatchProbabilities } from '@/lib/poisson'
 
 const API_URL = env.FOOTBALL_DATA_API_URL
 const API_KEY = env.FOOTBALL_DATA_API_KEY
@@ -36,6 +37,54 @@ async function fetchAndCacheMatchDetails(matchId: number) {
   })
 
   return data
+}
+
+/**
+ * Compute Poisson win-probability for a scheduled match and persist it
+ * so subsequent requests skip the DB query.
+ */
+async function computeAndCachePrediction(
+  matchId: number,
+  homeTeamId: number,
+  awayTeamId: number
+): Promise<{ homeWin: number; draw: number; awayWin: number } | null> {
+  try {
+    // Use up to the last 38 finished league matches for team-strength calculation
+    const finishedMatches = await prisma.match.findMany({
+      where: { status: 'FINISHED' },
+      include: { score: true },
+      orderBy: { utcDate: 'desc' },
+      take: 200,
+    })
+
+    const result = computeTeamStrengths(finishedMatches)
+    if (!result) return null
+
+    const { strengths, leagueAvgHome, leagueAvgAway } = result
+
+    const homeS = strengths[homeTeamId] ?? { has: 1, hds: 1, aas: 1, ads: 1 }
+    const awayS = strengths[awayTeamId] ?? { has: 1, hds: 1, aas: 1, ads: 1 }
+
+    const lambdaHome = homeS.has * awayS.ads * leagueAvgHome
+    const lambdaAway = awayS.aas * homeS.hds * leagueAvgAway
+
+    const probs = computeMatchProbabilities(lambdaHome, lambdaAway)
+
+    // Persist so we don't recompute on every request
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        winProbHome: probs.homeWin,
+        winProbDraw: probs.draw,
+        winProbAway: probs.awayWin,
+      },
+    })
+
+    return probs
+  } catch (err) {
+    console.warn('[Prediction] Failed to compute prediction:', err)
+    return null
+  }
 }
 
 export async function GET(
@@ -90,6 +139,26 @@ export async function GET(
     if (match.status === 'FINISHED' && !detailsAlreadyFetched) {
       const providerData = await fetchAndCacheMatchDetails(matchId)
       if (providerData) return NextResponse.json(providerData)
+    }
+
+    // For upcoming matches: compute Poisson prediction if not yet stored
+    if (
+      (match.status === 'SCHEDULED' || match.status === 'TIMED') &&
+      match.winProbHome === null
+    ) {
+      const prediction = await computeAndCachePrediction(
+        matchId,
+        match.homeTeamId,
+        match.awayTeamId
+      )
+
+      if (prediction) {
+        // Attach inline so the response reflects the freshly computed value
+        return NextResponse.json({
+          ...toMatchDetailResponse(match),
+          prediction,
+        })
+      }
     }
 
     return NextResponse.json(toMatchDetailResponse(match))

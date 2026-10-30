@@ -15,9 +15,10 @@ interface PredictionProps {
 export function AlgorithmicPrediction({ prediction, homeTeamName, awayTeamName }: PredictionProps) {
   if (!prediction) return null;
 
-  const homePct = (prediction.homeWin * 100).toFixed(1);
-  const drawPct = (prediction.draw * 100).toFixed(1);
-  const awayPct = (prediction.awayWin * 100).toFixed(1);
+  // Route already returns percentages (e.g. 45.3, not 0.453) — do NOT multiply by 100
+  const homePct = prediction.homeWin.toFixed(1);
+  const drawPct = prediction.draw.toFixed(1);
+  const awayPct = prediction.awayWin.toFixed(1);
 
   return (
     <div className="bg-card p-6 rounded-2xl border mb-6">
@@ -72,4 +73,3 @@ export function AlgorithmicPrediction({ prediction, homeTeamName, awayTeamName }
     </div>
   )
 }
-

@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Container } from '@/components/ui/grid'
 import { useQuery } from '@tanstack/react-query'
 import { PageSpinner } from '@/components/ui/Spinner'
-import { ErrorMessage } from '@/components/ui/ErrorMessage'
 
 interface TeamPrediction {
   teamId: number
@@ -36,7 +35,13 @@ interface SeasonPrediction {
 
 async function fetchSeasonPrediction(): Promise<SeasonPrediction> {
   const res = await fetch('/api/predictions/season')
-  if (!res.ok) throw new Error('Failed to fetch predictions')
+  if (!res.ok) {
+    // Propagate the error body so the UI can show a specific message
+    const body = await res.json().catch(() => ({}))
+    const err = new Error(body?.error ?? 'Failed to fetch predictions') as Error & { status: number }
+    err.status = res.status
+    throw err
+  }
   return res.json()
 }
 
@@ -55,14 +60,48 @@ function ProbBar({ value, color, label }: { value: number; color: string; label:
 }
 
 export default function PredictionsPage() {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['season-prediction'],
     queryFn: fetchSeasonPrediction,
     staleTime: 1000 * 60 * 10, // cache 10 min
+    retry: false,
   })
 
   if (isLoading) return <PageSpinner />
-  if (isError || !data) return <ErrorMessage />
+
+  // No finished matches yet — show a helpful empty state instead of a generic error
+  if (isError) {
+    const status = (error as any)?.status
+    const isNoData = status === 400
+
+    return (
+      <Container className="py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+            <span className="text-4xl">🔮</span> Season Predictions
+          </h1>
+        </div>
+        <div className="flex flex-col items-center justify-center text-center py-20 bg-card rounded-2xl border">
+          <span className="text-5xl mb-6">{isNoData ? '📊' : '⚠️'}</span>
+          <h2 className="text-xl font-bold mb-3">
+            {isNoData ? 'Not enough match data yet' : 'Predictions unavailable'}
+          </h2>
+          <p className="text-muted-foreground max-w-md text-sm">
+            {isNoData
+              ? 'The Poisson model needs at least one finished match to compute team strengths. Once the season has results, predictions will appear here automatically.'
+              : 'An unexpected error occurred while loading predictions. Please try again later.'}
+          </p>
+          {isNoData && (
+            <div className="mt-6 px-4 py-3 bg-muted/50 rounded-xl border text-xs text-muted-foreground font-mono max-w-sm">
+              Tip: run <span className="text-primary font-semibold">pnpm db:seed</span> to populate match data for development.
+            </div>
+          )}
+        </div>
+      </Container>
+    )
+  }
+
+  if (!data) return null
 
   return (
     <Container className="py-10">
