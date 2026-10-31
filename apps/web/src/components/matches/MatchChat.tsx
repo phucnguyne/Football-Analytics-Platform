@@ -42,7 +42,7 @@ export function MatchChat({ isLive }: { isLive: boolean }) {
         </h3>
         <span className="text-xs flex items-center gap-1 text-green-500 font-semibold bg-green-500/10 px-2 py-1 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          241 online
+          Demo mode
         </span>
       </div>
 

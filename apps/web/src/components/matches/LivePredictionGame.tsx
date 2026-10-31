@@ -47,7 +47,7 @@ export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { ma
 
       {prediction && (
         <div className="mt-4 text-center text-xs font-semibold text-amber-500 animate-in fade-in slide-in-from-bottom-2">
-          Prediction locked! +10 XP if correct.
+          Prediction locked! (Demo — XP not persisted)
         </div>
       )}
     </div>

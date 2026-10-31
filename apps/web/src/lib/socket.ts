@@ -1,3 +1,7 @@
+/**
+ * @deprecated Dead code — SocketClient singleton was the old Socket.io approach.
+ * The app now uses SSE (Server-Sent Events) via useLiveStore. Can be deleted.
+ */
 import { io, Socket } from 'socket.io-client'
 import { publicEnv } from '@/lib/public-env'
 

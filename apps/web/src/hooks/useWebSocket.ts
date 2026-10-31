@@ -1,3 +1,7 @@
+/**
+ * @deprecated Dead code — the app switched to SSE via useLiveStore (hooks/useLiveStore.ts).
+ * Socket.io approach was abandoned. This file can be deleted once confirmed unused.
+ */
 import { useEffect } from 'react'
 import { io } from 'socket.io-client'
 import { useLiveStore } from '@/store/liveStore'
