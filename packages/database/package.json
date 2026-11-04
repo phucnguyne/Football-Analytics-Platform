@@ -16,7 +16,8 @@
     "seed-statsbomb": "tsx scripts/seed-statsbomb.ts",
     "seed-statsbomb:events": "tsx scripts/seed-statsbomb.ts --events --lineups",
     "seed-statsbomb:dry": "tsx scripts/seed-statsbomb.ts --dry-run",
-    "db:seed-statsbomb": "tsx prisma/seed-statsbomb.ts"
+    "migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push"
   },
   "dependencies": {
     "@app/config": "workspace:*",

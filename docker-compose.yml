@@ -7,20 +7,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB:       ${POSTGRES_DB}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"          # đổi 1: chỉ máy bạn truy cập được
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]   # đổi 2: đúng với user trong .env
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
-    image: redis:7-alpine3.21 
+    image: redis:7-alpine3.21
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"          # đổi 1: chỉ máy bạn truy cập được
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,6 +30,7 @@ services:
       retries: 5
 
   app:
+    profiles: ["prod"]                 # đổi 3: chỉ build/chạy khi bạn chủ động gọi
     build:
       context: .
       dockerfile: docker/Dockerfile
