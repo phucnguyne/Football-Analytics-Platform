@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { PlayerHeatmap } from '@/components/tactics/PlayerHeatmap'
 import type { HeatPoint, ZoneBreakdown } from '@/lib/tactics-generator'
 
@@ -13,89 +14,57 @@ interface PlayerHeatmapCardProps {
 }
 
 export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
-  // Generate deterministic season heat density points for the player
+  const { data } = useQuery<{ available: boolean; points: HeatPoint[] }>({
+    queryKey: ['player-heatmap', player.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/persons/${player.id}/heatmap`)
+      if (!response.ok) throw new Error('Failed to fetch player heatmap')
+      return response.json()
+    },
+    staleTime: 60 * 60 * 1000,
+  })
+
   const { points, zones } = useMemo(() => {
-    const seed = player.id * 17
-    const pos = (player.position || 'MIDFIELDER').toUpperCase()
-
-    let baseX = 50
-    let baseY = 50
-    let spreadX = 20
-    let spreadY = 22
-
-    if (pos.includes('GOAL')) {
-      baseX = 12
-      baseY = 50
-      spreadX = 8
-      spreadY = 16
-    } else if (pos.includes('DEF')) {
-      baseX = 32
-      baseY = seed % 2 === 0 ? 30 : 70
-      spreadX = 18
-      spreadY = 22
-    } else if (pos.includes('MID')) {
-      baseX = 52
-      baseY = 50
-      spreadX = 24
-      spreadY = 28
-    } else {
-      // Forward / Attacker
-      baseX = 74
-      baseY = 50
-      spreadX = 18
-      spreadY = 26
+    const points = data?.points ?? []
+    const counts = points.reduce((acc, point) => {
+      acc.left += point.y < 33 ? 1 : 0
+      acc.center += point.y >= 33 && point.y <= 67 ? 1 : 0
+      acc.right += point.y > 67 ? 1 : 0
+      acc.defensive += point.x < 33 ? 1 : 0
+      acc.middle += point.x >= 33 && point.x <= 67 ? 1 : 0
+      acc.attacking += point.x > 67 ? 1 : 0
+      acc.box += point.x > 82 && point.y > 20 && point.y < 80 ? 1 : 0
+      return acc
+    }, { left: 0, center: 0, right: 0, defensive: 0, middle: 0, attacking: 0, box: 0 })
+    const total = points.length
+    return {
+      points,
+      zones: {
+        leftFlank: total ? Math.round(counts.left / total * 100) : 0,
+        center: total ? Math.round(counts.center / total * 100) : 0,
+        rightFlank: total ? Math.round(counts.right / total * 100) : 0,
+        defensiveThird: total ? Math.round(counts.defensive / total * 100) : 0,
+        middleThird: total ? Math.round(counts.middle / total * 100) : 0,
+        attackingThird: total ? Math.round(counts.attacking / total * 100) : 0,
+        boxTouches: counts.box,
+        totalTouches: total,
+      },
     }
-
-    const generatedPoints: HeatPoint[] = []
-    let leftCount = 0
-    let centerCount = 0
-    let rightCount = 0
-    let defThird = 0
-    let midThird = 0
-    let attThird = 0
-    let boxTouches = 0
-
-    const totalPts = 70
-    for (let i = 0; i < totalPts; i++) {
-      const angle = Math.sin(seed + i * 19) * Math.PI * 2
-      const dist = Math.abs(Math.sin(seed + i * 31))
-
-      const px = Math.min(94, Math.max(6, Math.round(baseX + Math.cos(angle) * dist * spreadX)))
-      const py = Math.min(94, Math.max(6, Math.round(baseY + Math.sin(angle) * dist * spreadY)))
-      const intensity = 0.4 + Math.abs(Math.sin(seed + i * 7)) * 0.6
-
-      generatedPoints.push({ x: px, y: py, intensity })
-
-      if (py < 33) leftCount++
-      else if (py > 67) rightCount++
-      else centerCount++
-
-      if (px < 33) defThird++
-      else if (px > 67) attThird++
-      else midThird++
-
-      if (px > 82 && py > 20 && py < 80) boxTouches++
-    }
-
-    const zoneBreakdown: ZoneBreakdown = {
-      leftFlank: Math.round((leftCount / totalPts) * 100),
-      center: Math.round((centerCount / totalPts) * 100),
-      rightFlank: Math.round((rightCount / totalPts) * 100),
-      defensiveThird: Math.round((defThird / totalPts) * 100),
-      middleThird: Math.round((midThird / totalPts) * 100),
-      attackingThird: Math.round((attThird / totalPts) * 100),
-      boxTouches,
-      totalTouches: totalPts * 14,
-    }
-
-    return { points: generatedPoints, zones: zoneBreakdown }
-  }, [player.id, player.position])
+  }, [data])
 
   const playerData = {
     [player.id]: {
       points,
       zones,
     },
+  }
+
+  if (!data?.available) {
+    return (
+      <div className="bg-card p-6 rounded-2xl border text-center text-sm text-muted-foreground">
+        Player heatmap is unavailable because StatsBomb open data has no matching event file for this player.
+      </div>
+    )
   }
 
   return (

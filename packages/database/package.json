@@ -10,7 +10,13 @@
     "migrate": "prisma migrate dev",
     "studio": "prisma studio",
     "seed": "tsx seed/seed.ts",
-    "sync-live": "tsx scripts/sync-live.ts"
+    "sync-current": "tsx scripts/sync-current.ts",
+    "sync-live": "tsx scripts/sync-live.ts",
+    "sync-live:watch": "tsx scripts/sync-live.ts --watch",
+    "seed-statsbomb": "tsx scripts/seed-statsbomb.ts",
+    "seed-statsbomb:events": "tsx scripts/seed-statsbomb.ts --events --lineups",
+    "seed-statsbomb:dry": "tsx scripts/seed-statsbomb.ts --dry-run",
+    "db:seed-statsbomb": "tsx prisma/seed-statsbomb.ts"
   },
   "dependencies": {
     "@app/config": "workspace:*",

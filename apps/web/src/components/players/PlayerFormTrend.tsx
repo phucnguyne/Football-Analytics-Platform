@@ -89,10 +89,10 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
     )
   }
 
-  if (isError || !data) {
+  if (isError || !data || data.matches.length === 0) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground text-sm">
-        Form trend data unavailable.
+        Match-by-match form data is unavailable. Add an API-Football player mapping to enable it.
       </div>
     )
   }

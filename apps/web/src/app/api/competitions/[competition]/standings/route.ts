@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { toTeamResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
+import { getCompetitionLeagueId } from '@/lib/competition-seasons'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ competition: string }> }
 ) {
   const { competition } = await params
 
   try {
-    // Check if we have standings in our DB
+    const requestedSeasonId = Number(req.nextUrl.searchParams.get('seasonId'))
+    const leagueId = getCompetitionLeagueId(competition)
     const season = await prisma.season.findFirst({
-      where: { isCurrent: true },
+      where: {
+        ...(leagueId ? { leagueId } : {}),
+        ...(Number.isInteger(requestedSeasonId) && requestedSeasonId > 0
+          ? { id: requestedSeasonId }
+          : { isCurrent: true }),
+      },
     })
 
     if (season) {

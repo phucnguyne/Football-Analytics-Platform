@@ -15,7 +15,9 @@
     "db:migrate": "pnpm --filter @app/database run migrate",
     "db:studio": "pnpm --filter @app/database run studio",
     "db:seed": "pnpm --filter @app/database run seed",
+    "db:sync-current": "pnpm --filter @app/database run sync-current",
     "db:sync-live": "pnpm --filter @app/database run sync-live",
+    "db:sync-live:watch": "pnpm --filter @app/database run sync-live:watch",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

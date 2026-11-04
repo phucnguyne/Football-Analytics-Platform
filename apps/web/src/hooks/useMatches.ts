@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { getLeagueMatches, getLiveMatches, getTeamRecentMatches } from '@/lib/api'
 
-export function useMatches(leagueId: string) {
+export function useMatches(leagueId: string, seasonId?: string) {
   return useQuery({
-    queryKey: ['matches', 'league', leagueId],
-    queryFn: () => getLeagueMatches(leagueId),
+    queryKey: ['matches', 'league', leagueId, seasonId ?? 'current'],
+    queryFn: () => getLeagueMatches(leagueId, seasonId),
     enabled: !!leagueId
   })
 }

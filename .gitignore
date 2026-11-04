@@ -82,3 +82,5 @@ apps/api/dist/
 
 # Prisma generated client
 apps/api/generated/
+
+open-data/

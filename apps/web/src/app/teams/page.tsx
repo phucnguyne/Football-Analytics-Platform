@@ -6,18 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTeams } from '@/hooks/useTeams'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { SeasonSelector } from '@/components/seasons/SeasonSelector'
+import { useState } from 'react'
 
 // Premier League competition code on football-data.org
 const DEFAULT_LEAGUE = 'PL'
 
 export default function TeamsPage() {
-  const { data: teams, isLoading, isError, refetch } = useTeams(DEFAULT_LEAGUE)
+  const [seasonId, setSeasonId] = useState('')
+  const { data: teams, isLoading, isError, refetch } = useTeams(DEFAULT_LEAGUE, seasonId)
 
   return (
     <Container className="py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Teams</h1>
-        <p className="text-muted-foreground">All clubs in the Premier League</p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Teams</h1>
+          <p className="text-muted-foreground">All clubs in the Premier League</p>
+        </div>
+        <SeasonSelector competition={DEFAULT_LEAGUE} value={seasonId} onChange={setSeasonId} />
       </div>
 
       {isLoading && <PageSpinner />}

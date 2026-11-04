@@ -133,12 +133,36 @@ export async function GET(
 
     if (detailsAlreadyFetched && rawData) {
       const { [DETAILS_FETCHED_AT]: _fetchedAt, ...providerData } = rawData
-      return NextResponse.json(providerData)
+      // For SCHEDULED/TIMED only: attach Poisson prediction if stored
+      const predictionField =
+        (match.status === 'SCHEDULED' || match.status === 'TIMED') && match.winProbHome != null
+          ? { prediction: { homeWin: match.winProbHome, draw: match.winProbDraw, awayWin: match.winProbAway } }
+          : {}
+      return NextResponse.json({ ...providerData, ...predictionField })
     }
 
     if (match.status === 'FINISHED' && !detailsAlreadyFetched) {
       const providerData = await fetchAndCacheMatchDetails(matchId)
       if (providerData) return NextResponse.json(providerData)
+    }
+
+    // For IN_PLAY/PAUSED: fetch live data from provider (don't cache — score changes every minute)
+    if (match.status === 'IN_PLAY' || match.status === 'PAUSED') {
+      try {
+        const res = await fetch(`${API_URL}/matches/${matchId}`, {
+          headers: { 'X-Auth-Token': API_KEY },
+          // Short cache so CDN/Next cache doesn't serve stale score
+          next: { revalidate: 30 },
+        } as any)
+        if (res.ok) {
+          const liveData = await res.json()
+          return NextResponse.json(liveData, {
+            headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+          })
+        }
+      } catch (e) {
+        console.warn('[Match] Live fetch failed, falling back to DB data:', e)
+      }
     }
 
     // For upcoming matches: compute Poisson prediction if not yet stored

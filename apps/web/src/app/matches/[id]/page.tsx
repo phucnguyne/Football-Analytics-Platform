@@ -26,6 +26,23 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
     queryKey: ['match', id],
     queryFn: () => getMatch(id),
     enabled: !!id
+    enabled: !!id,
+    // Refetch every 30s when live so score stays in sync with the poller
+    refetchInterval: (query) => {
+      const status = (query.state.data as any)?.status
+      return status === 'IN_PLAY' || status === 'PAUSED' ? 30_000 : false
+    },
+  })
+
+  const { data: providerEvents } = useQuery<{ events?: any[] }>({
+    queryKey: ['provider-events', id],
+    queryFn: async () => {
+      const response = await fetch(`/api/matches/${id}/provider-events`)
+      if (!response.ok) throw new Error('Failed to fetch provider events')
+      return response.json()
+    },
+    enabled: !!id,
+    staleTime: 60 * 1000,
   })
 
   const { liveMatches } = useMatchLive()
@@ -69,7 +86,13 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
     }
   })
 
-  const allEvents = [...goals, ...shots, ...bookings, ...substitutions]
+  const localEvents = [...goals, ...shots, ...bookings, ...substitutions]
+  const externalEvents = providerEvents?.events ?? []
+  const allEvents = [...localEvents, ...externalEvents]
+    .filter((event: any, index: number, events: any[]) => {
+      const key = `${event.eventType}:${event.minute}:${event.player?.id ?? event.scorer?.id ?? ''}:${event.team?.id ?? event.team ?? ''}`
+      return index === events.findIndex((candidate: any) => `${candidate.eventType}:${candidate.minute}:${candidate.player?.id ?? candidate.scorer?.id ?? ''}:${candidate.team?.id ?? candidate.team ?? ''}` === key)
+    })
     .sort((a: any, b: any) => (a.minute ?? 0) - (b.minute ?? 0))
 
   const referee = match.referees?.find((r: any) => r.type === 'REFEREE')
@@ -90,6 +113,7 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
           <div className="flex items-center gap-3 text-muted-foreground text-sm font-medium">
             <StatusBadge status={currentStatus} />
             {currentStatus === 'IN_PLAY' && currentMinute && (
+            {(currentStatus === 'IN_PLAY' || currentStatus === 'PAUSED') && currentMinute && (
               <span className="text-green-500 font-bold animate-pulse">{currentMinute}'</span>
             )}
             {match.matchday && <span>Matchday {match.matchday}</span>}

@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getStandings } from '@/lib/api'
 import { Container } from '@/components/ui/grid'
@@ -6,11 +7,13 @@ import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import Image from 'next/image'
 import Link from 'next/link'
+import { SeasonSelector } from '@/components/seasons/SeasonSelector'
 
 export default function StandingsPage() {
+  const [seasonId, setSeasonId] = useState('')
   const { data: standings, isLoading, isError } = useQuery({
-    queryKey: ['standings', 'PL'],
-    queryFn: () => getStandings('PL'),
+    queryKey: ['standings', 'PL', seasonId || 'current'],
+    queryFn: () => getStandings('PL', seasonId),
   })
 
   if (isLoading) return <PageSpinner />
@@ -18,7 +21,10 @@ export default function StandingsPage() {
 
   return (
     <Container className="py-10">
-      <h1 className="text-3xl font-black tracking-tighter mb-8">Premier League Standings</h1>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-black tracking-tighter">Premier League Standings</h1>
+        <SeasonSelector competition="PL" value={seasonId} onChange={setSeasonId} />
+      </div>
       
       <div className="bg-card rounded-2xl border overflow-hidden shadow-sm">
         <div className="overflow-x-auto">

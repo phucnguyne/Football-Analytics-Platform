@@ -4,8 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 import { PageSpinner } from '@/components/ui/Spinner'
 
 interface TacticalDataAvailability {
-  available: false
-  reason: string
+  available: boolean
+  reason?: string
+  source?: string
+  eventCount?: number
+  passCount?: number
+  passingNetwork?: { nodes: { name: string; touches: number }[]; links: { count: number }[] }
   teams: {
     id: number
     name: string
@@ -57,21 +61,23 @@ export function TacticalInsights({ matchId }: TacticalInsightsProps) {
       <div className="flex items-center gap-2">
         <span className="h-6 w-2.5 rounded-full bg-primary" />
         <h3 className="text-xl font-bold tracking-tight">Tactical Insights</h3>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-amber-500">
-          Data unavailable
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${data.available ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/30 bg-amber-500/10 text-amber-500'}`}>
+          {data.available ? 'StatsBomb open data' : 'Data unavailable'}
         </span>
       </div>
 
-      <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-        <p className="text-sm font-medium">
-          Passing networks, player heatmaps, PPDA, and build-up metrics are not shown.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">{data.reason}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          These visualizations previously used generated sample values, not match data. They are
-          hidden until real event and tracking data is available.
-        </p>
-      </div>
+      {data.available ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">Events</p><p className="text-2xl font-bold">{data.eventCount ?? 0}</p></div>
+          <div className="rounded-xl border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">Passes</p><p className="text-2xl font-bold">{data.passCount ?? 0}</p></div>
+          <div className="rounded-xl border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">Players with touches</p><p className="text-2xl font-bold">{data.passingNetwork?.nodes.length ?? 0}</p></div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
+          <p className="text-sm font-medium">Passing networks, player heatmaps, PPDA, and build-up metrics are not shown.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{data.reason ?? 'No matching StatsBomb event file was found for this match.'}</p>
+        </div>
+      )}
 
       <div>
         <h4 className="mb-3 text-sm font-semibold">Confirmed player names</h4>

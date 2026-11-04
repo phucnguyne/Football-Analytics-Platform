@@ -27,7 +27,7 @@ interface MatchUpdate {
 type Listener = (updates: MatchUpdate[]) => void
 
 const INTERVALS: Record<PollerState, number> = {
-  LIVE: 60_000,        // 60s when matches are active
+  LIVE: 30_000,        // 30s when matches are active
   PRE_MATCH: 300_000,  // 5 min when matches today but not started
   IDLE: 1_800_000,     // 30 min when no matches today
   NIGHT: 0,            // off

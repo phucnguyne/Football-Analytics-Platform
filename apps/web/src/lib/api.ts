@@ -44,9 +44,10 @@ async function fdFetch<T>(path: string): Promise<T> {
 // }
 
 /** Fetch all teams in a competition. competitionCode e.g. 'PL' */
-export async function getTeams(competitionCode: string): Promise<Team[]> {
-  return cached(`teams:${competitionCode}`, async () => {
-    const data = await fdFetch<{ teams: any[] }>(`/competitions/${competitionCode}/teams`)
+export async function getTeams(competitionCode: string, seasonId?: string): Promise<Team[]> {
+  return cached(`teams:${competitionCode}:${seasonId ?? 'current'}`, async () => {
+    const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
+    const data = await fdFetch<{ teams: any[] }>(`/competitions/${competitionCode}/teams${query}`)
     return (data.teams ?? []).map(normalizeTeam)
   })
 }
@@ -127,9 +128,10 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 // }
 
 /** All matches in a competition (full season schedule) */
-export async function getLeagueMatches(competitionCode: string): Promise<Match[]> {
-  return cached(`matches:competition:${competitionCode}`, async () => {
-    const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches`)
+export async function getLeagueMatches(competitionCode: string, seasonId?: string): Promise<Match[]> {
+  return cached(`matches:competition:${competitionCode}:${seasonId ?? 'current'}`, async () => {
+    const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
+    const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches${query}`)
 
     return (data.matches ?? []).map(normalizeMatch)
   })
@@ -160,9 +162,10 @@ export async function getLiveMatches(): Promise<Match[]> {
 }
 
 /** Standings table for a competition */
-export async function getStandings(competition = 'PL'): Promise<Standing[]> {
-  return cached(`standings:${competition}`, async () => {
-    const data = await fdFetch<{ standings: any[] }>(`/competitions/${competition}/standings`)
+export async function getStandings(competition = 'PL', seasonId?: string): Promise<Standing[]> {
+  return cached(`standings:${competition}:${seasonId ?? 'current'}`, async () => {
+    const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
+    const data = await fdFetch<{ standings: any[] }>(`/competitions/${competition}/standings${query}`)
     const table = data.standings?.find((s) => s.type === 'TOTAL')?.table ?? data.standings?.[0]?.table
     return (table ?? []).map(normalizeStanding)
   })

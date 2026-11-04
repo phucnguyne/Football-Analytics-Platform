@@ -6,6 +6,7 @@ import { useMatches } from '@/hooks/useMatches'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import type { Match } from '@/types/TypesBarrel'
+import { SeasonSelector } from '@/components/seasons/SeasonSelector'
 
 /** Competitions available on the football-data.org free tier */
 const COMPETITIONS = [
@@ -23,9 +24,10 @@ const COMPETITIONS = [
 
 export default function MatchesPage() {
   const [competition, setCompetition] = useState('PL')
+  const [seasonId, setSeasonId] = useState('')
   const selectedComp = COMPETITIONS.find((c) => c.code === competition) ?? COMPETITIONS[0]
 
-  const { data: matches, isLoading, isError, refetch } = useMatches(competition)
+  const { data: matches, isLoading, isError, refetch } = useMatches(competition, seasonId)
 
   // Upcoming matches (next 6)
   const upcomingMatches = useMemo(() => {
@@ -66,7 +68,7 @@ export default function MatchesPage() {
         </div>
 
         {/* League picker */}
-        <div className="flex-shrink-0">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <select
             className="flex h-10 w-full sm:w-56 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={competition}
@@ -79,6 +81,7 @@ export default function MatchesPage() {
               </option>
             ))}
           </select>
+          <SeasonSelector competition={competition} value={seasonId} onChange={setSeasonId} />
         </div>
       </div>
 
