@@ -13,6 +13,7 @@ import { PlayerFormTrend } from '@/components/players/PlayerFormTrend'
 import { SimilarPlayersCard } from '@/components/players/SimilarPlayersCard'
 import { PlayerComparisonDashboard } from '@/components/players/PlayerComparisonDashboard'
 import { PlayerCareerTimeline } from '@/components/players/PlayerCareerTimeline'
+import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
 async function getPlayer(id: string) {
   const res = await fetch(`/api/persons/${id}`)
@@ -48,13 +49,12 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
           <div className="bg-card p-6 rounded-2xl border shadow-sm relative overflow-hidden flex flex-col items-center text-center">
             <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
             
-            {player.photo ? (
-              <Image src={player.photo} alt={player.name} width={120} height={120} className="rounded-full border-4 border-background shadow-md relative z-10 mb-4" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center text-4xl mb-4 relative z-10 shadow-md">
-                👤
-              </div>
-            )}
+            <PlayerPhoto
+              playerId={player.id}
+              name={player.name}
+              photo={player.photo}
+              className="relative z-10 mb-4 h-24 w-24 rounded-full border-4 border-background shadow-md"
+            />
             
             <h1 className="text-3xl font-bold tracking-tight mb-1">{player.name}</h1>
             <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium mb-4 uppercase tracking-wider">
@@ -126,7 +126,11 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
 
           <PlayerHeatmapCard player={player} />
 
-          <SimilarPlayersCard playerId={player.id} playerName={player.name} />
+          <SimilarPlayersCard
+            playerId={player.id}
+            playerName={player.name}
+            playerTeamId={currentTeam?.id ?? player.currentTeam?.id}
+          />
 
           {stats && (
             <div className="bg-card p-6 rounded-2xl border">
@@ -202,4 +206,3 @@ export default function PlayerDetailsPage({ params }: { params: Promise<{ player
     </Container>
   )
 }
-

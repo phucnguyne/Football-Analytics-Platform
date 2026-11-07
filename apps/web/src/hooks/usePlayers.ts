@@ -3,7 +3,7 @@ import { getPlayers, getPlayer } from '@/lib/api'
 
 export function usePlayers(teamId: string) {
   return useQuery({
-    queryKey: ['players', 'team', teamId],
+    queryKey: ['players', 'team', teamId, 'photos'],
     queryFn: () => getPlayers(teamId),
     enabled: !!teamId
   })

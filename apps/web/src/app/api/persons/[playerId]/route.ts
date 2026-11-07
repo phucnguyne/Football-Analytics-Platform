@@ -52,6 +52,7 @@ export async function GET(
       dateOfBirth: player.dateOfBirth,
       nationality: player.nationality,
       shirtNumber: player.shirtNumber,
+      photo: player.photo,
       teams: player.teams.map(t => ({
         id: t.team.id,
         name: t.team.name,

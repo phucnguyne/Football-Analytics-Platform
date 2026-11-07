@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { toTeamResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
+import {
+  apiFootballPlayerNameMatches,
+  getApiFootballTeamSquad,
+} from '@/lib/api-football'
 
 /**
  * Heuristic: detect placeholder/seeded player names like "Chelsea Goalkeeper 0"
@@ -39,14 +43,15 @@ export async function GET(
       // Team not in DB, fallback to external API
       const res = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
-        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
+        {
+          headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+          next: { revalidate: 3600 },
+        }
       )
       if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: res.status })
       return NextResponse.json(await res.json())
     }
 
-    // If no players in PlayerTeam, fallback to external API for squad
-    if (team.players.length === 0) {
     const dbPlayers = team.players.map(pt => pt.player)
     const needsLiveSquad = hasPlaceholderNames(dbPlayers)
 
@@ -55,61 +60,53 @@ export async function GET(
     try {
       const res = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
-        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
+        {
+          headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+          next: { revalidate: 3600 },
+        }
       )
-      if (res.ok) {
-        const data = await res.json()
-        return NextResponse.json({
-          ...toTeamResponse(team),
-          coach: data.coach,
-          squad: data.squad ?? data.players ?? [],
-        })
-      }
       if (res.ok) externalData = await res.json()
     } catch (e) {
       console.warn(`[TeamRoute] Could not reach football-data for team ${teamId}`)
     }
 
-    // Try to get coach even if we have players (using a quick fetch to football-data)
-    let coachData;
-    try {
-      const res = await fetch(
-        `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
-        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
     const externalSquad: any[] = externalData?.squad ?? externalData?.players ?? []
+    const playerPhotos = new Map(dbPlayers.map((player) => [player.id, player.photo]))
+    const apiSquad = await getApiFootballTeamSquad(team.name)
+    const externalSquadWithPhotos = externalSquad.map((player) => {
+      const apiPlayer = apiSquad?.find((candidate) =>
+        apiFootballPlayerNameMatches(candidate.name, player.name),
+      )
+      return {
+        ...player,
+        photo: apiPlayer?.photo ?? player.photo ?? playerPhotos.get(player.id) ?? null,
+      }
+    })
 
     // If DB has placeholder names, upsert real names from external API in background
-    if (needsLiveSquad && externalSquad.length > 0) {
+    if (needsLiveSquad && externalSquadWithPhotos.length > 0) {
       // Fire-and-forget upsert so future requests use real names
-      upsertSquadInBackground(id, externalSquad).catch(err =>
+      upsertSquadInBackground(id, externalSquadWithPhotos).catch(err =>
         console.warn('[TeamRoute] Background squad upsert failed:', err)
       )
-      if (res.ok) {
-        const data = await res.json()
-        coachData = data.coach;
-      }
-    } catch (e) {}
-
-      return NextResponse.json({
-        ...toTeamResponse(team),
-        coach: externalData?.coach ?? null,
-        squad: externalSquad,
-      })
     }
 
-    // Use DB squad (already has real names)
+    const dbSquad = team.players.map(pt => ({
+      id: pt.player.id,
+      name: pt.player.name,
+      position: pt.player.position,
+      photo: apiSquad?.find((player) =>
+        apiFootballPlayerNameMatches(player.name, pt.player.name),
+      )?.photo ?? pt.player.photo,
+      dateOfBirth: pt.player.dateOfBirth?.toISOString()?.split('T')[0] ?? null,
+      nationality: pt.player.nationality,
+      shirtNumber: pt.shirtNumber ?? pt.player.shirtNumber,
+    }))
+
     return NextResponse.json({
       ...toTeamResponse(team),
-      coach: coachData,
       coach: externalData?.coach ?? null,
-      squad: team.players.map(pt => ({
-        id: pt.player.id,
-        name: pt.player.name,
-        position: pt.player.position,
-        dateOfBirth: pt.player.dateOfBirth?.toISOString()?.split('T')[0] ?? null,
-        nationality: pt.player.nationality,
-        shirtNumber: pt.shirtNumber ?? pt.player.shirtNumber,
-      })),
+      squad: externalSquadWithPhotos.length > 0 ? externalSquadWithPhotos : dbSquad,
     })
   } catch (error) {
     console.error('Error fetching team:', error)
@@ -135,6 +132,7 @@ async function upsertSquadInBackground(teamId: number, squad: any[]) {
           name: p.name,
           nationality: p.nationality ?? null,
           dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : null,
+          photo: p.photo ?? undefined,
           shirtNumber: p.shirtNumber ?? null,
         },
         create: {
@@ -143,6 +141,7 @@ async function upsertSquadInBackground(teamId: number, squad: any[]) {
           position: position as any,
           nationality: p.nationality ?? null,
           dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : null,
+          photo: p.photo ?? null,
           shirtNumber: p.shirtNumber ?? null,
         },
       })

@@ -5,16 +5,19 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { PageSpinner } from '@/components/ui/Spinner'
 import type { SimilarPlayerResult } from '@/lib/player-analytics'
+import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
 interface SimilarPlayersCardProps {
   playerId: number
   playerName: string
+  playerTeamId?: number
   onSelectForCompare?: (player: SimilarPlayerResult) => void
 }
 
 export function SimilarPlayersCard({
   playerId,
   playerName,
+  playerTeamId,
   onSelectForCompare,
 }: SimilarPlayersCardProps) {
   const { data, isLoading, isError } = useQuery<{
@@ -74,13 +77,11 @@ export function SimilarPlayersCard({
           >
             {/* Player Info */}
             <div className="flex items-center gap-3 min-w-[200px]">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-sm overflow-hidden border">
-                {player.team.crest ? (
-                  <img src={player.team.crest} alt={player.team.name} className="w-7 h-7 object-contain" />
-                ) : (
-                  <span>👤</span>
-                )}
-              </div>
+              <PlayerPhoto
+                playerId={player.id}
+                name={player.name}
+                className="h-10 w-10 shrink-0 rounded-full border"
+              />
 
               <div>
                 <Link
@@ -136,7 +137,7 @@ export function SimilarPlayersCard({
                 </button>
               ) : (
                 <Link
-                  href={`/players/compare?p1=${playerId}&p2=${player.id}`}
+                  href={`/players/compare?p1=${playerId}&p2=${player.id}${playerTeamId ? `&p1TeamId=${playerTeamId}` : ''}&p2TeamId=${player.team.id}`}
                   className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold text-xs transition-colors border border-primary/20"
                 >
                   Compare
@@ -149,4 +150,3 @@ export function SimilarPlayersCard({
     </div>
   )
 }
-

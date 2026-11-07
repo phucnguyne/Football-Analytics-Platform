@@ -8,6 +8,7 @@ import { useTeams } from '@/hooks/useTeams'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { cn } from '@/lib/utils'
+import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
@@ -89,13 +90,12 @@ function PlayersContent() {
           <Link href={`/players/${player.id}`} key={player.id}>
             <Card className="group hover:border-primary/50 transition-all h-full cursor-pointer">
               <CardHeader className="items-center text-center pb-2">
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-2 overflow-hidden border-2 border-primary/20">
-                  {player.photo ? (
-                    <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&background=random&size=128`} alt={player.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
+                <PlayerPhoto
+                  playerId={player.id}
+                  name={player.name}
+                  photo={player.photo}
+                  className="mb-2 h-20 w-20 rounded-full border-2 border-primary/20"
+                />
                 <CardTitle className="text-sm group-hover:text-primary transition-colors">
                   {player.name}
                 </CardTitle>

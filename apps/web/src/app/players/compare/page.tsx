@@ -12,8 +12,26 @@ function CompareContent() {
   const p1Param = searchParams.get('p1')
   const p2Param = searchParams.get('p2')
 
-  const player1Id = p1Param ? parseInt(p1Param) : 100000
-  const player2Id = p2Param ? parseInt(p2Param) : undefined
+  const parsedPlayer1Id = p1Param ? Number(p1Param) : undefined
+  const parsedPlayer2Id = p2Param ? Number(p2Param) : undefined
+  const player1Id =
+    parsedPlayer1Id && Number.isInteger(parsedPlayer1Id) && parsedPlayer1Id > 0
+      ? parsedPlayer1Id
+      : undefined
+  const player2Id =
+    parsedPlayer2Id && Number.isInteger(parsedPlayer2Id) && parsedPlayer2Id > 0
+      ? parsedPlayer2Id
+      : undefined
+  const parsedPlayer1TeamId = Number(searchParams.get('p1TeamId'))
+  const parsedPlayer2TeamId = Number(searchParams.get('p2TeamId'))
+  const player1TeamId =
+    Number.isInteger(parsedPlayer1TeamId) && parsedPlayer1TeamId > 0
+      ? parsedPlayer1TeamId
+      : undefined
+  const player2TeamId =
+    Number.isInteger(parsedPlayer2TeamId) && parsedPlayer2TeamId > 0
+      ? parsedPlayer2TeamId
+      : undefined
 
   return (
     <Container className="py-10 space-y-6">
@@ -27,7 +45,7 @@ function CompareContent() {
           </Link>
           <h1 className="text-3xl font-extrabold tracking-tight">Player Scouting Comparison</h1>
           <p className="text-muted-foreground text-sm">
-            Compare tactical performance profiles, radar shapes, and advanced metrics across players
+            Search a club roster and select two players to compare tactical profiles, radar shapes, and advanced metrics.
           </p>
         </div>
       </div>
@@ -35,6 +53,8 @@ function CompareContent() {
       <PlayerComparisonDashboard
         initialPlayer1Id={player1Id}
         initialPlayer2Id={player2Id}
+        initialPlayer1TeamId={player1TeamId}
+        initialPlayer2TeamId={player2TeamId}
       />
     </Container>
   )
@@ -47,4 +67,3 @@ export default function ComparePlayersPage() {
     </Suspense>
   )
 }
-

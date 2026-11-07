@@ -27,7 +27,10 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 
 async function fdFetch<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`)   // e.g. /api/matches?competition=PL
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `API error: ${res.status}`)
+  }
   return res.json()
 }
 
@@ -79,10 +82,11 @@ export async function getTeam(teamId: string): Promise<Team | null> {
 
 /** Fetch all players (squad) for a team */
 export async function getPlayers(teamId: string): Promise<Player[]> {
-  return cached(`players:${teamId}`, async () => {
-    const data = await fdFetch<{ squad: any[]; players: any[]; id: number }>(`/teams/${teamId}`)
-    const roster = data.squad ?? data.players ?? []
-    return roster.map((p) => normalizePlayer(p, String(data.id)))
+  return cached(`players:photos:${teamId}`, async () => {
+    const data = await fdFetch<{ players: any[] }>(
+      `/persons?teamId=${encodeURIComponent(teamId)}&limit=50`,
+    )
+    return (data.players ?? []).map((player) => normalizePlayer(player, teamId))
   })
 }
 
