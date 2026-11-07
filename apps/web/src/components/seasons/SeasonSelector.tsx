@@ -22,7 +22,9 @@ export function SeasonSelector({ competition, value, onChange }: Props) {
       if (!response.ok) throw new Error('Failed to load seasons')
       return response.json()
     },
-    staleTime: 60 * 60 * 1000,
+    staleTime: 6 * 60 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 
   return (

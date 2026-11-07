@@ -5,7 +5,10 @@ export function useTeams(leagueId: string, seasonId?: string) {
   return useQuery({
     queryKey: ['teams', leagueId, seasonId ?? 'current'],
     queryFn: () => getTeams(leagueId, seasonId),
-    enabled: !!leagueId
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 

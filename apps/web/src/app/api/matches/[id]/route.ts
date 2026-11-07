@@ -3,6 +3,7 @@ import prisma from '@app/database/src/client'
 import { toMatchDetailResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
 import { computeTeamStrengths, computeMatchProbabilities } from '@/lib/poisson'
+import { getHistoricalPremierLeagueMatchById } from '@/lib/football-data-uk'
 
 const API_URL = env.FOOTBALL_DATA_API_URL
 const API_KEY = env.FOOTBALL_DATA_API_KEY
@@ -94,11 +95,27 @@ export async function GET(
   const { id } = await params
   const matchId = Number(id)
 
-  if (!Number.isInteger(matchId) || matchId <= 0) {
+  if (!Number.isInteger(matchId) || matchId === 0) {
     return NextResponse.json({ error: 'invalid match id' }, { status: 400 })
   }
 
   try {
+    if (matchId < 0) {
+      const knownTeams = await prisma.team.findMany({
+        select: { id: true, name: true, shortName: true, crest: true },
+      })
+      const historicalMatch = await getHistoricalPremierLeagueMatchById(matchId, knownTeams)
+      if (!historicalMatch) {
+        return NextResponse.json({ error: 'historical match not found' }, { status: 404 })
+      }
+
+      return NextResponse.json(historicalMatch, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      })
+    }
+
     const match = await prisma.match.findUnique({
       where: { id: matchId },
       include: {

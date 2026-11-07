@@ -11,13 +11,26 @@ import { SeasonSelector } from '@/components/seasons/SeasonSelector'
 
 export default function StandingsPage() {
   const [seasonId, setSeasonId] = useState('')
-  const { data: standings, isLoading, isError } = useQuery({
+  const { data: standings, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['standings', 'PL', seasonId || 'current'],
     queryFn: () => getStandings('PL', seasonId),
   })
 
   if (isLoading) return <PageSpinner />
-  if (isError || !standings) return <ErrorMessage />
+  if (isError || !standings) {
+    return (
+      <Container className="py-10">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-black tracking-tighter">Premier League Standings</h1>
+          <SeasonSelector competition="PL" value={seasonId} onChange={setSeasonId} />
+        </div>
+        <ErrorMessage
+          message={error instanceof Error ? error.message : 'Standings are unavailable for this season.'}
+          onRetry={refetch}
+        />
+      </Container>
+    )
+  }
 
   return (
     <Container className="py-10">
@@ -83,4 +96,3 @@ export default function StandingsPage() {
     </Container>
   )
 }
-

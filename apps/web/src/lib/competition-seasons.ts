@@ -14,3 +14,18 @@ export const COMPETITION_LEAGUE_IDS: Record<string, number> = {
 export function getCompetitionLeagueId(code: string): number | undefined {
   return COMPETITION_LEAGUE_IDS[code.toUpperCase()]
 }
+
+export function parseSeasonIdentifier(value: string | null): number | undefined {
+  if (!value) return undefined
+  const season = Number(value)
+  return Number.isInteger(season) && season > 0 ? season : undefined
+}
+
+export function getSeasonFilter(season: number | undefined) {
+  if (season === undefined) return { isCurrent: true }
+  return season >= 1800 ? { year: season } : { id: season }
+}
+
+export function getExternalSeasonQuery(seasonYear: number | undefined): string {
+  return seasonYear ? `?season=${encodeURIComponent(seasonYear)}` : ''
+}
