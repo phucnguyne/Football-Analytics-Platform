@@ -3,74 +3,93 @@
 import { useMatchLive } from '@/hooks/useMatchLive'
 import Link from 'next/link'
 import Image from 'next/image'
-import { cn } from '@/lib/utils'
 
 export function LiveScoreboard() {
   const { liveMatchesArray, isConnected, isInitializing } = useMatchLive()
-
-  if (isInitializing || liveMatchesArray.length === 0) {
-    return null;
-  }
-
-  // Filter for only active matches if preferred, or show all in array.
-  // We'll show all currently tracked matches (IN_PLAY, PAUSED, LIVE)
-  const activeMatches = liveMatchesArray.filter(m => m.status === 'IN_PLAY' || m.status === 'PAUSED' || m.status === 'LIVE' || m.status === 'FINISHED');
-
-  if (activeMatches.length === 0) {
-    return null;
-  }
+  const activeMatches = liveMatchesArray
+    .filter((match) => ['IN_PLAY', 'PAUSED', 'LIVE'].includes(match.status))
+    .sort((a, b) => a.homeTeamName.localeCompare(b.homeTeamName))
 
   return (
-    <div className="w-full bg-slate-900 text-white overflow-x-auto whitespace-nowrap border-b border-slate-800" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-      <div className="flex items-center px-4 py-2 space-x-6 min-w-max">
-        <div className="flex items-center space-x-2 text-red-500 font-bold text-sm shrink-0">
-          <span className="relative flex h-3 w-3">
-            <span className={cn("absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75", isConnected ? "animate-ping" : "hidden")}></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-          </span>
-          <span>LIVE</span>
+    <section className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Live Match Center</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Real-time scores and match status across tracked competitions.
+          </p>
         </div>
-        
-        {activeMatches.map(match => (
-          <Link 
-            key={match.matchId} 
-            href={`/matches/${match.matchId}`}
-            className="flex items-center space-x-3 hover:bg-slate-800 px-3 py-1 rounded transition-colors"
-          >
-            <div className="flex items-center space-x-2 text-sm font-medium">
-              <span className="w-12 text-right truncate" title={match.homeTeamName}>
-                {match.homeTeamShortName || match.homeTeamName.substring(0,3).toUpperCase()}
-              </span>
-              {match.homeTeamCrest ? (
-                <Image src={match.homeTeamCrest} alt={match.homeTeamShortName} width={20} height={20} className="w-5 h-5 object-contain" />
-              ) : (
-                <div className="w-5 h-5 bg-slate-700 rounded-full" />
-              )}
-            </div>
-            
-            <div className="flex flex-col items-center justify-center min-w-[3.5rem] bg-slate-950 px-2 py-1 rounded">
-              <div className="text-[10px] text-green-400 font-semibold mb-0.5">
-                {match.status === 'IN_PLAY' && match.minute ? `${match.minute}'` : match.status === 'PAUSED' ? 'HT' : match.status === 'FINISHED' ? 'FT' : match.status}
-              </div>
-              <div className="font-bold text-sm leading-none">
-                {match.homeGoals ?? 0} - {match.awayGoals ?? 0}
-              </div>
-            </div>
 
-            <div className="flex items-center space-x-2 text-sm font-medium">
-              {match.awayTeamCrest ? (
-                <Image src={match.awayTeamCrest} alt={match.awayTeamShortName} width={20} height={20} className="w-5 h-5 object-contain" />
-              ) : (
-                <div className="w-5 h-5 bg-slate-700 rounded-full" />
-              )}
-              <span className="w-12 text-left truncate" title={match.awayTeamName}>
-                {match.awayTeamShortName || match.awayTeamName.substring(0,3).toUpperCase()}
-              </span>
-            </div>
-          </Link>
-        ))}
+        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${isConnected ? 'text-green-600' : 'text-muted-foreground'}`}>
+          <span className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'animate-pulse bg-red-500' : 'bg-muted-foreground'}`} />
+          {isConnected ? 'Live feed connected' : 'Connecting to live feed'}
+        </span>
       </div>
-    </div>
+
+      {isInitializing ? (
+        <div className="rounded-2xl border bg-card p-10 text-center text-muted-foreground">
+          Loading live matches...
+        </div>
+      ) : activeMatches.length === 0 ? (
+        <div className="rounded-2xl border bg-card p-10 text-center">
+          <p className="text-lg font-semibold">No matches are live right now</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This page updates automatically when a tracked match starts.
+          </p>
+          <Link href="/matches" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
+            View the match schedule
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {activeMatches.map((match) => (
+            <Link
+              key={match.matchId}
+              href={`/matches/${match.matchId}`}
+              className="rounded-2xl border bg-card p-5 transition-colors hover:border-primary/50"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span className="truncate">{match.competition || 'Live match'}</span>
+                <span className="shrink-0 rounded-full bg-red-500/10 px-2.5 py-1 font-bold text-red-600">
+                  {match.status === 'PAUSED'
+                    ? 'HALF-TIME'
+                    : match.minute != null
+                      ? `${match.minute}'`
+                      : 'LIVE'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {match.homeTeamCrest ? (
+                    <Image src={match.homeTeamCrest} alt="" width={32} height={32} className="h-8 w-8 object-contain" unoptimized />
+                  ) : (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                      {match.homeTeamShortName.slice(0, 2)}
+                    </span>
+                  )}
+                  <span className="truncate text-sm font-semibold">{match.homeTeamName}</span>
+                </div>
+
+                <span className="shrink-0 rounded-lg bg-muted px-3 py-2 text-lg font-black tabular-nums">
+                  {match.homeGoals ?? 0} - {match.awayGoals ?? 0}
+                </span>
+
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                  <span className="truncate text-right text-sm font-semibold">{match.awayTeamName}</span>
+                  {match.awayTeamCrest ? (
+                    <Image src={match.awayTeamCrest} alt="" width={32} height={32} className="h-8 w-8 object-contain" unoptimized />
+                  ) : (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                      {match.awayTeamShortName.slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
-

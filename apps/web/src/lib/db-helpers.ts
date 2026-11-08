@@ -45,7 +45,6 @@ export function toMatchResponse(m: MatchWithIncludes) {
     id: m.id,
     utcDate: m.utcDate.toISOString(),
     status: m.status,
-    minute: (m as any).minute ?? null,
     minute: m.minute ?? null,
     matchday: m.matchday,
     stage: m.stage,
@@ -83,11 +82,6 @@ export function toMatchResponse(m: MatchWithIncludes) {
       emblem: m.league.emblem,
     },
     // Only show prediction for upcoming matches — not for live/finished where score is real
-    prediction: (m.winProbHome != null && (m.status === 'SCHEDULED' || m.status === 'TIMED')) ? {
-      homeWin: m.winProbHome,
-      draw: m.winProbDraw,
-      awayWin: m.winProbAway
-    } : null,
     prediction: (m.winProbHome != null && (m.status === 'SCHEDULED' || m.status === 'TIMED')) ? (() => {
       // Normalize: if stored as decimal (0–1) convert to percentage. Poisson lib returns % already.
       const h = m.winProbHome!

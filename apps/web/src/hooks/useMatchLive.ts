@@ -1,24 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useLiveStore, LiveMatchUpdate } from '@/store/useLiveStore'
+import { useEffect } from 'react'
+import { useLiveStore } from '@/store/useLiveStore'
 
-
+let liveConsumers = 0
 
 export function useMatchLive() {
-  const store = useLiveStore();
+  const liveMatches = useLiveStore((state) => state.liveMatches)
+  const isConnected = useLiveStore((state) => state.isConnected)
+  const isInitializing = useLiveStore((state) => state.isInitializing)
+  const connect = useLiveStore((state) => state.connect)
+  const disconnect = useLiveStore((state) => state.disconnect)
 
   useEffect(() => {
-    store.connect();
-    // Do NOT disconnect on unmount if we want persistent global connection,
-    // OR we could do reference counting. For simplicity, we just keep it connected
-    // while the app is mounted (LiveScoreboard is in layout so it never unmounts).
-  }, [store]);
+    liveConsumers += 1
+    void connect()
+    return () => {
+      liveConsumers -= 1
+      if (liveConsumers === 0) disconnect()
+    }
+  }, [connect, disconnect])
 
   return {
-    liveMatches: store.liveMatches,
-    liveMatchesArray: Object.values(store.liveMatches),
-    isConnected: store.isConnected,
-    isInitializing: store.isInitializing,
+    liveMatches,
+    liveMatchesArray: Object.values(liveMatches),
+    isConnected,
+    isInitializing,
   }
 }

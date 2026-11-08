@@ -462,51 +462,47 @@ export function buildStatsBombShotMap(events: StatsBombEvent[]): ShotPoint[] {
         bodyPart: e.shot?.body_part?.name,
         isGoal: outcome === "Goal",
       };
-
-      export function buildStatsBombTeamTacticalMetrics(
-        events: StatsBombEvent[],
-        teamId: number,
-      ): StatsBombTeamTacticalMetrics {
-        const teamEvents = events.filter((event) => event.team?.id === teamId);
-        const passes = teamEvents.filter(
-          (event) => event.type?.name === "Pass",
-        );
-        const completedPasses = passes.filter((event) => !event.pass?.outcome);
-        const defensiveActions = teamEvents.filter((event) =>
-          ["Pressure", "Tackle", "Interception", "Block", "Clearance"].includes(
-            event.type?.name ?? "",
-          ),
-        ).length;
-        const passesInOpponentHalf = passes.filter(
-          (event) => (event.location?.[0] ?? 0) >= 60,
-        ).length;
-        const shots = teamEvents.filter((event) => event.type?.name === "Shot");
-
-        return {
-          passes: passes.length,
-          completedPasses: completedPasses.length,
-          passCompletion:
-            passes.length > 0
-              ? +((completedPasses.length / passes.length) * 100).toFixed(1)
-              : 0,
-          pressures: teamEvents.filter(
-            (event) => event.type?.name === "Pressure",
-          ).length,
-          defensiveActions,
-          ppda:
-            defensiveActions > 0
-              ? +(passesInOpponentHalf / defensiveActions).toFixed(1)
-              : null,
-          passesInOpponentHalf,
-          carries: teamEvents.filter((event) => event.type?.name === "Carry")
-            .length,
-          shots: shots.length,
-          xG: +shots
-            .reduce((sum, event) => sum + (event.shot?.statsbomb_xg ?? 0), 0)
-            .toFixed(2),
-        };
-      }
     });
+}
+
+export function buildStatsBombTeamTacticalMetrics(
+  events: StatsBombEvent[],
+  teamId: number,
+): StatsBombTeamTacticalMetrics {
+  const teamEvents = events.filter((event) => event.team?.id === teamId);
+  const passes = teamEvents.filter((event) => event.type?.name === "Pass");
+  const completedPasses = passes.filter((event) => !event.pass?.outcome);
+  const defensiveActions = teamEvents.filter((event) =>
+    ["Pressure", "Tackle", "Interception", "Block", "Clearance"].includes(
+      event.type?.name ?? "",
+    ),
+  ).length;
+  const passesInOpponentHalf = passes.filter(
+    (event) => (event.location?.[0] ?? 0) >= 60,
+  ).length;
+  const shots = teamEvents.filter((event) => event.type?.name === "Shot");
+
+  return {
+    passes: passes.length,
+    completedPasses: completedPasses.length,
+    passCompletion:
+      passes.length > 0
+        ? +((completedPasses.length / passes.length) * 100).toFixed(1)
+        : 0,
+    pressures: teamEvents.filter((event) => event.type?.name === "Pressure")
+      .length,
+    defensiveActions,
+    ppda:
+      defensiveActions > 0
+        ? +(passesInOpponentHalf / defensiveActions).toFixed(1)
+        : null,
+    passesInOpponentHalf,
+    carries: teamEvents.filter((event) => event.type?.name === "Carry").length,
+    shots: shots.length,
+    xG: +shots
+      .reduce((sum, event) => sum + (event.shot?.statsbomb_xg ?? 0), 0)
+      .toFixed(2),
+  };
 }
 
 export interface PlayerFormEntry {

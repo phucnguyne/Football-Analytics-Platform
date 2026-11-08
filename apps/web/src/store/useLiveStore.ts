@@ -28,7 +28,8 @@ interface LiveStoreState {
 }
 
 let eventSource: EventSource | null = null;
-let reconnectTimer: NodeJS.Timeout;
+let connectionGeneration = 0;
+let connectPromise: Promise<void> | null = null;
 
 export const useLiveStore = create<LiveStoreState>((set, get) => ({
   liveMatches: {},
@@ -37,11 +38,14 @@ export const useLiveStore = create<LiveStoreState>((set, get) => ({
 
   connect: async () => {
     if (eventSource) return;
+    if (connectPromise) return connectPromise;
 
-    if (get().isInitializing) {
-      try {
-        const res = await fetch('/api/matches?status=IN_PLAY,PAUSED');
-        if (res.ok) {
+    const generation = connectionGeneration;
+    const connecting = (async () => {
+      if (get().isInitializing) {
+        try {
+          const res = await fetch('/api/matches?status=IN_PLAY,PAUSED');
+          if (!res.ok) throw new Error(`Failed to load live matches (${res.status})`);
           const data = await res.json();
           const initialMap: Record<number, LiveMatchUpdate> = {};
           data.matches?.forEach((m: any) => {
@@ -63,69 +67,93 @@ export const useLiveStore = create<LiveStoreState>((set, get) => ({
               matchday: m.matchday ?? null,
             };
           });
-          set({ liveMatches: initialMap });
-        }
-      } catch (err) {
-        console.error('Failed to fetch initial matches', err);
-      } finally {
-        set({ isInitializing: false });
-      }
-    }
-
-    eventSource = new EventSource('/api/live/stream')
-
-    eventSource.onopen = () => {
-      set({ isConnected: true })
-    }
-
-    eventSource.onmessage = (event) => {
-      try {
-        const updates: LiveMatchUpdate[] = JSON.parse(event.data)
-        const prev = get().liveMatches;
-        const next = { ...prev };
-        
-        updates.forEach(u => {
-          const oldMatch = prev[u.matchId];
-          
-          if (oldMatch) {
-             // Goal notification
-             if (u.homeGoals !== null && oldMatch.homeGoals !== null && u.homeGoals > oldMatch.homeGoals) {
-               toast.success(`⚽ GOAL! ${u.homeTeamName} ${u.homeGoals}-${u.awayGoals} ${u.awayTeamName}`, { duration: 5000, position: 'top-right' });
-             }
-             if (u.awayGoals !== null && oldMatch.awayGoals !== null && u.awayGoals > oldMatch.awayGoals) {
-               toast.success(`⚽ GOAL! ${u.homeTeamName} ${u.homeGoals}-${u.awayGoals} ${u.awayTeamName}`, { duration: 5000, position: 'top-right' });
-             }
-
-             // Status notification
-             if (oldMatch.status !== 'FINISHED' && u.status === 'FINISHED') {
-               toast(`${u.homeTeamName} ${u.homeGoals}-${u.awayGoals} ${u.awayTeamName}\nMatch Finished`, { icon: '🏁', duration: 5000, position: 'top-right' });
-             }
+          if (generation === connectionGeneration) set({ liveMatches: initialMap });
+        } catch (err) {
+          if (generation === connectionGeneration) {
+            console.error('Failed to fetch initial matches', err);
           }
-          
-          next[u.matchId] = u;
-        });
-
-        set({ liveMatches: next });
-      } catch (err) {
-        console.error('Error parsing SSE data', err)
+        } finally {
+          if (generation === connectionGeneration) set({ isInitializing: false });
+        }
       }
-    }
 
-    eventSource.onerror = (err) => {
-      console.error('SSE Error', err)
-      set({ isConnected: false })
-      eventSource?.close()
-      eventSource = null;
-      reconnectTimer = setTimeout(() => get().connect(), 5000)
+      if (generation !== connectionGeneration) return;
+
+      eventSource = new EventSource('/api/live/stream')
+
+      eventSource.onopen = () => {
+        if (generation === connectionGeneration) set({ isConnected: true })
+      }
+
+      eventSource.onmessage = (event) => {
+        try {
+          const updates: LiveMatchUpdate[] = JSON.parse(event.data)
+          const prev = get().liveMatches;
+          const next = { ...prev };
+
+          updates.forEach((update) => {
+            const oldMatch = prev[update.matchId];
+
+            if (oldMatch) {
+              if (
+                update.homeGoals !== null &&
+                oldMatch.homeGoals !== null &&
+                update.homeGoals > oldMatch.homeGoals
+              ) {
+                toast.success(
+                  `⚽ GOAL! ${update.homeTeamName} ${update.homeGoals}-${update.awayGoals} ${update.awayTeamName}`,
+                  { duration: 5000, position: 'top-right' },
+                )
+              }
+              if (
+                update.awayGoals !== null &&
+                oldMatch.awayGoals !== null &&
+                update.awayGoals > oldMatch.awayGoals
+              ) {
+                toast.success(
+                  `⚽ GOAL! ${update.homeTeamName} ${update.homeGoals}-${update.awayGoals} ${update.awayTeamName}`,
+                  { duration: 5000, position: 'top-right' },
+                )
+              }
+
+              if (oldMatch.status !== 'FINISHED' && update.status === 'FINISHED') {
+                toast(
+                  `${update.homeTeamName} ${update.homeGoals}-${update.awayGoals} ${update.awayTeamName}\nMatch Finished`,
+                  { icon: '🏁', duration: 5000, position: 'top-right' },
+                )
+              }
+            }
+
+            next[update.matchId] = update
+          })
+
+          if (generation === connectionGeneration) set({ liveMatches: next })
+        } catch (err) {
+          console.error('Error parsing SSE data', err)
+        }
+      }
+
+      eventSource.onerror = () => {
+        if (generation !== connectionGeneration) return
+        set({ isConnected: false })
+        // EventSource retries interrupted streams automatically.
+      }
+    })()
+    connectPromise = connecting
+    try {
+      await connecting
+    } finally {
+      if (connectPromise === connecting) connectPromise = null
     }
   },
 
   disconnect: () => {
+    connectionGeneration += 1;
+    connectPromise = null;
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
-    clearTimeout(reconnectTimer);
-    set({ isConnected: false });
+    set({ isConnected: false, isInitializing: true });
   }
 }));

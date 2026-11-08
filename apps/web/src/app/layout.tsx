@@ -5,7 +5,6 @@ import { Providers } from './providers'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { cn } from '@/lib/utils'
 import QueryProvider from '@/providers/query-provider'
-import { LiveScoreboard } from '@/components/matches/LiveScoreboard'
 import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({
@@ -35,7 +34,6 @@ export default function RootLayout({
         <QueryProvider>
           <Providers>
             <div className="relative flex min-h-screen flex-col">
-              <LiveScoreboard />
               <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="container mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8">
                   <div className="mr-4 flex">
@@ -54,6 +52,13 @@ export default function RootLayout({
                         href="/matches"
                       >
                         Matches
+                      </a>
+
+                      <a
+                        className="transition-colors hover:text-foreground/80 text-foreground/60"
+                        href="/live"
+                      >
+                        Live
                       </a>
 
                       <a

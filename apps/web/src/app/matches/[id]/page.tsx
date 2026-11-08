@@ -25,7 +25,6 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
   const { data: match, isLoading, isError } = useQuery({
     queryKey: ['match', id],
     queryFn: () => getMatch(id),
-    enabled: !!id
     enabled: !!id,
     // Refetch every 30s when live so score stays in sync with the poller
     refetchInterval: (query) => {
@@ -112,7 +111,6 @@ export default function MatchDetailsPage({ params }: { params: Promise<{ id: str
           )}
           <div className="flex items-center gap-3 text-muted-foreground text-sm font-medium">
             <StatusBadge status={currentStatus} />
-            {currentStatus === 'IN_PLAY' && currentMinute && (
             {(currentStatus === 'IN_PLAY' || currentStatus === 'PAUSED') && currentMinute && (
               <span className="text-green-500 font-bold animate-pulse">{currentMinute}'</span>
             )}
