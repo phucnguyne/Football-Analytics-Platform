@@ -135,6 +135,38 @@ export default function PredictionsPage() {
         </div>
       </div>
 
+      <details className="mb-8 rounded-2xl border bg-card px-5 py-4">
+        <summary className="cursor-pointer font-semibold">
+          How to read these predictions
+        </summary>
+        <dl className="mt-4 grid gap-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <dt className="font-semibold text-foreground"># and Team</dt>
+            <dd>Table rank by predicted average points, followed by the club name. Goal difference is used to break ties within each simulation.</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">P, Pts and GD</dt>
+            <dd>Matches played, current points, and current goal difference from completed matches.</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">Pred Pts</dt>
+            <dd>Average final points across all Monte Carlo season simulations.</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">Range</dt>
+            <dd>Lowest to highest final points observed across the simulations; it is a model range, not a confidence interval.</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">🏆 Title and ⭐ Top 4</dt>
+            <dd>Share of simulations in which a club finishes first or in the top four.</dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">⬇️ Releg.</dt>
+            <dd>Share of simulations in which a club finishes in the bottom three.</dd>
+          </div>
+        </dl>
+      </details>
+
       {/* Predicted Standings Table */}
       <div className="bg-card rounded-2xl border overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -207,4 +239,3 @@ export default function PredictionsPage() {
     </Container>
   )
 }
-
