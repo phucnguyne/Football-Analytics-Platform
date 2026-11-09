@@ -79,6 +79,7 @@ scripts/
 .npmrc
 
 apps/api/dist/
+packages/config/dist/
 
 # Prisma generated client
 apps/api/generated/

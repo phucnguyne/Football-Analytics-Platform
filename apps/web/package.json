@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @app/config build",
     "dev": "next dev",
+    "prebuild": "pnpm --filter @app/config build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
