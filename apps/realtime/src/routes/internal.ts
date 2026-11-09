@@ -7,8 +7,8 @@
 // Body:    { event: string, room?: string, data: unknown }
 //
 // Nếu payload có dạng live-score (matchId + homeScore/awayScore...),
-// đồng bộ luôn vào in-memory cache của match.service để các client
-// join room sau đó (match:join) vẫn lấy được tỉ số mới nhất.
+// đồng bộ vào shared cache của match.service để mọi realtime instance và
+// client join room sau đó (match:join) vẫn lấy được tỉ số mới nhất.
 
 import { Router, type Request, type Response } from "express";
 import type { Server } from "socket.io";

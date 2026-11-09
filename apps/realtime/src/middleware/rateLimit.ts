@@ -1,8 +1,8 @@
 // ─── middleware/rateLimit.ts ──────────────────────────────────────────────────
 // Giới hạn số event mỗi socket có thể gửi trong 1 cửa sổ thời gian.
-// Dùng in-memory Map — nếu dùng multi-process thì cần chuyển sang Redis.
 
 import type { Socket } from "socket.io";
+import { getRedisClient } from "../config/redis";
 
 type NextFn = (err?: Error) => void;
 
@@ -18,40 +18,62 @@ const DEFAULT_OPTIONS: RateLimitOptions = {
   windowMs: 10_000,
 };
 
-// socketId → { count, resetAt }
+// Used only when Redis is not configured (development and tests).
 const store = new Map<string, { count: number; resetAt: number }>();
+
+const INCREMENT_RATE_LIMIT_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
 
 export function rateLimitMiddleware(opts: Partial<RateLimitOptions> = {}) {
   const { maxEvents, windowMs } = { ...DEFAULT_OPTIONS, ...opts };
 
   return (socket: Socket, next: NextFn): void => {
-    // Khởi tạo bucket cho socket này
-    store.set(socket.id, { count: 0, resetAt: Date.now() + windowMs });
+    const connectedAt = Date.now();
+    if (!getRedisClient()) {
+      store.set(socket.id, { count: 0, resetAt: connectedAt + windowMs });
+    }
 
     socket.use(([event], nextEvent) => {
       // Bỏ qua event nội bộ của Socket.io
       if (event.startsWith("socket.io")) return nextEvent();
 
       const now = Date.now();
-      const bucket = store.get(socket.id)!;
+      const redis = getRedisClient();
+      const checkLimit = redis
+        ? redis.eval(INCREMENT_RATE_LIMIT_SCRIPT, {
+            keys: [
+              `realtime:rate-limit:${socket.id}:${Math.floor((now - connectedAt) / windowMs)}`,
+            ],
+            arguments: [String(windowMs - ((now - connectedAt) % windowMs))],
+          })
+        : Promise.resolve(incrementMemoryBucket(socket.id, now, windowMs));
 
-      if (now > bucket.resetAt) {
-        bucket.count = 0;
-        bucket.resetAt = now + windowMs;
-      }
-
-      bucket.count += 1;
-
-      if (bucket.count > maxEvents) {
-        socket.emit("error", {
-          code: "RATE_LIMITED",
-          message: `Quá ${maxEvents} event / ${windowMs / 1000}s. Thử lại sau.`,
+      void checkLimit
+        .then((count) => {
+          if (typeof count !== "number") {
+            throw new Error("Redis returned an invalid rate-limit counter");
+          }
+          if (count > maxEvents) {
+            socket.emit("error", {
+              code: "RATE_LIMITED",
+              message: `Quá ${maxEvents} event / ${windowMs / 1000}s. Thử lại sau.`,
+            });
+            return;
+          }
+          nextEvent();
+        })
+        .catch((error: unknown) => {
+          console.error("[rate-limit] failed to check event limit:", error);
+          socket.emit("error", {
+            code: "RATE_LIMIT_UNAVAILABLE",
+            message: "Không thể kiểm tra giới hạn event. Thử lại sau.",
+          });
         });
-        // Không gọi nextEvent → event bị bỏ
-        return;
-      }
-
-      nextEvent();
     });
 
     // Dọn dẹp khi disconnect
@@ -59,4 +81,20 @@ export function rateLimitMiddleware(opts: Partial<RateLimitOptions> = {}) {
 
     next();
   };
+}
+
+function incrementMemoryBucket(
+  socketId: string,
+  now: number,
+  windowMs: number,
+): number {
+  const bucket = store.get(socketId);
+  if (!bucket)
+    throw new Error(`Rate-limit bucket not found for socket ${socketId}`);
+  if (now > bucket.resetAt) {
+    bucket.count = 0;
+    bucket.resetAt = now + windowMs;
+  }
+  bucket.count += 1;
+  return bucket.count;
 }

@@ -3,9 +3,14 @@
 
 import { Server } from "socket.io";
 import type { Server as HttpServer } from "http";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { env } from "./env";
+import type { RedisConnections } from "./redis";
 
-export function createSocketServer(httpServer: HttpServer): Server {
+export function createSocketServer(
+  httpServer: HttpServer,
+  redisConnections: RedisConnections | null,
+): Server {
   const io = new Server(httpServer, {
     cors: {
       origin: env.webUrl,
@@ -20,6 +25,12 @@ export function createSocketServer(httpServer: HttpServer): Server {
     pingInterval: 25_000,
     pingTimeout: 60_000,
   });
+
+  if (redisConnections) {
+    io.adapter(
+      createAdapter(redisConnections.pubClient, redisConnections.subClient),
+    );
+  }
 
   return io;
 }

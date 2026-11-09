@@ -60,6 +60,9 @@ tactical insights, and player/team statistics.**
         └─────────────┘
 ```
 
+The realtime service connects to Redis for shared live-score state, rate limits,
+and cross-instance Socket.io broadcasts.
+
 > **Docker Compose** cung cấp **PostgreSQL + Redis** và có một service build web.
 > Khi phát triển, các Node.js apps chạy local bằng `pnpm dev`.
 
@@ -92,7 +95,7 @@ tactical insights, and player/team statistics.**
 |------|---------|---------|
 | PostgreSQL | 16 | Primary relational database |
 | Prisma | 5 | Type-safe ORM + migrations |
-| Redis | 7 | Local infrastructure service; the current realtime code uses in-memory state |
+| Redis | 7 | Shared live-score state, distributed Socket.io broadcasts, and rate limits |
 | Docker Compose | v2 | Local DB + Redis containers |
 
 ---
@@ -216,6 +219,7 @@ REALTIME_PORT=3001
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 NEXTAUTH_SECRET="<same value as apps/web/.env>"
 INTERNAL_SERVICE_SECRET="<same value as apps/api/.env>"
+REDIS_URL="redis://localhost:6379"
 
 # packages/database/.env: FOOTBALL_DATA_API_KEY is needed only by pnpm db:seed
 ```
@@ -357,9 +361,13 @@ Server broadcasts:
   notification:push        Notification
 ```
 
-The web hook currently contains older event names, so this integration has not
-been verified end to end. Redis is not used as a Socket.io adapter yet; live
-scores and rate-limit state are currently in memory.
+Redis backs shared live-score state and rate limits, and the Socket.io Redis
+adapter distributes room broadcasts across realtime instances. Redis is
+optional in development (without `REDIS_URL`, realtime uses in-memory state),
+but required in production. Set `REDIS_URL` to a private Redis endpoint; use
+`rediss://` when the provider requires TLS. Deploy the realtime service
+separately from the web container and point every realtime instance at the same
+Redis deployment.
 
 ---
 
