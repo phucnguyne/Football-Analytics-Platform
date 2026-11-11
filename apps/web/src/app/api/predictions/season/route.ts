@@ -1,240 +1,405 @@
-import { NextResponse } from 'next/server'
-import prisma from '@app/database/src/client'
+import { NextResponse } from "next/server";
+import { env } from "@/lib/env";
 
-// Factorial
-function factorial(n: number): number {
-  if (n <= 1) return 1
-  let f = 1
-  for (let i = 2; i <= n; i++) f *= i
-  return f
+const SIMULATIONS = 10_000;
+const TOP_FOUR_PLACES = 4;
+const RELEGATION_PLACES = 3;
+const COMPETITION_CODE = "PL";
+const FORM_HALF_LIFE_DAYS = 45;
+const PRIOR_MATCHES = 3;
+
+interface ProviderTeam {
+  id: number;
+  name: string;
+  shortName?: string;
+  crest?: string | null;
 }
 
-// Poisson
-function poisson(k: number, lambda: number): number {
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k)
+interface ProviderMatch {
+  utcDate: string;
+  status: string;
+  homeTeam: ProviderTeam;
+  awayTeam: ProviderTeam;
+  score?: { fullTime?: { home?: number | null; away?: number | null } };
+}
+
+interface TeamStats {
+  teamId: number;
+  name: string;
+  shortName: string;
+  crest: string | null;
+  currentPoints: number;
+  currentPlayed: number;
+  currentGF: number;
+  currentGA: number;
+  homeWeight: number;
+  homeWeightedGoalsScored: number;
+  homeWeightedGoalsConceded: number;
+  awayWeight: number;
+  awayWeightedGoalsScored: number;
+  awayWeightedGoalsConceded: number;
+}
+
+interface TeamStrength {
+  homeAttack: number;
+  homeDefense: number;
+  awayAttack: number;
+  awayDefense: number;
+}
+
+async function fetchProvider<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${env.FOOTBALL_DATA_API_URL}${endpoint}`, {
+    headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY },
+    next: { revalidate: 300 },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Football-data.org ${endpoint} request failed: ${response.status}`,
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function poissonSample(lambda: number): number {
+  const threshold = Math.exp(-lambda);
+  let probability = 1;
+  let goals = 0;
+
+  do {
+    goals++;
+    probability *= Math.random();
+  } while (probability > threshold);
+
+  return goals - 1;
+}
+
+function weightedRate(
+  weightedTotal: number,
+  weight: number,
+  leagueAverage: number,
+): number {
+  return (
+    (weightedTotal + leagueAverage * PRIOR_MATCHES) / (weight + PRIOR_MATCHES)
+  );
+}
+
+function strength(rate: number, leagueAverage: number): number {
+  return leagueAverage > 0 ? rate / leagueAverage : 1;
 }
 
 export async function GET() {
   try {
-    // Get finished matches to compute strengths
-    const finishedMatches = await prisma.match.findMany({
-      where: { status: 'FINISHED' },
-      include: { score: true, homeTeam: true, awayTeam: true },
-    })
+    const competition = await fetchProvider<{
+      name: string;
+      currentSeason?: { startDate: string };
+    }>(`/competitions/${COMPETITION_CODE}`);
+    const currentSeason = competition.currentSeason;
 
-    if (finishedMatches.length === 0) {
-      return NextResponse.json({ error: 'No finished matches for modeling' }, { status: 400 })
+    if (!currentSeason?.startDate) {
+      return NextResponse.json(
+        {
+          error:
+            "Football-data.org did not return a current Premier League season",
+        },
+        { status: 503 },
+      );
     }
 
-    let totalHomeGoals = 0
-    let totalAwayGoals = 0
-    const teamStats: Record<number, {
-      name: string, shortName: string, crest: string | null,
-      homeMatches: number, homeGoalsScored: number, homeGoalsConceded: number,
-      awayMatches: number, awayGoalsScored: number, awayGoalsConceded: number,
-      currentPoints: number, currentGF: number, currentGA: number, currentGD: number,
-      currentWins: number, currentDraws: number, currentLosses: number, currentPlayed: number,
-    }> = {}
+    const season = new Date(currentSeason.startDate).getUTCFullYear();
+    const data = await fetchProvider<{ matches?: ProviderMatch[] }>(
+      `/competitions/${COMPETITION_CODE}/matches?season=${season}`,
+    );
+    const matches = data.matches ?? [];
+    const stats = new Map<number, TeamStats>();
 
-    for (const m of finishedMatches) {
-      const hg = m.score?.homeTeamGoals ?? 0
-      const ag = m.score?.awayTeamGoals ?? 0
-      totalHomeGoals += hg
-      totalAwayGoals += ag
+    const ensureTeam = (team: ProviderTeam) => {
+      const existing = stats.get(team.id);
+      if (existing) return existing;
 
-      if (!teamStats[m.homeTeamId]) {
-        teamStats[m.homeTeamId] = {
-          name: m.homeTeam.name, shortName: m.homeTeam.shortName, crest: m.homeTeam.crest,
-          homeMatches: 0, homeGoalsScored: 0, homeGoalsConceded: 0,
-          awayMatches: 0, awayGoalsScored: 0, awayGoalsConceded: 0,
-          currentPoints: 0, currentGF: 0, currentGA: 0, currentGD: 0,
-          currentWins: 0, currentDraws: 0, currentLosses: 0, currentPlayed: 0,
+      const teamStats: TeamStats = {
+        teamId: team.id,
+        name: team.name,
+        shortName: team.shortName || team.name,
+        crest: team.crest ?? null,
+        currentPoints: 0,
+        currentPlayed: 0,
+        currentGF: 0,
+        currentGA: 0,
+        homeWeight: 0,
+        homeWeightedGoalsScored: 0,
+        homeWeightedGoalsConceded: 0,
+        awayWeight: 0,
+        awayWeightedGoalsScored: 0,
+        awayWeightedGoalsConceded: 0,
+      };
+      stats.set(team.id, teamStats);
+      return teamStats;
+    };
+
+    for (const match of matches) {
+      ensureTeam(match.homeTeam);
+      ensureTeam(match.awayTeam);
+    }
+
+    let totalHomeGoals = 0;
+    let totalAwayGoals = 0;
+    let scoredMatchCount = 0;
+    let leagueWeight = 0;
+    let weightedHomeGoals = 0;
+    let weightedAwayGoals = 0;
+    const now = Date.now();
+    for (const match of matches) {
+      const homeGoals = match.score?.fullTime?.home;
+      const awayGoals = match.score?.fullTime?.away;
+      if (match.status !== "FINISHED" || homeGoals == null || awayGoals == null)
+        continue;
+
+      const home = ensureTeam(match.homeTeam);
+      const away = ensureTeam(match.awayTeam);
+      totalHomeGoals += homeGoals;
+      totalAwayGoals += awayGoals;
+      scoredMatchCount++;
+
+      const ageDays = Math.max(
+        0,
+        (now - new Date(match.utcDate).getTime()) / (24 * 60 * 60 * 1000),
+      );
+      const recencyWeight = Math.pow(2, -ageDays / FORM_HALF_LIFE_DAYS);
+      leagueWeight += recencyWeight;
+      weightedHomeGoals += homeGoals * recencyWeight;
+      weightedAwayGoals += awayGoals * recencyWeight;
+
+      home.currentPlayed++;
+      away.currentPlayed++;
+      home.currentGF += homeGoals;
+      home.currentGA += awayGoals;
+      away.currentGF += awayGoals;
+      away.currentGA += homeGoals;
+
+      home.homeWeight += recencyWeight;
+      home.homeWeightedGoalsScored += homeGoals * recencyWeight;
+      home.homeWeightedGoalsConceded += awayGoals * recencyWeight;
+      away.awayWeight += recencyWeight;
+      away.awayWeightedGoalsScored += awayGoals * recencyWeight;
+      away.awayWeightedGoalsConceded += homeGoals * recencyWeight;
+
+      if (homeGoals > awayGoals) home.currentPoints += 3;
+      else if (homeGoals < awayGoals) away.currentPoints += 3;
+      else {
+        home.currentPoints++;
+        away.currentPoints++;
+      }
+    }
+
+    if (scoredMatchCount === 0 || stats.size === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No completed current-season Premier League matches are available",
+        },
+        { status: 400 },
+      );
+    }
+
+    const remaining = matches.filter(
+      (match) =>
+        (match.status === "SCHEDULED" || match.status === "TIMED") &&
+        new Date(match.utcDate).getTime() >= now,
+    );
+    const leagueAvgHome = weightedHomeGoals / leagueWeight;
+    const leagueAvgAway = weightedAwayGoals / leagueWeight;
+    const teamList = [...stats.values()];
+    const strengths = new Map<number, TeamStrength>();
+    for (const team of teamList) {
+      strengths.set(team.teamId, {
+        homeAttack: strength(
+          weightedRate(
+            team.homeWeightedGoalsScored,
+            team.homeWeight,
+            leagueAvgHome,
+          ),
+          leagueAvgHome,
+        ),
+        homeDefense: strength(
+          weightedRate(
+            team.homeWeightedGoalsConceded,
+            team.homeWeight,
+            leagueAvgAway,
+          ),
+          leagueAvgAway,
+        ),
+        awayAttack: strength(
+          weightedRate(
+            team.awayWeightedGoalsScored,
+            team.awayWeight,
+            leagueAvgAway,
+          ),
+          leagueAvgAway,
+        ),
+        awayDefense: strength(
+          weightedRate(
+            team.awayWeightedGoalsConceded,
+            team.awayWeight,
+            leagueAvgHome,
+          ),
+          leagueAvgHome,
+        ),
+      });
+    }
+    const currentRank = new Map(
+      [...teamList]
+        .sort(
+          (a, b) =>
+            b.currentPoints - a.currentPoints ||
+            b.currentGF - b.currentGA - (a.currentGF - a.currentGA) ||
+            b.currentGF - a.currentGF ||
+            a.name.localeCompare(b.name),
+        )
+        .map((team, index) => [team.teamId, index + 1]),
+    );
+    const positionTotals = new Map(teamList.map(({ teamId }) => [teamId, 0]));
+    const titleCounts = new Map(teamList.map(({ teamId }) => [teamId, 0]));
+    const topFourCounts = new Map(teamList.map(({ teamId }) => [teamId, 0]));
+    const relegationCounts = new Map(teamList.map(({ teamId }) => [teamId, 0]));
+    const pointsTotals = new Map(teamList.map(({ teamId }) => [teamId, 0]));
+
+    for (let simulation = 0; simulation < SIMULATIONS; simulation++) {
+      const points = new Map(
+        teamList.map(({ teamId, currentPoints }) => [teamId, currentPoints]),
+      );
+      const goalsFor = new Map(
+        teamList.map(({ teamId, currentGF }) => [teamId, currentGF]),
+      );
+      const goalsAgainst = new Map(
+        teamList.map(({ teamId, currentGA }) => [teamId, currentGA]),
+      );
+
+      for (const match of remaining) {
+        const home = stats.get(match.homeTeam.id);
+        const away = stats.get(match.awayTeam.id);
+        const homeStrength = strengths.get(match.homeTeam.id);
+        const awayStrength = strengths.get(match.awayTeam.id);
+        if (!home || !away || !homeStrength || !awayStrength) continue;
+
+        const expectedHomeGoals =
+          leagueAvgHome * homeStrength.homeAttack * awayStrength.awayDefense;
+        const expectedAwayGoals =
+          leagueAvgAway * awayStrength.awayAttack * homeStrength.homeDefense;
+        const homeGoals = poissonSample(expectedHomeGoals);
+        const awayGoals = poissonSample(expectedAwayGoals);
+        goalsFor.set(home.teamId, (goalsFor.get(home.teamId) ?? 0) + homeGoals);
+        goalsAgainst.set(
+          home.teamId,
+          (goalsAgainst.get(home.teamId) ?? 0) + awayGoals,
+        );
+        goalsFor.set(away.teamId, (goalsFor.get(away.teamId) ?? 0) + awayGoals);
+        goalsAgainst.set(
+          away.teamId,
+          (goalsAgainst.get(away.teamId) ?? 0) + homeGoals,
+        );
+
+        if (homeGoals > awayGoals)
+          points.set(home.teamId, (points.get(home.teamId) ?? 0) + 3);
+        else if (homeGoals < awayGoals)
+          points.set(away.teamId, (points.get(away.teamId) ?? 0) + 3);
+        else {
+          points.set(home.teamId, (points.get(home.teamId) ?? 0) + 1);
+          points.set(away.teamId, (points.get(away.teamId) ?? 0) + 1);
         }
       }
-      if (!teamStats[m.awayTeamId]) {
-        teamStats[m.awayTeamId] = {
-          name: m.awayTeam.name, shortName: m.awayTeam.shortName, crest: m.awayTeam.crest,
-          homeMatches: 0, homeGoalsScored: 0, homeGoalsConceded: 0,
-          awayMatches: 0, awayGoalsScored: 0, awayGoalsConceded: 0,
-          currentPoints: 0, currentGF: 0, currentGA: 0, currentGD: 0,
-          currentWins: 0, currentDraws: 0, currentLosses: 0, currentPlayed: 0,
-        }
+
+      const ranking = teamList
+        .map(({ teamId }) => teamId)
+        .sort(
+          (a, b) =>
+            (points.get(b) ?? 0) - (points.get(a) ?? 0) ||
+            (goalsFor.get(b) ?? 0) -
+              (goalsAgainst.get(b) ?? 0) -
+              ((goalsFor.get(a) ?? 0) - (goalsAgainst.get(a) ?? 0)) ||
+            (goalsFor.get(b) ?? 0) - (goalsFor.get(a) ?? 0),
+        );
+
+      ranking.forEach((teamId, index) => {
+        positionTotals.set(
+          teamId,
+          (positionTotals.get(teamId) ?? 0) + index + 1,
+        );
+      });
+      titleCounts.set(ranking[0], (titleCounts.get(ranking[0]) ?? 0) + 1);
+      for (const teamId of ranking.slice(0, TOP_FOUR_PLACES)) {
+        topFourCounts.set(teamId, (topFourCounts.get(teamId) ?? 0) + 1);
       }
-
-      teamStats[m.homeTeamId].homeMatches++
-      teamStats[m.homeTeamId].homeGoalsScored += hg
-      teamStats[m.homeTeamId].homeGoalsConceded += ag
-      teamStats[m.homeTeamId].currentGF += hg
-      teamStats[m.homeTeamId].currentGA += ag
-      teamStats[m.homeTeamId].currentPlayed++
-
-      teamStats[m.awayTeamId].awayMatches++
-      teamStats[m.awayTeamId].awayGoalsScored += ag
-      teamStats[m.awayTeamId].awayGoalsConceded += hg
-      teamStats[m.awayTeamId].currentGF += ag
-      teamStats[m.awayTeamId].currentGA += hg
-      teamStats[m.awayTeamId].currentPlayed++
-
-      if (hg > ag) {
-        teamStats[m.homeTeamId].currentPoints += 3
-        teamStats[m.homeTeamId].currentWins++
-        teamStats[m.awayTeamId].currentLosses++
-      } else if (hg === ag) {
-        teamStats[m.homeTeamId].currentPoints += 1
-        teamStats[m.awayTeamId].currentPoints += 1
-        teamStats[m.homeTeamId].currentDraws++
-        teamStats[m.awayTeamId].currentDraws++
-      } else {
-        teamStats[m.awayTeamId].currentPoints += 3
-        teamStats[m.awayTeamId].currentWins++
-        teamStats[m.homeTeamId].currentLosses++
+      for (const teamId of ranking.slice(-RELEGATION_PLACES)) {
+        relegationCounts.set(teamId, (relegationCounts.get(teamId) ?? 0) + 1);
+      }
+      for (const [teamId, finalPoints] of points) {
+        pointsTotals.set(teamId, (pointsTotals.get(teamId) ?? 0) + finalPoints);
       }
     }
 
-    for (const id of Object.keys(teamStats)) {
-      teamStats[parseInt(id)].currentGD = teamStats[parseInt(id)].currentGF - teamStats[parseInt(id)].currentGA
-    }
+    const teams = teamList
+      .map((team) => ({
+        teamId: team.teamId,
+        name: team.name,
+        shortName: team.shortName,
+        crest: team.crest,
+        currentPosition: currentRank.get(team.teamId) ?? teamList.length,
+        currentPoints: team.currentPoints,
+        currentPlayed: team.currentPlayed,
+        currentGD: team.currentGF - team.currentGA,
+        predictedPosition:
+          Math.round(
+            ((positionTotals.get(team.teamId) ?? 0) / SIMULATIONS) * 10,
+          ) / 10,
+        avgPoints:
+          Math.round(
+            ((pointsTotals.get(team.teamId) ?? 0) / SIMULATIONS) * 10,
+          ) / 10,
+        titleProb:
+          Math.round(
+            ((titleCounts.get(team.teamId) ?? 0) / SIMULATIONS) * 1000,
+          ) / 10,
+        topFourProb:
+          Math.round(
+            ((topFourCounts.get(team.teamId) ?? 0) / SIMULATIONS) * 1000,
+          ) / 10,
+        relegationProb:
+          Math.round(
+            ((relegationCounts.get(team.teamId) ?? 0) / SIMULATIONS) * 1000,
+          ) / 10,
+      }))
+      .sort((a, b) => a.currentPosition - b.currentPosition);
 
-    const totalMatches = finishedMatches.length
-    const leagueAvgHome = totalHomeGoals / totalMatches
-    const leagueAvgAway = totalAwayGoals / totalMatches
-
-    // Compute attack/defense strengths per team
-    const strengths: Record<number, { has: number, aas: number, hds: number, ads: number }> = {}
-    for (const [idStr, s] of Object.entries(teamStats)) {
-      const id = parseInt(idStr)
-      strengths[id] = {
-        has: s.homeMatches > 0 ? (s.homeGoalsScored / s.homeMatches) / leagueAvgHome : 1,
-        aas: s.awayMatches > 0 ? (s.awayGoalsScored / s.awayMatches) / leagueAvgAway : 1,
-        hds: s.homeMatches > 0 ? (s.homeGoalsConceded / s.homeMatches) / leagueAvgAway : 1,
-        ads: s.awayMatches > 0 ? (s.awayGoalsConceded / s.awayMatches) / leagueAvgHome : 1,
-      }
-    }
-
-    // Get remaining scheduled matches
-    const remaining = await prisma.match.findMany({
-      where: { status: { in: ['SCHEDULED', 'TIMED'] } },
-    })
-
-    // Monte Carlo: simulate N seasons
-    const N = 10000
-    const teamIds = Object.keys(teamStats).map(Number)
-    const titleCount: Record<number, number> = {}
-    const topFourCount: Record<number, number> = {}
-    const relegationCount: Record<number, number> = {}
-    const pointsTotals: Record<number, number[]> = {}
-
-    for (const id of teamIds) {
-      titleCount[id] = 0
-      topFourCount[id] = 0
-      relegationCount[id] = 0
-      pointsTotals[id] = []
-    }
-
-    for (let sim = 0; sim < N; sim++) {
-      // Start with current points
-      const simPoints: Record<number, number> = {}
-      const simGD: Record<number, number> = {}
-      for (const id of teamIds) {
-        simPoints[id] = teamStats[id].currentPoints
-        simGD[id] = teamStats[id].currentGD
-      }
-
-      // Simulate each remaining match
-      for (const m of remaining) {
-        const homeS = strengths[m.homeTeamId] || { has: 1, hds: 1 }
-        const awayS = strengths[m.awayTeamId] || { aas: 1, ads: 1 }
-        const lambdaH = homeS.has * awayS.ads * leagueAvgHome
-        const lambdaA = awayS.aas * homeS.hds * leagueAvgAway
-
-        // Random Poisson sample for goals
-        const hGoals = poissonSample(lambdaH)
-        const aGoals = poissonSample(lambdaA)
-
-        if (simPoints[m.homeTeamId] !== undefined) {
-          simGD[m.homeTeamId] += (hGoals - aGoals)
-        }
-        if (simPoints[m.awayTeamId] !== undefined) {
-          simGD[m.awayTeamId] += (aGoals - hGoals)
-        }
-
-        if (hGoals > aGoals) {
-          if (simPoints[m.homeTeamId] !== undefined) simPoints[m.homeTeamId] += 3
-        } else if (hGoals === aGoals) {
-          if (simPoints[m.homeTeamId] !== undefined) simPoints[m.homeTeamId] += 1
-          if (simPoints[m.awayTeamId] !== undefined) simPoints[m.awayTeamId] += 1
-        } else {
-          if (simPoints[m.awayTeamId] !== undefined) simPoints[m.awayTeamId] += 3
-        }
-      }
-
-      // Rank teams by points, then GD
-      const ranking = teamIds.slice().sort((a, b) => {
-        if (simPoints[b] !== simPoints[a]) return simPoints[b] - simPoints[a]
-        return simGD[b] - simGD[a]
-      })
-
-      titleCount[ranking[0]]++
-      for (let i = 0; i < 4 && i < ranking.length; i++) topFourCount[ranking[i]]++
-      for (let i = Math.max(0, ranking.length - 3); i < ranking.length; i++) relegationCount[ranking[i]]++
-
-      for (const id of teamIds) {
-        pointsTotals[id].push(simPoints[id])
-      }
-    }
-
-    // Compute final results
-    const results = teamIds.map(id => {
-      const pts = pointsTotals[id]
-      const avgPoints = pts.reduce((a, b) => a + b, 0) / N
-      const minPoints = Math.min(...pts)
-      const maxPoints = Math.max(...pts)
-
-      // Compute median
-      const sorted = [...pts].sort((a, b) => a - b)
-      const medianPoints = sorted[Math.floor(N / 2)]
-
-      return {
-        teamId: id,
-        name: teamStats[id].name,
-        shortName: teamStats[id].shortName,
-        crest: teamStats[id].crest,
-        currentPoints: teamStats[id].currentPoints,
-        currentPlayed: teamStats[id].currentPlayed,
-        currentGD: teamStats[id].currentGD,
-        avgPoints: Math.round(avgPoints * 10) / 10,
-        medianPoints,
-        minPoints,
-        maxPoints,
-        titleProb: Math.round((titleCount[id] / N) * 1000) / 10,
-        topFourProb: Math.round((topFourCount[id] / N) * 1000) / 10,
-        relegationProb: Math.round((relegationCount[id] / N) * 1000) / 10,
-      }
-    }).sort((a, b) => b.avgPoints - a.avgPoints)
-
-    return NextResponse.json({
-      simulations: N,
-      matchesPlayed: finishedMatches.length,
-      matchesRemaining: remaining.length,
-      leagueAvgHomeGoals: Math.round(leagueAvgHome * 100) / 100,
-      leagueAvgAwayGoals: Math.round(leagueAvgAway * 100) / 100,
-      teams: results,
-    })
+    return NextResponse.json(
+      {
+        competition: competition.name,
+        season,
+        source:
+          "Football-data.org current-season results and fixtures (cached for 5 minutes)",
+        simulations: SIMULATIONS,
+        matchesPlayed: scoredMatchCount,
+        matchesRemaining: remaining.length,
+        leagueAvgHomeGoals: Math.round(leagueAvgHome * 100) / 100,
+        leagueAvgAwayGoals: Math.round(leagueAvgAway * 100) / 100,
+        formHalfLifeDays: FORM_HALF_LIFE_DAYS,
+        strengthPriorMatches: PRIOR_MATCHES,
+        teams,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        },
+      },
+    );
   } catch (error) {
-    console.error('Prediction error:', error)
-    return NextResponse.json({ error: 'internal error' }, { status: 500 })
+    console.error("Prediction error:", error);
+    return NextResponse.json(
+      {
+        error: "Could not load real Premier League data from Football-data.org",
+      },
+      { status: 502 },
+    );
   }
 }
-
-// Random Poisson sample using inverse transform
-function poissonSample(lambda: number): number {
-  const L = Math.exp(-lambda)
-  let k = 0
-  let p = 1
-  do {
-    k++
-    p *= Math.random()
-  } while (p > L)
-  return k - 1
-}
-
