@@ -13,6 +13,7 @@
     "db:generate": "pnpm --filter @app/database run generate",
     "db:push": "pnpm --filter @app/database run push",
     "db:migrate": "pnpm --filter @app/database run migrate",
+    "db:migrate:deploy": "pnpm --filter @app/database run migrate:deploy",
     "db:studio": "pnpm --filter @app/database run studio",
     "db:seed": "pnpm --filter @app/database run seed",
     "db:sync-current": "pnpm --filter @app/database run sync-current",

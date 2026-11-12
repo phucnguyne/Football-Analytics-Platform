@@ -19,19 +19,19 @@ tactical insights, and player/team statistics.**
 
 ## 📸 Features
 
-| Feature | Description |
-|---------|-------------|
-| 🟢 **Live Scores** | Live-score API and a Socket.io server are included; end-to-end delivery is not verified |
-| 📅 **Fixtures** | Full fixture calendar with filters by league & date |
-| 📊 **Match Stats** | Shots, possession, xG, cards, corners per match |
-| 🗺️ **Shot Map** | xG-weighted shot map rendered on a pitch canvas |
-| 🕸️ **Passing Network** | Average-position passing graph with touch volume |
-| 🏆 **Standings** | League table with promotion/relegation zone colours |
-| 👥 **Teams** | Team profiles, squad lists, scouting reports |
-| ⭐ **Players** | Search, profiles, radar charts, form trend, career stats |
-| 📈 **Analytics** | Heatmaps, build-up patterns, PPDA meter, comparisons |
-| 🔐 **Auth** | NextAuth.js Credentials login |
-| 🆓 **External data** | Uses football-data.org when a valid API key is configured |
+| Feature                | Description                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| 🟢 **Live Scores**     | Live-score API and a Socket.io server are included; end-to-end delivery is not verified |
+| 📅 **Fixtures**        | Full fixture calendar with filters by league & date                                     |
+| 📊 **Match Stats**     | Shots, possession, xG, cards, corners per match                                         |
+| 🗺️ **Shot Map**        | xG-weighted shot map rendered on a pitch canvas                                         |
+| 🕸️ **Passing Network** | Average-position passing graph with touch volume                                        |
+| 🏆 **Standings**       | League table with promotion/relegation zone colours                                     |
+| 👥 **Teams**           | Team profiles, squad lists, scouting reports                                            |
+| ⭐ **Players**         | Search, profiles, radar charts, form trend, career stats                                |
+| 📈 **Analytics**       | Heatmaps, build-up patterns, PPDA meter, comparisons                                    |
+| 🔐 **Auth**            | NextAuth.js Credentials login                                                           |
+| 🆓 **External data**   | Uses football-data.org when a valid API key is configured                               |
 
 ---
 
@@ -71,32 +71,35 @@ and cross-instance Socket.io broadcasts.
 ## 🛠️ Tech Stack
 
 ### Frontend (`apps/web`)
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Next.js | 16 | App framework — SSR, App Router, API Routes |
-| React | 19 | UI library |
-| TypeScript | 5.4 | Type safety |
-| Tailwind CSS | 4 | Utility-first styling |
-| Radix UI | latest | Accessible headless components |
-| Zustand | 4.5 | Client state management |
-| TanStack Query | 5 | Server state & data fetching |
-| Recharts | 2 | Charts (radar, area, bar) |
-| Socket.io-client | 4.7 | Real-time WebSocket updates |
+
+| Tool             | Version | Purpose                                     |
+| ---------------- | ------- | ------------------------------------------- |
+| Next.js          | 16      | App framework — SSR, App Router, API Routes |
+| React            | 19      | UI library                                  |
+| TypeScript       | 5.4     | Type safety                                 |
+| Tailwind CSS     | 4       | Utility-first styling                       |
+| Radix UI         | latest  | Accessible headless components              |
+| Zustand          | 4.5     | Client state management                     |
+| TanStack Query   | 5       | Server state & data fetching                |
+| Recharts         | 2       | Charts (radar, area, bar)                   |
+| Socket.io-client | 4.7     | Real-time WebSocket updates                 |
 
 ### Backend
-| App | Tool | Purpose |
-|-----|------|---------|
-| `apps/web` | Next.js API Routes | REST endpoints for all pages |
-| `apps/api` | Fastify 4 | Internal live-scores service |
-| `apps/realtime` | Express + Socket.io | WebSocket push server |
+
+| App             | Tool                | Purpose                      |
+| --------------- | ------------------- | ---------------------------- |
+| `apps/web`      | Next.js API Routes  | REST endpoints for all pages |
+| `apps/api`      | Fastify 4           | Internal live-scores service |
+| `apps/realtime` | Express + Socket.io | WebSocket push server        |
 
 ### Database & Infrastructure
-| Tool | Version | Purpose |
-|------|---------|---------|
-| PostgreSQL | 16 | Primary relational database |
-| Prisma | 5 | Type-safe ORM + migrations |
-| Redis | 7 | Shared live-score state, distributed Socket.io broadcasts, and rate limits |
-| Docker Compose | v2 | Local DB + Redis containers |
+
+| Tool           | Version | Purpose                                                                    |
+| -------------- | ------- | -------------------------------------------------------------------------- |
+| PostgreSQL     | 16      | Primary relational database                                                |
+| Prisma         | 5       | Type-safe ORM + migrations                                                 |
+| Redis          | 7       | Shared live-score state, distributed Socket.io broadcasts, and rate limits |
+| Docker Compose | v2      | Local DB + Redis containers                                                |
 
 ---
 
@@ -228,6 +231,7 @@ REDIS_URL="redis://localhost:6379"
 > Generate two separate secrets, each at least 32 characters: share
 > `NEXTAUTH_SECRET` between web/realtime and `INTERNAL_SERVICE_SECRET` between
 > API/realtime. Never commit `.env` files.
+
 ---
 
 ### Step 3 — Start the database
@@ -258,8 +262,8 @@ pnpm db:seed
 `pnpm db:seed` fetches the current Premier League season and upserts teams,
 fixtures, results, and scores into PostgreSQL. Run it again to refresh the
 season's fixture/results snapshot from football-data.org; it does not delete
-existing rows. The live poller only refreshes today's matches that are already
-in the database, so it cannot import a new season by itself.
+existing rows. The production sync worker only refreshes today's matches that
+are already in the database, so it cannot import a new season by itself.
 
 To refresh scores/statuses for today's matches on demand, run:
 
@@ -268,7 +272,7 @@ pnpm db:sync-live
 ```
 
 Both commands require `FOOTBALL_DATA_API_KEY` in `packages/database/.env`.
-The automatic web poller also needs the key in `apps/web/.env`.
+In production, the worker receives it through `deploy/.env.production`.
 
 ---
 
@@ -280,11 +284,11 @@ pnpm dev
 
 This starts all 3 apps simultaneously:
 
-| App | URL | Description |
-|-----|-----|-------------|
-| `apps/web` | http://localhost:3000 | Next.js — main UI |
-| `apps/realtime` | http://localhost:3001 | Socket.io server |
-| `apps/api` | http://localhost:3002 | Fastify live-scores |
+| App             | URL                   | Description         |
+| --------------- | --------------------- | ------------------- |
+| `apps/web`      | http://localhost:3000 | Next.js — main UI   |
+| `apps/realtime` | http://localhost:3001 | Socket.io server    |
+| `apps/api`      | http://localhost:3002 | Fastify live-scores |
 
 ---
 
@@ -302,42 +306,46 @@ pnpm dev
 All routes are served by `apps/web` (`/api/*`).
 
 ### Matches
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/matches` | Live / in-play matches |
-| GET | `/api/matches/[id]` | Match detail |
-| GET | `/api/matches/[id]/stats` | Match statistics |
-| GET | `/api/matches/[id]/tactics` | Tactical analysis (passing network, heatmap) |
+
+| Method | Route                       | Description                                  |
+| ------ | --------------------------- | -------------------------------------------- |
+| GET    | `/api/matches`              | Live / in-play matches                       |
+| GET    | `/api/matches/[id]`         | Match detail                                 |
+| GET    | `/api/matches/[id]/stats`   | Match statistics                             |
+| GET    | `/api/matches/[id]/tactics` | Tactical analysis (passing network, heatmap) |
 
 ### Competitions
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/competitions/[code]/matches` | All matches in a competition |
-| GET | `/api/competitions/[code]/standings` | League table |
-| GET | `/api/competitions/[code]/teams` | Teams in competition |
+
+| Method | Route                                | Description                  |
+| ------ | ------------------------------------ | ---------------------------- |
+| GET    | `/api/competitions/[code]/matches`   | All matches in a competition |
+| GET    | `/api/competitions/[code]/standings` | League table                 |
+| GET    | `/api/competitions/[code]/teams`     | Teams in competition         |
 
 ### Players
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/persons` | Search players (`?query=salah`) |
-| GET | `/api/persons/[id]` | Player profile + stats |
-| GET | `/api/persons/[id]/form` | Form trend (last N matches) |
-| GET | `/api/persons/[id]/career` | Career statistics timeline |
-| GET | `/api/persons/[id]/similar` | Similar players |
-| GET | `/api/persons/compare` | Head-to-head comparison |
+
+| Method | Route                       | Description                     |
+| ------ | --------------------------- | ------------------------------- |
+| GET    | `/api/persons`              | Search players (`?query=salah`) |
+| GET    | `/api/persons/[id]`         | Player profile + stats          |
+| GET    | `/api/persons/[id]/form`    | Form trend (last N matches)     |
+| GET    | `/api/persons/[id]/career`  | Career statistics timeline      |
+| GET    | `/api/persons/[id]/similar` | Similar players                 |
+| GET    | `/api/persons/compare`      | Head-to-head comparison         |
 
 ### Teams
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/teams/[id]` | Team profile |
-| GET | `/api/teams/[id]/matches` | Team fixture list |
-| GET | `/api/teams/[id]/scouting` | Opponent scouting report |
+
+| Method | Route                      | Description              |
+| ------ | -------------------------- | ------------------------ |
+| GET    | `/api/teams/[id]`          | Team profile             |
+| GET    | `/api/teams/[id]/matches`  | Team fixture list        |
+| GET    | `/api/teams/[id]/scouting` | Opponent scouting report |
 
 ### Other
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/predictions/season` | Season finish predictions |
-| GET | `/api/live/stream` | SSE stream for live updates |
+
+| Method | Route                     | Description               |
+| ------ | ------------------------- | ------------------------- |
+| GET    | `/api/predictions/season` | Season finish predictions |
 
 ---
 
@@ -354,6 +362,7 @@ Client emits:
   notification:subscribe   { matchId }    – subscribe to match notifications
 
 Server broadcasts:
+  score:updated           { matchId, homeScore, awayScore, minute, status }
   match:score             LiveScore
   match:goal              { event, score }
   match:status             LiveScore
@@ -368,6 +377,37 @@ but required in production. Set `REDIS_URL` to a private Redis endpoint; use
 `rediss://` when the provider requires TLS. Deploy the realtime service
 separately from the web container and point every realtime instance at the same
 Redis deployment.
+
+---
+
+## 🚀 Production realtime worker
+
+The Vercel web deployment consumes `score:updated` directly from Socket.IO. It
+does not run a poller or an SSE stream. On the Oracle VM, `sync-worker` polls
+the provider once per minute, commits changes to PostgreSQL, then calls the
+private realtime endpoint to update Redis and broadcast to connected browsers.
+
+1. Copy [deploy/.env.production.example](deploy/.env.production.example) to
+   `deploy/.env.production` on the VM and fill in the Supabase connection URL,
+   provider key, Vercel URL, and two independent secrets.
+2. Run database migrations once per release (never use `db:push` or
+   `db:migrate` in production):
+
+   ```bash
+   docker compose -f docker-compose.production.yml run --rm sync-worker \
+     pnpm db:migrate:deploy
+   ```
+
+3. Start API, Socket.IO, Redis, and the always-on worker:
+
+   ```bash
+   docker compose -f docker-compose.production.yml up -d --build
+   ```
+
+The worker uses `restart: unless-stopped`, so it returns after a VM reboot or
+process failure. Put a TLS reverse proxy in front of `127.0.0.1:3001` and
+expose it as the HTTPS URL assigned to `NEXT_PUBLIC_WEBSOCKET_URL` in Vercel.
+Do not publish Redis or the internal API endpoint.
 
 ---
 
@@ -398,13 +438,13 @@ the hostname `postgres` and container port `5432` instead.
 
 After `docker compose up -d postgres`, create a PostgreSQL connection in DBeaver:
 
-| Setting | Value |
-|---------|-------|
-| Host | `localhost` |
-| Port | `5433` |
-| Database | `POSTGRES_DB` from the root `.env` (default: `football`) |
+| Setting  | Value                                                      |
+| -------- | ---------------------------------------------------------- |
+| Host     | `localhost`                                                |
+| Port     | `5433`                                                     |
+| Database | `POSTGRES_DB` from the root `.env` (default: `football`)   |
 | Username | `POSTGRES_USER` from the root `.env` (default: `postgres`) |
-| Password | `POSTGRES_PASSWORD` from the root `.env` |
+| Password | `POSTGRES_PASSWORD` from the root `.env`                   |
 
 Test the connection, then browse `Databases → football → Schemas → public →
 Tables`. Run `pnpm db:push` from the repository root first to create/update
@@ -426,6 +466,7 @@ pnpm lint                  # lint all packages
 pnpm db:generate           # (re)generate Prisma client
 pnpm db:push               # sync schema to DB (no migration file)
 pnpm db:migrate            # create a named migration
+pnpm db:migrate:deploy     # apply committed migrations (production releases)
 pnpm db:seed               # seed sample data
 pnpm db:studio             # open Prisma Studio at localhost:5555
 
@@ -441,13 +482,13 @@ pnpm --filter @app/realtime  dev
 
 The following checks were run locally:
 
-| Check | Result |
-|-------|--------|
-| `pnpm type-check` | Passed |
-| `pnpm build` | Passed |
-| `pnpm lint` | Failed: `next lint` is not supported by the current Next.js CLI setup |
-| `pnpm test -- --runInBand` | Failed: no test files are present |
-| WebSocket, Redis, CI/CD | Not verified; no automated workflow is included |
+| Check                      | Result                                                                |
+| -------------------------- | --------------------------------------------------------------------- |
+| `pnpm type-check`          | Passed                                                                |
+| `pnpm build`               | Passed                                                                |
+| `pnpm lint`                | Failed: `next lint` is not supported by the current Next.js CLI setup |
+| `pnpm test -- --runInBand` | Failed: no test files are present                                     |
+| WebSocket, Redis, CI/CD    | Not verified; no automated workflow is included                       |
 
 The repository contains local Docker and app startup configuration, but it does
 not currently include a live demo URL, CI/CD workflow, or automated test suite.
@@ -463,7 +504,6 @@ not currently include a live demo URL, CI/CD workflow, or automated test suite.
 5. Open a Pull Request
 
 ---
-
 
 <div align="center">
   Built with ⚽ and lots of ☕

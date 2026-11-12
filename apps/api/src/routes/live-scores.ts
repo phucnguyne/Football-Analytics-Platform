@@ -38,124 +38,143 @@ export async function liveScoresRoutes(app: FastifyInstance) {
   });
 
   // GET /api/live-scores/:id – single match detail with recent events
-  app.get<{ Params: { id: string } }>("/live-scores/:id", async (request, reply) => {
-    const id = parseInt(request.params.id, 10);
-    if (isNaN(id)) {
-      return reply.status(400).send({ error: "Invalid match id" });
-    }
+  app.get<{ Params: { id: string } }>(
+    "/live-scores/:id",
+    async (request, reply) => {
+      const id = parseInt(request.params.id, 10);
+      if (isNaN(id)) {
+        return reply.status(400).send({ error: "Invalid match id" });
+      }
 
-    const match = await prisma.match.findUnique({
-      where: { id },
-      include: matchInclude,
-    });
+      const match = await prisma.match.findUnique({
+        where: { id },
+        include: matchInclude,
+      });
 
-    if (!match) {
-      return reply.status(404).send({ error: "Match not found" });
-    }
-    return reply.send({ data: match });
-  });
+      if (!match) {
+        return reply.status(404).send({ error: "Match not found" });
+      }
+      return reply.send({ data: match });
+    },
+  );
 
   // PATCH /api/live-scores/:id – update score → write to DB + notify realtime server
-  app.patch<{ Params: { id: string } }>("/live-scores/:id", async (request, reply) => {
-    const id = parseInt(request.params.id, 10);
-    if (isNaN(id)) {
-      return reply.status(400).send({ error: "Invalid match id" });
-    }
+  app.patch<{ Params: { id: string } }>(
+    "/live-scores/:id",
+    async (request, reply) => {
+      const id = parseInt(request.params.id, 10);
+      if (isNaN(id)) {
+        return reply.status(400).send({ error: "Invalid match id" });
+      }
 
-    const parsed = updateScoreSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.flatten() });
-    }
+      const parsed = updateScoreSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: parsed.error.flatten() });
+      }
 
-    const existing = await prisma.match.findUnique({ where: { id } });
-    if (!existing) {
-      return reply.status(404).send({ error: "Match not found" });
-    }
+      const existing = await prisma.match.findUnique({ where: { id } });
+      if (!existing) {
+        return reply.status(404).send({ error: "Match not found" });
+      }
 
-    const { homeTeamGoals, awayTeamGoals, homeTeamGoalsHT, awayTeamGoalsHT, minute } =
-      parsed.data;
-
-    // Transition TIMED / SCHEDULED → IN_PLAY when score is first updated
-    const newStatus =
-      existing.status === "TIMED" || existing.status === "SCHEDULED"
-        ? "IN_PLAY"
-        : existing.status;
-
-    const [updatedMatch] = await prisma.$transaction([
-      prisma.match.update({
-        where: { id },
-        data: {
-          status: newStatus,
-          minute: minute ?? existing.minute,
-        },
-      }),
-      // Upsert the MatchScore record (1-to-1 relation)
-      prisma.matchScore.upsert({
-        where: { matchId: id },
-        create: {
-          matchId: id,
-          homeTeamGoals,
-          awayTeamGoals,
-          homeTeamGoalsHT,
-          awayTeamGoalsHT,
-        },
-        update: {
-          homeTeamGoals,
-          awayTeamGoals,
-          ...(homeTeamGoalsHT !== undefined && { homeTeamGoalsHT }),
-          ...(awayTeamGoalsHT !== undefined && { awayTeamGoalsHT }),
-        },
-      }),
-    ]);
-
-    // Notify socket.io server to broadcast to clients in "live-scores" room
-    await notifyRealtime({
-      event: "score:updated",
-      room: "live-scores",
-      data: {
-        matchId: updatedMatch.id,
+      const {
         homeTeamGoals,
         awayTeamGoals,
-        minute: minute ?? null,
-        updatedAt: updatedMatch.updatedAt,
-      },
-    });
+        homeTeamGoalsHT,
+        awayTeamGoalsHT,
+        minute,
+      } = parsed.data;
 
-    return reply.send({ data: updatedMatch });
-  });
+      // Transition TIMED / SCHEDULED → IN_PLAY when score is first updated
+      const newStatus =
+        existing.status === "TIMED" || existing.status === "SCHEDULED"
+          ? "IN_PLAY"
+          : existing.status;
+
+      const [updatedMatch] = await prisma.$transaction([
+        prisma.match.update({
+          where: { id },
+          data: {
+            status: newStatus,
+            minute: minute ?? existing.minute,
+          },
+        }),
+        // Upsert the MatchScore record (1-to-1 relation)
+        prisma.matchScore.upsert({
+          where: { matchId: id },
+          create: {
+            matchId: id,
+            homeTeamGoals,
+            awayTeamGoals,
+            homeTeamGoalsHT,
+            awayTeamGoalsHT,
+          },
+          update: {
+            homeTeamGoals,
+            awayTeamGoals,
+            ...(homeTeamGoalsHT !== undefined && { homeTeamGoalsHT }),
+            ...(awayTeamGoalsHT !== undefined && { awayTeamGoalsHT }),
+          },
+        }),
+      ]);
+
+      // Broadcast to all live-score consumers after the database commit.
+      await notifyRealtime({
+        event: "score:updated",
+        data: {
+          matchId: updatedMatch.id,
+          homeScore: homeTeamGoals,
+          awayScore: awayTeamGoals,
+          minute: minute ?? null,
+          status:
+            newStatus === "IN_PLAY"
+              ? "LIVE"
+              : newStatus === "PAUSED"
+                ? "HT"
+                : "SCHEDULED",
+          updatedAt: updatedMatch.updatedAt,
+        },
+      });
+
+      return reply.send({ data: updatedMatch });
+    },
+  );
 
   // PATCH /api/live-scores/:id/finish – mark a match as FINISHED
-  app.patch<{ Params: { id: string } }>("/live-scores/:id/finish", async (request, reply) => {
-    const id = parseInt(request.params.id, 10);
-    if (isNaN(id)) {
-      return reply.status(400).send({ error: "Invalid match id" });
-    }
+  app.patch<{ Params: { id: string } }>(
+    "/live-scores/:id/finish",
+    async (request, reply) => {
+      const id = parseInt(request.params.id, 10);
+      if (isNaN(id)) {
+        return reply.status(400).send({ error: "Invalid match id" });
+      }
 
-    const existing = await prisma.match.findUnique({
-      where: { id },
-      include: { score: true },
-    });
-    if (!existing) {
-      return reply.status(404).send({ error: "Match not found" });
-    }
+      const existing = await prisma.match.findUnique({
+        where: { id },
+        include: { score: true },
+      });
+      if (!existing) {
+        return reply.status(404).send({ error: "Match not found" });
+      }
 
-    const updatedMatch = await prisma.match.update({
-      where: { id },
-      data: { status: "FINISHED" },
-      include: { score: true },
-    });
+      const updatedMatch = await prisma.match.update({
+        where: { id },
+        data: { status: "FINISHED" },
+        include: { score: true },
+      });
 
-    await notifyRealtime({
-      event: "score:updated",
-      room: "live-scores",
-      data: {
-        matchId: updatedMatch.id,
-        status: updatedMatch.status,
-        homeTeamGoals: updatedMatch.score?.homeTeamGoals ?? null,
-        awayTeamGoals: updatedMatch.score?.awayTeamGoals ?? null,
-      },
-    });
+      await notifyRealtime({
+        event: "score:updated",
+        data: {
+          matchId: updatedMatch.id,
+          homeScore: updatedMatch.score?.homeTeamGoals ?? 0,
+          awayScore: updatedMatch.score?.awayTeamGoals ?? 0,
+          minute: updatedMatch.minute ?? 0,
+          status: "FT",
+        },
+      });
 
-    return reply.send({ data: updatedMatch });
-  });
+      return reply.send({ data: updatedMatch });
+    },
+  );
 }

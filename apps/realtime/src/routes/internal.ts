@@ -22,43 +22,52 @@ interface EmitBody {
 }
 
 function isLiveScorePayload(
-  data: unknown
-): data is { matchId: string } & Record<string, unknown> {
-  return typeof data === "object" && data !== null && "matchId" in data;
+  data: unknown,
+): data is { matchId: string | number } & Record<string, unknown> {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "matchId" in data &&
+    (typeof data.matchId === "string" || typeof data.matchId === "number")
+  );
 }
 
 export function createInternalRouter(io: Server): Router {
   const router = Router();
 
-  router.post("/emit", internalAuthMiddleware, async (req: Request, res: Response) => {
-    const { event, room, data } = req.body as EmitBody;
+  router.post(
+    "/emit",
+    internalAuthMiddleware,
+    async (req: Request, res: Response) => {
+      const { event, room, data } = req.body as EmitBody;
 
-    if (!event || typeof event !== "string") {
-      res.status(400).json({ error: "Missing or invalid 'event'" });
-      return;
-    }
+      if (!event || typeof event !== "string") {
+        res.status(400).json({ error: "Missing or invalid 'event'" });
+        return;
+      }
 
-    // Nếu là sự kiện liên quan tới tỉ số trận đấu, đồng bộ cache trước khi emit
-    // để các client join room sau thời điểm này vẫn nhận được dữ liệu đúng.
-    if (event === "score:updated" && isLiveScorePayload(data)) {
-      await upsertLiveScore(data.matchId, {
-        homeTeam: data.homeTeam as string | undefined,
-        awayTeam: data.awayTeam as string | undefined,
-        homeScore: data.homeScore as number | undefined,
-        awayScore: data.awayScore as number | undefined,
-        minute: data.minute as number | undefined,
-        status: data.status as "SCHEDULED" | "LIVE" | "HT" | "FT" | undefined,
-      });
-    }
+      // Nếu là sự kiện liên quan tới tỉ số trận đấu, đồng bộ cache trước khi emit
+      // để các client join room sau thời điểm này vẫn nhận được dữ liệu đúng.
+      if (event === "score:updated" && isLiveScorePayload(data)) {
+        await upsertLiveScore(String(data.matchId), {
+          homeTeam: data.homeTeam as string | undefined,
+          awayTeam: data.awayTeam as string | undefined,
+          homeScore: data.homeScore as number | undefined,
+          awayScore: data.awayScore as number | undefined,
+          minute: data.minute as number | undefined,
+          status: data.status as "SCHEDULED" | "LIVE" | "HT" | "FT" | undefined,
+        });
+      }
 
-    if (room) {
-      io.to(room).emit(event, data);
-    } else {
-      io.emit(event, data);
-    }
+      if (room) {
+        io.to(room).emit(event, data);
+      } else {
+        io.emit(event, data);
+      }
 
-    res.status(200).json({ ok: true });
-  });
+      res.status(200).json({ ok: true });
+    },
+  );
 
   return router;
 }

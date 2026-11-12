@@ -75,6 +75,9 @@ project_analysis_guide.md
 walkthrough.md
 
 scripts/
+!packages/database/scripts/
+packages/database/scripts/*
+!packages/database/scripts/sync-live.ts
 
 .npmrc
 
