@@ -6,9 +6,9 @@ const nextConfig: NextConfig = {
   // Trỏ về root monorepo để trace đủ file trong pnpm workspace
   outputFileTracingRoot: path.join(process.cwd(), "../../"),
   typescript: {
-    // Ignore type errors during build (as requested)
     ignoreBuildErrors: true,
   },
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.thesportsdb.com" },

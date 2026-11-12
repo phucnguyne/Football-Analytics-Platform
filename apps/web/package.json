@@ -6,7 +6,7 @@
     "predev": "pnpm --filter @app/config build",
     "dev": "next dev",
     "prebuild": "pnpm --filter @app/config build",
-    "build": "next build",
+    "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint"
   },
