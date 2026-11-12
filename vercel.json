@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm db:generate && pnpm --filter @app/web build",
+  "buildCommand": "pnpm --filter @app/database run generate && pnpm --filter @app/web build",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs"
