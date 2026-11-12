@@ -88,3 +88,5 @@ packages/config/dist/
 apps/api/generated/
 
 open-data/
+
+.env.production
