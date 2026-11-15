@@ -1,9 +1,8 @@
 "use client";
 
-import { io, type Socket } from "socket.io-client";
 import { create } from "zustand";
 import { toast } from "react-hot-toast";
-import { publicEnv } from "@/lib/public-env";
+import { supabase } from "@/lib/supabase-browser";
 
 export interface LiveMatchUpdate {
   matchId: number;
@@ -23,14 +22,6 @@ export interface LiveMatchUpdate {
   matchday: number | null;
 }
 
-interface RealtimeScoreUpdate {
-  matchId: string | number;
-  homeScore: number;
-  awayScore: number;
-  minute: number;
-  status: "SCHEDULED" | "LIVE" | "HT" | "FT";
-}
-
 interface LiveStoreState {
   liveMatches: Record<number, LiveMatchUpdate>;
   isConnected: boolean;
@@ -39,16 +30,10 @@ interface LiveStoreState {
   disconnect: () => void;
 }
 
-let socket: Socket | null = null;
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let liveConsumers = 0;
 let connectPromise: Promise<void> | null = null;
-
-function fromRealtimeStatus(status: RealtimeScoreUpdate["status"]): string {
-  if (status === "LIVE") return "IN_PLAY";
-  if (status === "HT") return "PAUSED";
-  if (status === "FT") return "FINISHED";
-  return "SCHEDULED";
-}
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
   const response = await fetch("/api/matches?status=IN_PLAY,PAUSED");
@@ -84,7 +69,28 @@ async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
 export const useLiveStore = create<LiveStoreState>((set, get) => {
   const refreshLiveMatches = async () => {
     try {
-      set({ liveMatches: await fetchLiveMatches() });
+      const nextMatches = await fetchLiveMatches();
+      const previousMatches = get().liveMatches;
+      for (const [key, next] of Object.entries(nextMatches)) {
+        const previous = previousMatches[Number(key)];
+        if (!previous) continue;
+        if (
+          (next.homeGoals ?? 0) > (previous.homeGoals ?? 0) ||
+          (next.awayGoals ?? 0) > (previous.awayGoals ?? 0)
+        ) {
+          toast.success(
+            `⚽ GOAL! ${next.homeTeamName} ${next.homeGoals}-${next.awayGoals} ${next.awayTeamName}`,
+            { duration: 5000, position: "top-right" },
+          );
+        }
+        if (previous.status !== "FINISHED" && next.status === "FINISHED") {
+          toast(
+            `${next.homeTeamName} ${next.homeGoals}-${next.awayGoals} ${next.awayTeamName}\nMatch Finished`,
+            { icon: "🏁", duration: 5000, position: "top-right" },
+          );
+        }
+      }
+      set({ liveMatches: nextMatches });
     } catch (error) {
       console.error("Failed to load live matches", error);
     } finally {
@@ -92,56 +98,9 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
     }
   };
 
-  const applyScoreUpdate = (update: RealtimeScoreUpdate) => {
-    const matchId = Number(update.matchId);
-    if (!Number.isInteger(matchId)) return;
-
-    const previous = get().liveMatches[matchId];
-    if (!previous) {
-      // A scheduled match may just have started. Fetch its display metadata from
-      // the web API instead of duplicating team/competition data in Socket.IO.
-      void refreshLiveMatches();
-      return;
-    }
-
-    if (
-      update.homeScore > (previous.homeGoals ?? -1) ||
-      update.awayScore > (previous.awayGoals ?? -1)
-    ) {
-      toast.success(
-        `⚽ GOAL! ${previous.homeTeamName} ${update.homeScore}-${update.awayScore} ${previous.awayTeamName}`,
-        { duration: 5000, position: "top-right" },
-      );
-    }
-
-    const status = fromRealtimeStatus(update.status);
-    if (status === "FINISHED") {
-      toast(
-        `${previous.homeTeamName} ${update.homeScore}-${update.awayScore} ${previous.awayTeamName}\nMatch Finished`,
-        {
-          icon: "🏁",
-          duration: 5000,
-          position: "top-right",
-        },
-      );
-      const { [matchId]: _finishedMatch, ...remainingMatches } =
-        get().liveMatches;
-      set({ liveMatches: remainingMatches });
-      return;
-    }
-
-    set({
-      liveMatches: {
-        ...get().liveMatches,
-        [matchId]: {
-          ...previous,
-          status,
-          minute: update.minute,
-          homeGoals: update.homeScore,
-          awayGoals: update.awayScore,
-        },
-      },
-    });
+  const scheduleRefresh = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => void refreshLiveMatches(), 250);
   };
 
   return {
@@ -151,21 +110,30 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
 
     connect: async () => {
       liveConsumers += 1;
-      if (socket) return;
+      if (realtimeChannel) return;
       if (connectPromise) return connectPromise;
 
       connectPromise = (async () => {
         await refreshLiveMatches();
-        socket = io(publicEnv.NEXT_PUBLIC_WEBSOCKET_URL, {
-          transports: ["websocket", "polling"],
-          reconnection: true,
-        });
-        socket.on("connect", () => set({ isConnected: true }));
-        socket.on("disconnect", () => set({ isConnected: false }));
-        socket.on("connect_error", (error) =>
-          console.error("Realtime connection failed", error),
-        );
-        socket.on("score:updated", applyScoreUpdate);
+        realtimeChannel = supabase
+          .channel("live-match-updates")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "matches" },
+            scheduleRefresh,
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "match_scores" },
+            scheduleRefresh,
+          )
+          .subscribe((status) => {
+            set({ isConnected: status === "SUBSCRIBED" });
+            if (status === "SUBSCRIBED") scheduleRefresh();
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+              console.error(`Supabase Realtime channel status: ${status}`);
+            }
+          });
       })();
 
       try {
@@ -177,10 +145,15 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
 
     disconnect: () => {
       liveConsumers = Math.max(0, liveConsumers - 1);
-      if (liveConsumers > 0 || !socket) return;
-      socket.disconnect();
-      socket = null;
+      if (liveConsumers > 0 || !realtimeChannel) return;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
       set({ isConnected: false, isInitializing: true });
     },
   };
 });
+
+// Legacy VM + Socket.IO client path retained for reference:
+// const socket = io(NEXT_PUBLIC_WEBSOCKET_URL);
+// socket.on("score:updated", applyScoreUpdate);

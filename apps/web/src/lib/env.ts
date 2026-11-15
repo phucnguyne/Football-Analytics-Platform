@@ -42,12 +42,6 @@ const webEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // ── Public (browser-safe) ───────────────────────────────────────────────────
-  /** Socket.io server URL, injected into client bundles */
-  NEXT_PUBLIC_WEBSOCKET_URL: z
-    .string()
-    .url()
-    .default('http://localhost:3001'),
-
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_APP_NAME: z.string().default('Football Analytics'),
 });
@@ -67,7 +61,6 @@ function parseEnv() {
     HF_TOKEN:                   emptyStringToUndefined(process.env.HF_TOKEN),
     HF_DATASET_URL:             emptyStringToUndefined(process.env.HF_DATASET_URL),
     NODE_ENV:                   emptyStringToUndefined(process.env.NODE_ENV),
-    NEXT_PUBLIC_WEBSOCKET_URL:  emptyStringToUndefined(process.env.NEXT_PUBLIC_WEBSOCKET_URL),
     NEXT_PUBLIC_APP_URL:        emptyStringToUndefined(process.env.NEXT_PUBLIC_APP_URL),
     NEXT_PUBLIC_APP_NAME:       emptyStringToUndefined(process.env.NEXT_PUBLIC_APP_NAME),
   });
