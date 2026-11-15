@@ -90,3 +90,16 @@ apps/api/generated/
 open-data/
 
 .env.production
+
+# Keep deployable Supabase sources in Git; ignore local CLI state (for example .temp).
+!supabase/
+supabase/*
+!supabase/config.toml
+!supabase/functions/
+supabase/functions/*
+!supabase/functions/sync-live/
+!supabase/functions/sync-live/index.ts
+!supabase/migrations/
+supabase/migrations/*
+!supabase/migrations/*.sql
+!supabase/schedule-sync-live.sql.example

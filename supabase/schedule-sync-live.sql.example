@@ -1,0 +1,29 @@
+-- Run this once in Supabase SQL Editor after enabling pg_cron, pg_net, and Vault.
+-- Replace placeholders and run once. Vault stores the values encrypted;
+-- do not commit real values in this example file.
+select vault.create_secret('https://YOUR_PROJECT_REF.supabase.co', 'project_url');
+select vault.create_secret('YOUR_SUPABASE_PUBLISHABLE_KEY', 'publishable_key');
+select vault.create_secret('YOUR_RANDOM_SYNC_SECRET', 'sync_secret');
+
+-- If this job already exists, remove it before recreating it with the API key header.
+select cron.unschedule('sync-live-matches-every-minute')
+where exists (
+  select 1 from cron.job where jobname = 'sync-live-matches-every-minute'
+);
+
+select cron.schedule(
+  'sync-live-matches-every-minute',
+  '* * * * *',
+  $$
+    select net.http_post(
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+        || '/functions/v1/sync-live',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'publishable_key'),
+        'x-sync-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_secret')
+      ),
+      body := jsonb_build_object('source', 'supabase-cron')
+    );
+  $$
+);
