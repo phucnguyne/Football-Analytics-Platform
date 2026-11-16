@@ -12,6 +12,8 @@
     "postinstall": "prisma generate",
     "seed": "prisma generate && tsx seed/seed.ts",
     "sync-current": "tsx scripts/sync-current.ts",
+    "sync-current:dev": "tsx scripts/sync-current-env.ts development",
+    "sync-current:production": "tsx scripts/sync-current-env.ts production",
     "sync-live": "tsx scripts/sync-live.ts",
     "sync-live:watch": "tsx scripts/sync-live.ts --watch",
     "seed-statsbomb": "tsx scripts/seed-statsbomb.ts",

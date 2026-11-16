@@ -90,6 +90,8 @@ apps/api/generated/
 open-data/
 
 .env.production
+packages/database/.env.development
+packages/database/.env.production
 
 # Keep deployable Supabase sources in Git; ignore local CLI state (for example .temp).
 !supabase/
