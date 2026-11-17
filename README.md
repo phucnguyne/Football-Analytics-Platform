@@ -2,16 +2,27 @@
 
 # ⚽ Football Analytics Platform
 
-**A fullstack monorepo prototype for football data, match analytics,
-tactical insights, and player/team statistics.**
+**A football analytics platform for live scores, fixtures, match insights, and
+player and team statistics.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql)](https://postgresql.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2F17-4169E1?style=flat-square&logo=postgresql)](https://postgresql.org)
 [![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?style=flat-square&logo=prisma)](https://prisma.io)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[API Docs](#-api-reference)
+
+<p>
+  <a href="#getting-started">Getting Started</a> ·
+  <a href="#api-reference">API Reference</a> ·
+  <a href="#deployment">Deployment</a>
+</p>
+
+<h3>Demo</h3>
+
+<p>
+  <a href="https://football-analytics-platform-iota.vercel.app/">Open the web app</a>
+</p>
 
 </div>
 
@@ -21,50 +32,45 @@ tactical insights, and player/team statistics.**
 
 | Feature                | Description                                                                             |
 | ---------------------- | --------------------------------------------------------------------------------------- |
-| 🟢 **Live Scores**     | Live-score API and a Socket.io server are included; end-to-end delivery is not verified |
-| 📅 **Fixtures**        | Full fixture calendar with filters by league & date                                     |
-| 📊 **Match Stats**     | Shots, possession, xG, cards, corners per match                                         |
-| 🗺️ **Shot Map**        | xG-weighted shot map rendered on a pitch canvas                                         |
-| 🕸️ **Passing Network** | Average-position passing graph with touch volume                                        |
-| 🏆 **Standings**       | League table with promotion/relegation zone colours                                     |
-| 👥 **Teams**           | Team profiles, squad lists, scouting reports                                            |
-| ⭐ **Players**         | Search, profiles, radar charts, form trend, career stats                                |
-| 📈 **Analytics**       | Heatmaps, build-up patterns, PPDA meter, comparisons                                    |
-| 🔐 **Auth**            | NextAuth.js Credentials login                                                           |
-| 🆓 **External data**   | Uses football-data.org when a valid API key is configured                               |
+| 🟢 **Live scores**     | Scheduled score sync with Supabase Cron, Edge Functions, and Realtime       |
+| 📅 **Fixtures**        | League and date filtering for the fixture calendar                         |
+| 📊 **Match statistics**| Shots, possession, xG, cards, and corners                                  |
+| 🗺️ **Shot maps**       | xG-weighted shot visualizations                                            |
+| 🕸️ **Passing networks**| Average player positions and passing volume                               |
+| 🏆 **Standings**       | League tables with promotion and relegation zones                          |
+| 👥 **Teams**           | Team profiles, squads, and scouting reports                                |
+| ⭐ **Players**         | Profiles, radar charts, form trends, and career statistics                  |
+| 📈 **Analytics**       | Heatmaps, build-up patterns, PPDA, and player comparisons                   |
+| 🔐 **Authentication**  | NextAuth.js credentials-based sign-in                                      |
+| 🆓 **External data**   | Football data from football-data.org when an API key is configured          |
 
 ---
 
 ## 🏗️ Architecture
 
-```
-┌────────────────────────────────────────────────────┐
-│           Browser  (Next.js 16 + React 19)          │
-│  TanStack Query · Zustand · Socket.io-client        │
-└──────────────┬───────────────────┬─────────────────┘
-               │ HTTP/S            │ WebSocket
-┌──────────────▼──────────┐  ┌────▼──────────────────┐
-│   apps/web  :3000        │  │  apps/realtime  :3001  │
-│  Next.js App Router      │  │  Express + Socket.io   │
-│  SSR + API Routes        │  │  JWT auth middleware   │
-└──────────────┬───────────┘  └────┬──────────────────┘
-               │                   │
-        ┌──────▼───────────────────▼──────┐
-        │       packages/database          │
-        │  Prisma ORM  ←→  PostgreSQL:5433 │
-        └──────────────────────────────────┘
-               │
-        ┌──────▼──────┐
-        │  apps/api    │  :3002  Fastify REST (internal)
-        │  live-scores │
-        └─────────────┘
+```mermaid
+flowchart LR
+    Browser[Browser]
+    Web[Next.js on Vercel<br/>Web UI and API routes]
+    Database[(Supabase PostgreSQL<br/>matches and match_scores)]
+    Cron[Supabase Cron<br/>every minute]
+    Function[Edge Function<br/>sync-live]
+    Realtime[Supabase Realtime]
+
+    Browser -->|HTTP| Web
+    Web -->|Prisma| Database
+    Cron --> Function
+    Function -->|Update today's scores| Database
+    Database -->|Database changes| Realtime
+    Realtime -->|Realtime subscription| Browser
 ```
 
-The realtime service connects to Redis for shared live-score state, rate limits,
-and cross-instance Socket.io broadcasts.
+Production live scores use Supabase Cron, an Edge Function, and Supabase
+Realtime. `apps/api`, `apps/realtime`, and Redis remain available for local or
+legacy VM deployments; Vercel does not run the long-lived Socket.IO service.
 
-> **Docker Compose** cung cấp **PostgreSQL + Redis** và có một service build web.
-> Khi phát triển, các Node.js apps chạy local bằng `pnpm dev`.
+Docker Compose provides PostgreSQL and Redis for local development. The web,
+API, and realtime Node.js applications run locally with `pnpm dev`.
 
 ---
 
@@ -76,13 +82,13 @@ and cross-instance Socket.io broadcasts.
 | ---------------- | ------- | ------------------------------------------- |
 | Next.js          | 16      | App framework — SSR, App Router, API Routes |
 | React            | 19      | UI library                                  |
-| TypeScript       | 5.4     | Type safety                                 |
+| TypeScript       | 5       | Type safety                                 |
 | Tailwind CSS     | 4       | Utility-first styling                       |
 | Radix UI         | latest  | Accessible headless components              |
 | Zustand          | 4.5     | Client state management                     |
 | TanStack Query   | 5       | Server state & data fetching                |
 | Recharts         | 2       | Charts (radar, area, bar)                   |
-| Socket.io-client | 4.7     | Real-time WebSocket updates                 |
+| Supabase JS      | 2       | Browser subscriptions to live match changes |
 
 ### Backend
 
@@ -90,15 +96,15 @@ and cross-instance Socket.io broadcasts.
 | --------------- | ------------------- | ---------------------------- |
 | `apps/web`      | Next.js API Routes  | REST endpoints for all pages |
 | `apps/api`      | Fastify 4           | Internal live-scores service |
-| `apps/realtime` | Express + Socket.io | WebSocket push server        |
+| `apps/realtime` | Express + Socket.io | Legacy standalone WebSocket server |
 
 ### Database & Infrastructure
 
 | Tool           | Version | Purpose                                                                    |
 | -------------- | ------- | -------------------------------------------------------------------------- |
-| PostgreSQL     | 16      | Primary relational database                                                |
+| PostgreSQL     | 16 / 17 | Local Docker / Supabase production database                               |
 | Prisma         | 5       | Type-safe ORM + migrations                                                 |
-| Redis          | 7       | Shared live-score state, distributed Socket.io broadcasts, and rate limits |
+| Redis          | 7       | Local development and legacy Socket.IO deployments                        |
 | Docker Compose | v2      | Local DB + Redis containers                                                |
 
 ---
@@ -112,18 +118,18 @@ Football-Analytics-Platform/          ← monorepo root
 │   ├── web/                          # Next.js 16 — UI + API Routes  :3000
 │   │   └── src/
 │   │       ├── app/
-│   │       │   ├── (pages)/          # matches, teams, players, standings…
+│   │       │   ├── matches/, teams/, players/, standings/
 │   │       │   └── api/              # REST handlers (see API Reference)
 │   │       ├── components/           # players/, matches/, tactics/, ui/
 │   │       ├── lib/                  # db-helpers, generators, analytics
 │   │       └── providers/            # QueryProvider, SessionProvider
 │   │
-│   ├── api/                          # Fastify — internal live-scores  :3002
+│   ├── api/                          # Fastify — legacy live-scores API :3002
 │   │   └── src/
 │   │       ├── routes/live-scores.ts
 │   │       └── lib/prisma.ts
 │   │
-│   └── realtime/                     # Express + Socket.io server  :3001
+│   └── realtime/                     # Express + Socket.IO server :3001 (legacy)
 │       └── src/
 │           ├── socket/               # match, player, notification sockets
 │           ├── handlers/             # event handlers
@@ -138,19 +144,20 @@ Football-Analytics-Platform/          ← monorepo root
 │   └── types/                        # Shared TypeScript types
 │
 ├── docker-compose.yml                # PostgreSQL :5433 + Redis :6379
-├── docker/Dockerfile                 # Production multi-stage build
+├── docker/Dockerfile                 # Container build for the web app
 ├── package.json                      # Root scripts (pnpm -r dev/build)
 └── pnpm-workspace.yaml
 ```
 
 ---
 
-## 🚀 Quick Start
+<a id="getting-started"></a>
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) ≥ 20
-- [pnpm](https://pnpm.io) ≥ 9 — `npm install -g pnpm`
+- [Node.js](https://nodejs.org) 22 or later
+- [pnpm](https://pnpm.io) 11.24.0 — `npm install -g pnpm@11.24.0`
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for PostgreSQL + Redis)
 
 ---
@@ -185,19 +192,23 @@ cp apps/realtime/.env.example apps/realtime/.env
 
 # Prisma commands and database seed
 cp packages/database/.env.example packages/database/.env
+
+# Dedicated env files for current-season imports
+cp packages/database/.env.development.example packages/database/.env.development
+cp packages/database/.env.production.example packages/database/.env.production
 ```
 
-Use the same `DATABASE_URL` in `apps/web/.env`, `apps/api/.env`,
-`apps/realtime/.env`, and `packages/database/.env`. With the root
-`.env.example` defaults:
+For local development, set `DATABASE_URL` in the app env files and
+`packages/database/.env` to the Docker database. The default URL is:
 
 ```env
 DATABASE_URL="postgresql://postgres:change_me@localhost:5433/football?schema=public"
 ```
 
-Replace `change_me` in the root `.env` with a local database password, then use
-that same password in `DATABASE_URL`. URL-encode the password in `DATABASE_URL`
-if it contains reserved URL characters.
+Set the same local password in the root `.env` and the local `DATABASE_URL`
+values. URL-encode reserved characters in the password when placing it in a
+PostgreSQL URL. Keep the production database URL only in
+`packages/database/.env.production` or the hosting provider's secret settings.
 
 Configure each service:
 
@@ -207,7 +218,8 @@ NEXTAUTH_SECRET="<random secret, at least 32 characters>"
 NEXTAUTH_URL="http://localhost:3000"
 FOOTBALL_DATA_API_KEY="your_free_key_from_football-data.org"
 FOOTBALL_DATA_API_URL="https://api.football-data.org/v4"
-NEXT_PUBLIC_WEBSOCKET_URL="http://localhost:3001"
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
 
 # apps/api/.env
 PORT=3002
@@ -224,13 +236,13 @@ NEXTAUTH_SECRET="<same value as apps/web/.env>"
 INTERNAL_SERVICE_SECRET="<same value as apps/api/.env>"
 REDIS_URL="redis://localhost:6379"
 
-# packages/database/.env: FOOTBALL_DATA_API_KEY is needed only by pnpm db:seed
+# packages/database/.env: local Docker URL; API key is used by seed and manual sync scripts
 ```
 
-> **Note:** Port is `5433` (Docker maps host `5433` → container `5432`).
-> Generate two separate secrets, each at least 32 characters: share
-> `NEXTAUTH_SECRET` between web/realtime and `INTERNAL_SERVICE_SECRET` between
-> API/realtime. Never commit `.env` files.
+> **Note:** Docker exposes PostgreSQL on host port `5433` and maps it to
+> container port `5432`. Use separate values for `NEXTAUTH_SECRET` and
+> `INTERNAL_SERVICE_SECRET`; share each only with the services that require it.
+> Never commit real `.env` files.
 
 ---
 
@@ -260,19 +272,29 @@ pnpm db:seed
 ```
 
 `pnpm db:seed` fetches the current Premier League season and upserts teams,
-fixtures, results, and scores into PostgreSQL. Run it again to refresh the
-season's fixture/results snapshot from football-data.org; it does not delete
-existing rows. The production sync worker only refreshes today's matches that
-are already in the database, so it cannot import a new season by itself.
+fixtures, results, and scores into the database configured in
+`packages/database/.env`. It does not delete existing rows.
 
-To refresh scores/statuses for today's matches on demand, run:
+For a one-time current-season import, use the target-specific command and env
+file for the database you intend to update:
+
+```bash
+pnpm db:sync-current:dev         # reads packages/database/.env.development
+pnpm db:sync-current:production  # reads packages/database/.env.production
+```
+
+Both env files need `DATABASE_URL` and `FOOTBALL_DATA_API_KEY`. The dedicated
+commands load only their named file, so they do not depend on or change
+`packages/database/.env`.
+
+To run a one-time live sync against the local database, use:
 
 ```bash
 pnpm db:sync-live
 ```
 
-Both commands require `FOOTBALL_DATA_API_KEY` in `packages/database/.env`.
-In production, the worker receives it through `deploy/.env.production`.
+Production live scores are refreshed by the Supabase Cron job and Edge
+Function; do not run the local watcher as a Vercel production worker.
 
 ---
 
@@ -282,13 +304,15 @@ In production, the worker receives it through `deploy/.env.production`.
 pnpm dev
 ```
 
-This starts all 3 apps simultaneously:
+This starts all three workspace applications for local development. The Fastify
+API and Socket.IO service are legacy components and are not used by the current
+Vercel production architecture.
 
 | App             | URL                   | Description         |
 | --------------- | --------------------- | ------------------- |
 | `apps/web`      | http://localhost:3000 | Next.js — main UI   |
-| `apps/realtime` | http://localhost:3001 | Socket.io server    |
-| `apps/api`      | http://localhost:3002 | Fastify live-scores |
+| `apps/realtime` | http://localhost:3001 | Legacy Socket.IO server |
+| `apps/api`      | http://localhost:3002 | Legacy Fastify API      |
 
 ---
 
@@ -301,18 +325,27 @@ pnpm dev
 
 ---
 
+<a id="api-reference"></a>
 ## 📡 API Reference
 
-All routes are served by `apps/web` (`/api/*`).
+The production API is served by the Next.js application at `/api/*`. Dynamic
+route segments are shown in brackets. The health endpoint reports web-service
+liveness only; it does not check the database or scheduled sync pipeline.
 
 ### Matches
 
-| Method | Route                       | Description                                  |
-| ------ | --------------------------- | -------------------------------------------- |
-| GET    | `/api/matches`              | Live / in-play matches                       |
-| GET    | `/api/matches/[id]`         | Match detail                                 |
-| GET    | `/api/matches/[id]/stats`   | Match statistics                             |
-| GET    | `/api/matches/[id]/tactics` | Tactical analysis (passing network, heatmap) |
+| Method | Route                              | Description                    |
+| ------ | ---------------------------------- | ------------------------------ |
+| GET    | `/api/matches`                     | Matches; defaults to `IN_PLAY,PAUSED` |
+| GET    | `/api/matches/[id]`                | Match details and score        |
+| GET    | `/api/matches/[id]/stats`          | Match statistics               |
+| GET    | `/api/matches/[id]/tactics`        | Tactical analysis              |
+| GET    | `/api/matches/[id]/shots`          | Match shot data                |
+| GET    | `/api/matches/[id]/provider-events`| Provider match events          |
+| GET    | `/api/health`                      | Web service liveness check     |
+
+Use the comma-separated `status` query parameter to filter `/api/matches`, for
+example `?status=IN_PLAY,PAUSED`.
 
 ### Competitions
 
@@ -321,6 +354,7 @@ All routes are served by `apps/web` (`/api/*`).
 | GET    | `/api/competitions/[code]/matches`   | All matches in a competition |
 | GET    | `/api/competitions/[code]/standings` | League table                 |
 | GET    | `/api/competitions/[code]/teams`     | Teams in competition         |
+| GET    | `/api/competitions/[code]/seasons`   | Competition seasons          |
 
 ### Players
 
@@ -331,6 +365,8 @@ All routes are served by `apps/web` (`/api/*`).
 | GET    | `/api/persons/[id]/form`    | Form trend (last N matches)     |
 | GET    | `/api/persons/[id]/career`  | Career statistics timeline      |
 | GET    | `/api/persons/[id]/similar` | Similar players                 |
+| GET    | `/api/persons/[id]/heatmap` | Player heatmap data              |
+| GET    | `/api/persons/[id]/photo`   | Player photo                     |
 | GET    | `/api/persons/compare`      | Head-to-head comparison         |
 
 ### Teams
@@ -346,10 +382,15 @@ All routes are served by `apps/web` (`/api/*`).
 | Method | Route                     | Description               |
 | ------ | ------------------------- | ------------------------- |
 | GET    | `/api/predictions/season` | Season finish predictions |
+| GET    | `/api/platform-stats`     | Platform overview metrics |
+| *      | `/api/auth/[...nextauth]` | NextAuth.js authentication |
 
 ---
 
-## 🔌 WebSocket Events (current server contract)
+<!-- Legacy VM + Socket.IO deployment retained for reference. The production
+Supabase path below does not use this server contract.
+
+## 🔌 Legacy WebSocket Events
 
 Connected to `apps/realtime` (default `http://localhost:3001`).
 
@@ -380,34 +421,125 @@ Redis deployment.
 
 ---
 
-## 🚀 Production realtime worker
+-->
 
-The Vercel web deployment consumes `score:updated` directly from Socket.IO. It
-does not run a poller or an SSE stream. On the Oracle VM, `sync-worker` polls
-the provider once per minute, commits changes to PostgreSQL, then calls the
-private realtime endpoint to update Redis and broadcast to connected browsers.
+<a id="deployment"></a>
+## 🚀 Production deployment (Vercel + Supabase)
 
-1. Copy [deploy/.env.production.example](deploy/.env.production.example) to
-   `deploy/.env.production` on the VM and fill in the Supabase connection URL,
-   provider key, Vercel URL, and two independent secrets.
-2. Run database migrations once per release (never use `db:push` or
-   `db:migrate` in production):
+### Production site
 
-   ```bash
-   docker compose -f docker-compose.production.yml run --rm sync-worker \
-     pnpm db:migrate:deploy
-   ```
+The current production domain is
+[football-analytics-platform-iota.vercel.app](https://football-analytics-platform-iota.vercel.app/).
+Vercel is connected to the GitHub `main` branch and deploys a new production
+version when changes are pushed to that branch.
 
-3. Start API, Socket.IO, Redis, and the always-on worker:
+### Architecture and required setup
 
-   ```bash
-   docker compose -f docker-compose.production.yml up -d --build
-   ```
+- **Web and API routes:** Next.js hosted on Vercel.
+- **Database:** Supabase PostgreSQL, accessed by the app through Prisma.
+- **Live score updates:** Supabase Cron calls the `sync-live` Edge Function
+  every minute. The function fetches today's matches from football-data.org,
+  updates existing `matches` and `match_scores`, and Supabase Realtime notifies
+  connected browsers.
+- **Initial data import:** `pnpm db:sync-current:production` manually imports
+  the current competition season into Supabase. The scheduled function does
+  not create missing fixtures.
+- **Socket.IO, Fastify, and Redis:** legacy/self-hosted services; they are not
+  needed for this Vercel production setup.
 
-The worker uses `restart: unless-stopped`, so it returns after a VM reboot or
-process failure. Put a TLS reverse proxy in front of `127.0.0.1:3001` and
-expose it as the HTTPS URL assigned to `NEXT_PUBLIC_WEBSOCKET_URL` in Vercel.
-Do not publish Redis or the internal API endpoint.
+### 1. Vercel environment variables
+
+In Vercel open **Project → Settings → Environment Variables**. Add these for
+**Production** (and Preview too if preview deployments should access the same
+database), then redeploy:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Supabase **Transaction Pooler** connection string; keep it private |
+| `NEXTAUTH_SECRET` | Random secret, at least 32 characters |
+| `NEXTAUTH_URL` | `https://football-analytics-platform-iota.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | `https://football-analytics-platform-iota.vercel.app` |
+| `FOOTBALL_DATA_API_KEY` | API token from football-data.org (server-side only) |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://vdgozqxytqssjusxgxbt.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable/anon key from **Project Settings → API Keys** |
+
+Do not add `/rest/v1` to the Supabase URL. Never put the database password,
+`SUPABASE_SERVICE_ROLE_KEY`, or any secret in a `NEXT_PUBLIC_` value. After
+changing variables, use **Deployments → Redeploy** so the production build
+receives them.
+
+### 2. Supabase schema and live updates
+
+The production project already has its tables and current season data. For a
+new, empty Supabase project, bootstrap the Prisma schema once before applying
+the Realtime migration. Set the `DATABASE_URL` in
+`packages/database/.env` to that project and run `pnpm db:push`; then import
+fixtures with `pnpm db:sync-current:production`.
+`db:push` is only for initial schema setup, not routine production deployments.
+After that, complete these steps:
+
+1. In **SQL Editor**, run
+   [the Realtime/RLS migration](supabase/migrations/202611150001_realtime_match_updates.sql).
+   It grants anonymous read access to match and score rows and adds both tables
+   to the `supabase_realtime` publication.
+2. In **Database → Extensions**, make sure `pg_cron`, `pg_net`, and
+   `supabase_vault` are enabled.
+3. In **Edge Functions**, deploy a function named `sync-live` using
+   [`supabase/functions/sync-live/index.ts`](supabase/functions/sync-live/index.ts).
+   Add these function secrets in its **Secrets** settings:
+   `FOOTBALL_DATA_API_KEY` and `SYNC_FUNCTION_SECRET` (a random private value).
+   Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edge
+   Functions automatically; never expose the service-role key to the browser.
+4. In **SQL Editor**, run
+   [`supabase/schedule-sync-live.sql.example`](supabase/schedule-sync-live.sql.example)
+   once after replacing its example values. The script stores `project_url`,
+   `publishable_key`, and `sync_secret` in Vault, then creates a one-minute Cron
+   job. Use the base project URL (no `/rest/v1` or trailing slash), the
+   publishable/anon key, and the same random sync secret configured on the
+   Edge Function. Do not rerun the Vault `create_secret` statements if those
+   secret names already exist.
+
+These steps describe the dashboard setup currently in use. The SQL and function
+source are committed here for review and reuse. Changing a function file in
+GitHub does not itself update the deployed Supabase function; deploy changed
+function code separately from Supabase **Edge Functions**.
+
+### 3. Verify the scheduled sync
+
+Run these queries in Supabase **SQL Editor**:
+
+```sql
+select jobname, schedule, command from cron.job;
+
+select status_code, content, error_msg, created
+from net._http_response
+order by created desc
+limit 10;
+```
+
+`200` with `{"ok":true,"processed":0}` means the function was reached but
+found no provider matches for today (or no matching IDs already in the DB).
+When a match is scheduled for today, `processed` should be greater than zero.
+Dashboard Edge Function Logs can be empty on successful runs; inspect
+`net._http_response` and `cron.job_run_details` for Cron results.
+
+If the production database has not been populated yet, configure
+`packages/database/.env.production` with the Supabase `DATABASE_URL` and
+`FOOTBALL_DATA_API_KEY`, then run from the repository root:
+
+```bash
+pnpm db:generate
+pnpm db:sync-current:production
+```
+
+For the local Docker database, configure `packages/database/.env.development`
+and run `pnpm db:sync-current:dev`. Each command loads only its named env file,
+so it won't switch the target configured for the other command. These commands
+import/update the current Premier League season. Do not run `db:push` against
+production as a routine deploy step; use reviewed Prisma migrations when
+changing the schema. If a Supabase Free project is paused, restore it from the
+Supabase Dashboard before Cron, Realtime, or website database access can work
+again.
 
 ---
 
@@ -420,8 +552,8 @@ docker compose up -d postgres redis
 # Stop infrastructure
 docker compose down
 
-# Build and run the Compose services (web app, PostgreSQL, Redis)
-docker compose up -d --build
+# Build and run the web container with PostgreSQL and Redis
+docker compose --profile prod up -d --build
 
 # View logs
 docker compose logs -f postgres
@@ -469,6 +601,10 @@ pnpm db:migrate            # create a named migration
 pnpm db:migrate:deploy     # apply committed migrations (production releases)
 pnpm db:seed               # seed sample data
 pnpm db:studio             # open Prisma Studio at localhost:5555
+pnpm db:sync-current:dev   # import current fixtures into local Docker DB
+pnpm db:sync-current:production # import current fixtures into Supabase
+pnpm db:sync-live          # one-time live sync using packages/database/.env
+pnpm db:sync-live:watch    # local repeating sync; not a Vercel worker
 
 # Run a single app
 pnpm --filter @app/web       dev
@@ -478,20 +614,41 @@ pnpm --filter @app/realtime  dev
 
 ---
 
-## ✅ Verification status
+## 🧪 Validation
 
-The following checks were run locally:
+Run these checks from the repository root before submitting changes:
 
-| Check                      | Result                                                                |
-| -------------------------- | --------------------------------------------------------------------- |
-| `pnpm type-check`          | Passed                                                                |
-| `pnpm build`               | Passed                                                                |
-| `pnpm lint`                | Failed: `next lint` is not supported by the current Next.js CLI setup |
-| `pnpm test -- --runInBand` | Failed: no test files are present                                     |
-| WebSocket, Redis, CI/CD    | Not verified; no automated workflow is included                       |
+```bash
+pnpm type-check
+pnpm build
+pnpm test
+```
 
-The repository contains local Docker and app startup configuration, but it does
-not currently include a live demo URL, CI/CD workflow, or automated test suite.
+The repository does not yet contain automated test files, so `pnpm test` has no
+test cases to execute.
+
+---
+
+## ⚠️ Known Limitations
+
+- Live-score refreshes update fixtures already stored in PostgreSQL. They do not
+  discover or import new fixtures automatically.
+- Live-score freshness depends on the scheduled job and the availability and
+  rate limits of football-data.org, Supabase Edge Functions, and Realtime.
+- The Vercel health endpoint reports web-service liveness; it does not verify
+  database connectivity or the status of the scheduled sync pipeline.
+- The Fastify API and standalone Socket.IO server are retained for local or
+  self-hosted use and are not part of the current Vercel production deployment.
+- The web lint script uses `next lint`, which is unsupported by the current
+  Next.js CLI and needs to be migrated to the ESLint CLI.
+- Supabase Free projects may pause after a period of inactivity.
+
+---
+
+## 📄 License
+
+No `LICENSE` file is currently included in this repository. As a result, no
+open-source license or reuse and redistribution terms have been specified.
 
 ---
 
