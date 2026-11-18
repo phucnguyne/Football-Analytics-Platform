@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Trỏ về root monorepo để trace đủ file trong pnpm workspace
   outputFileTracingRoot: path.join(process.cwd(), "../../"),
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 
   images: {
     remotePatterns: [
