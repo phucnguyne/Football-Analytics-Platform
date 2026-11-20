@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
+import { MatchStatus, type Prisma } from '@app/database'
 import { toMatchResponse } from '@/lib/db-helpers'
 
 export async function GET(
@@ -17,12 +18,17 @@ export async function GET(
     const statusParam = req.nextUrl.searchParams.get('status')
     const limitParam = req.nextUrl.searchParams.get('limit')
 
-    const where: any = {
+    const where: Prisma.MatchWhereInput = {
       OR: [{ homeTeamId: id }, { awayTeamId: id }],
     }
 
     if (statusParam) {
-      where.status = { in: statusParam.split(',').map(s => s.trim()) }
+      const statuses = statusParam.split(',').map((status) => status.trim())
+        .filter((status): status is MatchStatus => Object.values(MatchStatus).includes(status as MatchStatus))
+      if (statuses.length === 0) {
+        return NextResponse.json({ error: 'invalid match status' }, { status: 400 })
+      }
+      where.status = { in: statuses }
     }
 
     const matches = await prisma.match.findMany({

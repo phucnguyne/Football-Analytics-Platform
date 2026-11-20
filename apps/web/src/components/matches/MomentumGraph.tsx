@@ -3,7 +3,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
-export function MomentumGraph({ matchId, isLive, homeTeam, awayTeam }: { matchId: string, isLive: boolean, homeTeam: any, awayTeam: any }) {
+type DisplayTeam = { name: string; shortName?: string }
+
+export function MomentumGraph({ matchId, isLive, homeTeam, awayTeam }: { matchId: string; isLive: boolean; homeTeam: DisplayTeam; awayTeam: DisplayTeam }) {
   const { data: stats } = useQuery({
     queryKey: ['match-stats', matchId],
     queryFn: async () => {

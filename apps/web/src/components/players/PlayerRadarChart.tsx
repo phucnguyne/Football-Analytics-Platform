@@ -30,6 +30,12 @@ interface PlayerRadarProps {
   position: string
 }
 
+interface RadarDataPoint {
+  subject: string
+  originalPlayer: number
+  originalAvg: number
+}
+
 const LABEL_MAP: Record<string, string> = {
   xG: 'xG',
   xA: 'xA',
@@ -86,7 +92,10 @@ export function PlayerRadarChart({ playerStats, positionalAverages, playerName, 
 
   const data = normalizeStats(playerStats, positionalAverages)
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: {
+    active?: boolean
+    payload?: Array<{ payload: RadarDataPoint }>
+  }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-popover text-popover-foreground border shadow-lg p-3 rounded-lg text-sm">

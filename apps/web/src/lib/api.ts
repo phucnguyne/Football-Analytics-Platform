@@ -4,7 +4,20 @@
  * Free tier: 100 requests/day. The API key stays on the server; requests use
  * the app's API routes as a proxy.
  */
-import type { Match, Team, Player, Standing, League, MatchStatus, Position } from '../types/TypesBarrel'
+import type {
+  FootballDataMatch,
+  FootballDataMatchDetail,
+  FootballDataPerson,
+  FootballDataStanding,
+  FootballDataTeam,
+  Match,
+  Team,
+  Player,
+  Standing,
+  League,
+  MatchStatus,
+  Position,
+} from '../types/TypesBarrel'
 
 // ── Simple in-memory cache ────────────────────────────────────
 const cache = new Map<string, { data: unknown; ts: number }>()
@@ -20,7 +33,7 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 
 // ── TheSportsDB helpers (disabled) ────────────────────────────
 // async function sdbFetch<T>(path: string): Promise<T> {
-//   const res = await fetch(`${SPORTS_DB}${path}`, { next: { revalidate: 300 } } as any)
+//   const res = await fetch(`${SPORTS_DB}${path}`, { next: { revalidate: 300 } })
 //   if (!res.ok) throw new Error(`SportsDB error: ${res.status}`)
 //   return res.json()
 // }
@@ -41,7 +54,7 @@ async function fdFetch<T>(path: string): Promise<T> {
 // /** (disabled) Fetch all teams in a league. leagueId = TheSportsDB league id */
 // export async function getTeams(leagueId: string): Promise<Team[]> {
 //   return cached(`teams:${leagueId}`, async () => {
-//     const data = await sdbFetch<{ teams: any[] }>(`/lookup_all_teams.php?id=${leagueId}`)
+//     const data = await sdbFetch<{ teams: unknown[] }>(`/lookup_all_teams.php?id=${leagueId}`)
 //     return (data.teams ?? []).map(normalizeTeam)
 //   })
 // }
@@ -50,7 +63,7 @@ async function fdFetch<T>(path: string): Promise<T> {
 export async function getTeams(competitionCode: string, seasonId?: string): Promise<Team[]> {
   return cached(`teams:${competitionCode}:${seasonId ?? 'current'}`, async () => {
     const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
-    const data = await fdFetch<{ teams: any[] }>(`/competitions/${competitionCode}/teams${query}`)
+    const data = await fdFetch<{ teams: FootballDataTeam[] }>(`/competitions/${competitionCode}/teams${query}`)
     return (data.teams ?? []).map(normalizeTeam)
   })
 }
@@ -58,7 +71,7 @@ export async function getTeams(competitionCode: string, seasonId?: string): Prom
 // /** (disabled) Fetch single team details */
 // export async function getTeam(teamId: string): Promise<Team | null> {
 //   return cached(`team:${teamId}`, async () => {
-//     const data = await sdbFetch<{ teams: any[] }>(`/lookupteam.php?id=${teamId}`)
+//     const data = await sdbFetch<{ teams: unknown[] }>(`/lookupteam.php?id=${teamId}`)
 //     const t = data.teams?.[0]
 //     return t ? normalizeTeam(t) : null
 //   })
@@ -67,7 +80,7 @@ export async function getTeams(competitionCode: string, seasonId?: string): Prom
 /** Fetch single team details */
 export async function getTeam(teamId: string): Promise<Team | null> {
   return cached(`team:${teamId}`, async () => {
-    const t = await fdFetch<any>(`/teams/${teamId}`)
+    const t = await fdFetch<FootballDataTeam>(`/teams/${teamId}`)
     return t ? normalizeTeam(t) : null
   })
 }
@@ -75,7 +88,7 @@ export async function getTeam(teamId: string): Promise<Team | null> {
 // /** (disabled) Fetch all players in a team */
 // export async function getPlayers(teamId: string): Promise<Player[]> {
 //   return cached(`players:${teamId}`, async () => {
-//     const data = await sdbFetch<{ player: any[] }>(`/lookup_all_players.php?id=${teamId}`)
+//     const data = await sdbFetch<{ player: unknown[] }>(`/lookup_all_players.php?id=${teamId}`)
 //     return (data.player ?? []).map(normalizePlayer)
 //   })
 // }
@@ -83,7 +96,7 @@ export async function getTeam(teamId: string): Promise<Team | null> {
 /** Fetch all players (squad) for a team */
 export async function getPlayers(teamId: string): Promise<Player[]> {
   return cached(`players:photos:${teamId}`, async () => {
-    const data = await fdFetch<{ players: any[] }>(
+    const data = await fdFetch<{ players: FootballDataPerson[] }>(
       `/persons?teamId=${encodeURIComponent(teamId)}&limit=50`,
     )
     return (data.players ?? []).map((player) => normalizePlayer(player, teamId))
@@ -93,7 +106,7 @@ export async function getPlayers(teamId: string): Promise<Player[]> {
 // /** (disabled) Fetch single player */
 // export async function getPlayer(playerId: string): Promise<Player | null> {
 //   return cached(`player:${playerId}`, async () => {
-//     const data = await sdbFetch<{ results: any[] }>(`/lookupplayer.php?id=${playerId}`)
+//     const data = await sdbFetch<{ results: unknown[] }>(`/lookupplayer.php?id=${playerId}`)
 //     const p = data.results?.[0]
 //     return p ? normalizePlayer(p) : null
 //   })
@@ -102,7 +115,7 @@ export async function getPlayers(teamId: string): Promise<Player[]> {
 /** Fetch single player */
 export async function getPlayer(playerId: string): Promise<Player | null> {
   return cached(`player:${playerId}`, async () => {
-    const p = await fdFetch<any>(`/persons/${playerId}`)
+    const p = await fdFetch<FootballDataPerson & { currentTeam?: FootballDataTeam }>(`/persons/${playerId}`)
     return p ? normalizePlayer(p, String(p.currentTeam?.id ?? '0')) : null
   })
 }
@@ -110,7 +123,7 @@ export async function getPlayer(playerId: string): Promise<Player | null> {
 // /** (disabled) Last 5 matches for a team */
 // export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 //   return cached(`matches:team:${teamId}`, async () => {
-//     const data = await sdbFetch<{ results: any[] }>(`/eventslast.php?id=${teamId}`)
+//     const data = await sdbFetch<{ results: unknown[] }>(`/eventslast.php?id=${teamId}`)
 //     return (data.results ?? []).map(normalizeMatch)
 //   })
 // }
@@ -118,7 +131,7 @@ export async function getPlayer(playerId: string): Promise<Player | null> {
 /** Recent finished matches for a team (last 5) */
 export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
   return cached(`matches:team:${teamId}`, async () => {
-    const data = await fdFetch<{ matches: any[] }>(`/teams/${teamId}/matches?status=FINISHED&limit=5`)
+    const data = await fdFetch<{ matches: FootballDataMatch[] }>(`/teams/${teamId}/matches?status=FINISHED&limit=5`)
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
@@ -126,7 +139,7 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 // /** (disabled) All matches in a league (last results) */
 // export async function getLeagueMatches(leagueId: string): Promise<Match[]> {
 //   return cached(`matches:league:${leagueId}`, async () => {
-//     const data = await sdbFetch<{ results: any[] }>(`/eventslastleague.php?id=${leagueId}`)
+//     const data = await sdbFetch<{ results: unknown[] }>(`/eventslastleague.php?id=${leagueId}`)
 //     return (data.results ?? []).map(normalizeMatch)
 //   })
 // }
@@ -135,16 +148,16 @@ export async function getTeamRecentMatches(teamId: string): Promise<Match[]> {
 export async function getLeagueMatches(competitionCode: string, seasonId?: string): Promise<Match[]> {
   return cached(`matches:competition:${competitionCode}:${seasonId ?? 'current'}`, async () => {
     const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
-    const data = await fdFetch<{ matches: any[] }>(`/competitions/${competitionCode}/matches${query}`)
+    const data = await fdFetch<{ matches: FootballDataMatch[] }>(`/competitions/${competitionCode}/matches${query}`)
 
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
 
 /** Fetch single match details */
-export async function getMatch(matchId: string): Promise<any> {
+export async function getMatch(matchId: string): Promise<FootballDataMatchDetail> {
   return cached(`match:${matchId}`, async () => {
-    const data = await fdFetch<any>(`/matches/${matchId}`)
+    const data = await fdFetch<FootballDataMatchDetail>(`/matches/${matchId}`)
     return data
   })
 }
@@ -152,7 +165,7 @@ export async function getMatch(matchId: string): Promise<any> {
 /** All matches for a team in the current/recent season */
 export async function getTeamAllMatches(teamId: string): Promise<Match[]> {
   return cached(`matches:team:all:${teamId}`, async () => {
-    const data = await fdFetch<{ matches: any[] }>(`/teams/${teamId}/matches`)
+    const data = await fdFetch<{ matches: FootballDataMatch[] }>(`/teams/${teamId}/matches`)
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
@@ -160,7 +173,7 @@ export async function getTeamAllMatches(teamId: string): Promise<Match[]> {
 /** Live & in-play matches across all competitions */
 export async function getLiveMatches(): Promise<Match[]> {
   return cached('matches:live', async () => {
-    const data = await fdFetch<{ matches: any[] }>('/matches?status=IN_PLAY,PAUSED')
+    const data = await fdFetch<{ matches: FootballDataMatch[] }>('/matches?status=IN_PLAY,PAUSED')
     return (data.matches ?? []).map(normalizeMatch)
   })
 }
@@ -169,7 +182,7 @@ export async function getLiveMatches(): Promise<Match[]> {
 export async function getStandings(competition = 'PL', seasonId?: string): Promise<Standing[]> {
   return cached(`standings:${competition}:${seasonId ?? 'current'}`, async () => {
     const query = seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''
-    const data = await fdFetch<{ standings: any[] }>(`/competitions/${competition}/standings${query}`)
+    const data = await fdFetch<{ standings: FootballDataStanding[] }>(`/competitions/${competition}/standings${query}`)
     const table = data.standings?.find((s) => s.type === 'TOTAL')?.table ?? data.standings?.[0]?.table
     return (table ?? []).map(normalizeStanding)
   })
@@ -178,12 +191,12 @@ export async function getStandings(competition = 'PL', seasonId?: string): Promi
 // ══════════════════════════════════════════════════════════════
 //  NORMALIZERS  (map football-data.org shapes → shared types)
 // ══════════════════════════════════════════════════════════════
-function normalizeTeam(t: any): Team {
+function normalizeTeam(t: FootballDataTeam): Team {
   return {
     id:        String(t.id),
     name:      t.name,
     shortName: t.shortName ?? t.tla ?? t.name?.slice(0, 3).toUpperCase(),
-    crest:     t.crest,
+    crest:     t.crest ?? undefined,
     founded:   t.founded ?? undefined,
     venue:     t.venue ?? undefined,
     clubColors: t.clubColors ?? undefined,
@@ -195,19 +208,19 @@ function normalizeTeam(t: any): Team {
     coach:     t.coach ? {
       id: String(t.coach.id),
       name: t.coach.name,
-      dateOfBirth: t.coach.dateOfBirth,
-      nationality: t.coach.nationality
+      dateOfBirth: t.coach.dateOfBirth ?? undefined,
+      nationality: t.coach.nationality ?? undefined,
     } : undefined
   }
 }
 
-function normalizePlayer(p: any, teamId: string): Player {
+function normalizePlayer(p: FootballDataPerson, teamId: string): Player {
   return {
     id:           String(p.id),
     name:         p.name,
-    position:     mapPosition(p.position),
-    dateOfBirth:  p.dateOfBirth,
-    nationality:  p.nationality,
+    position:     mapPosition(p.position ?? ''),
+    dateOfBirth:  p.dateOfBirth ?? undefined,
+    nationality:  p.nationality ?? undefined,
     photo:        p.photo ?? undefined,
     shirtNumber:  p.shirtNumber ?? undefined,
     teamId,
@@ -215,7 +228,7 @@ function normalizePlayer(p: any, teamId: string): Player {
 }
 
 // /** (disabled) TheSportsDB shape normalizer */
-// function normalizeMatchSDB(m: any): Match {
+// function normalizeMatchSDB(m: unknown): Match {
 //   return {
 //     id:      String(m.idEvent ?? m.id),
 //     utcDate: m.dateEvent ?? m.utcDate ?? new Date().toISOString(),
@@ -243,19 +256,19 @@ function normalizePlayer(p: any, teamId: string): Player {
 //   return map[s] ?? 'SCHEDULED'
 // }
 
-function normalizeMatch(m: any): Match {
+function normalizeMatch(m: FootballDataMatch): Match {
   return {
     id:      String(m.id),
     utcDate: m.utcDate,
     status:  m.status as MatchStatus,
     minute:  m.minute ?? undefined,
-    stage:   m.stage,
+    stage:   m.stage ?? undefined,
     matchday: m.matchday ?? undefined,
     homeTeam: normalizeTeam(m.homeTeam),
     awayTeam: normalizeTeam(m.awayTeam),
     homeGoals: m.score?.fullTime?.home ?? null,
     awayGoals: m.score?.fullTime?.away ?? null,
-    competition: normalizeLeague(m.competition ?? {}),
+    competition: normalizeLeague(m.competition),
     score: m.score ? {
       homeTeamGoals: m.score.fullTime?.home ?? null,
       awayTeamGoals: m.score.fullTime?.away ?? null,
@@ -265,16 +278,16 @@ function normalizeMatch(m: any): Match {
   }
 }
 
-function normalizeLeague(c: any): League {
+function normalizeLeague(c: FootballDataMatch['competition']): League {
   return {
-    id:     String(c.id ?? '0'),
-    name:   c.name ?? '',
-    code:   c.code ?? '',
-    emblem: c.emblem ?? undefined,
+    id:     String(c?.id ?? '0'),
+    name:   c?.name ?? '',
+    code:   c?.code ?? '',
+    emblem: c?.emblem ?? undefined,
   }
 }
 
-function normalizeStanding(s: any): Standing {
+function normalizeStanding(s: FootballDataStanding): Standing {
   return {
     position:       s.position,
     team:           normalizeTeam(s.team),

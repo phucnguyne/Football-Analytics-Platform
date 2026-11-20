@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PageSpinner } from '@/components/ui/Spinner'
+import type { FootballDataMatchEvent } from '@/types/TypesBarrel'
 
 interface ShotPoint {
   x: number
@@ -26,10 +27,10 @@ interface ShotMapApiResponse {
 
 interface ShotMapProps {
   matchId: string | number
-  homeTeam: { id: number; name: string; shortName: string }
-  awayTeam: { id: number; name: string; shortName: string }
+  homeTeam: { id: number; name: string; shortName?: string }
+  awayTeam: { id: number; name: string; shortName?: string }
   /** Legacy prop — ignored when StatsBomb data is available */
-  events?: any[]
+  events?: FootballDataMatchEvent[]
 }
 
 export function ShotMap({ matchId, homeTeam, awayTeam, events = [] }: ShotMapProps) {

@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
-export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { matchId: string, homeTeam: any, awayTeam: any, isLive: boolean }) {
+type DisplayTeam = { name: string; shortName?: string }
+
+export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { matchId: string; homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
   const [prediction, setPrediction] = useState<string | null>(null)
   
   if (!isLive) return null;

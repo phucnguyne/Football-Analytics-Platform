@@ -29,3 +29,16 @@ export type {
   SyncLog,
   SyncStatus,
 } from '@app/database'
+
+export type {
+  FootballDataCompetition,
+  FootballDataMatch,
+  FootballDataMatchDetail,
+  FootballDataMatchEvent,
+  FootballDataPerson,
+  FootballDataReferee,
+  FootballDataScore,
+  FootballDataStanding,
+  FootballDataTeam,
+  FootballDataTeamDetail,
+} from './football-data'

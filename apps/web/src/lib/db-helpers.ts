@@ -22,6 +22,12 @@ type MatchWithDetails = Prisma.MatchGetPayload<{
   }
 }>
 
+type MatchEventWithCoordinates = MatchWithDetails['events'][number] & {
+  xG?: number | null
+  x?: number | null
+  y?: number | null
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -107,7 +113,9 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
   const storedGoals = m.events
     .filter(e => ['GOAL', 'OWN_GOAL', 'PENALTY_GOAL'].includes(e.type))
     .sort((a, b) => a.minute - b.minute)
-    .map(e => ({
+    .map((event) => {
+      const e = event as MatchEventWithCoordinates
+      return {
       minute: e.minute,
       injuryTime: e.minuteExtra ?? null,
       type: e.type === 'OWN_GOAL' ? 'OWN' : e.type === 'PENALTY_GOAL' ? 'PENALTY' : 'REGULAR',
@@ -116,10 +124,11 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
         : { id: m.awayTeam.id, name: m.awayTeam.name },
       scorer: e.player ? { id: e.player.id, name: e.player.name } : null,
       assist: e.relatedPlayer ? { id: e.relatedPlayer.id, name: e.relatedPlayer.name } : null,
-      xG: (e as any).xG,
-      x: (e as any).x,
-      y: (e as any).y
-    }))
+      xG: e.xG ?? null,
+      x: e.x ?? null,
+      y: e.y ?? null,
+    }
+    })
 
   const goals = providerArray(rawData.goals) ?? storedGoals
   // Legacy SHOT rows have no verified provenance; only provider shot data is exposed.

@@ -166,11 +166,12 @@ export async function GET(
     // For IN_PLAY/PAUSED: fetch live data from provider (don't cache — score changes every minute)
     if (match.status === 'IN_PLAY' || match.status === 'PAUSED') {
       try {
-        const res = await fetch(`${API_URL}/matches/${matchId}`, {
+        const requestInit: RequestInit & { next: { revalidate: number } } = {
           headers: { 'X-Auth-Token': API_KEY },
           // Short cache so CDN/Next cache doesn't serve stale score
           next: { revalidate: 30 },
-        } as any)
+        }
+        const res = await fetch(`${API_URL}/matches/${matchId}`, requestInit)
         if (res.ok) {
           const liveData = await res.json()
           return NextResponse.json(liveData, {

@@ -16,6 +16,7 @@ export function useTeam(teamId: string) {
   return useQuery({
     queryKey: ['team', teamId],
     queryFn: () => getTeam(teamId),
-    enabled: !!teamId
+    enabled: !!teamId,
+    staleTime: 5 * 60 * 1000,
   })
 }

@@ -20,4 +20,10 @@ export interface Match {
   minute?: number
   stage?: string
   matchday?: number
+  /** Win probabilities returned by the API as percentages from 0 to 100. */
+  prediction?: {
+    homeWin: number
+    draw: number
+    awayWin: number
+  } | null
 }

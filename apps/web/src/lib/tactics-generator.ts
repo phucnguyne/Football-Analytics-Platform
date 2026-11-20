@@ -26,6 +26,21 @@ export interface PassingNode {
   touches: number
 }
 
+export interface TacticalLineupPlayer {
+  id: number
+  name: string
+  shirtNumber?: number | null
+  position?: string | null
+}
+
+export interface TacticalTeamInput {
+  id: number
+  name: string
+  shortName: string
+  crest?: string
+  lineup?: TacticalLineupPlayer[]
+}
+
 export interface PassingLink {
   source: number // Player ID
   target: number // Player ID
@@ -129,13 +144,13 @@ const DEFAULT_COORDS: Record<string, { x: number; y: number }> = {
  */
 export function generateTacticalData(
   matchId: number,
-  homeTeam: { id: number; name: string; shortName: string; crest?: string; lineup?: any[] },
-  awayTeam: { id: number; name: string; shortName: string; crest?: string; lineup?: any[] }
+  homeTeam: TacticalTeamInput,
+  awayTeam: TacticalTeamInput,
 ): MatchTacticsResponse {
   const seedBase = matchId * 1337
 
   const generateTeamTactics = (
-    team: { id: number; name: string; shortName: string; crest?: string; lineup?: any[] },
+    team: TacticalTeamInput,
     isHome: boolean
   ): TeamTactics => {
     const seed = seedBase + (isHome ? 100 : 200)

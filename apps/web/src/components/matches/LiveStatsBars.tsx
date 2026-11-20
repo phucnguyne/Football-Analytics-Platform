@@ -2,7 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 
-export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId: string, homeTeam: any, awayTeam: any, isLive: boolean }) {
+type DisplayTeam = { name: string; shortName?: string }
+
+export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId: string; homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
   const { data: stats } = useQuery({
     queryKey: ['match-stats', matchId],
     queryFn: async () => {

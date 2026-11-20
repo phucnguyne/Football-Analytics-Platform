@@ -4,6 +4,8 @@ import { getStandings } from '@/lib/api'
 export function useStandings(leagueId: string, seasonId?: string) {
   return useQuery({
     queryKey: ['standings', leagueId, seasonId ?? 'current'],
-    queryFn: () => getStandings(leagueId, seasonId)
+    queryFn: () => getStandings(leagueId, seasonId),
+    enabled: !!leagueId,
+    staleTime: 5 * 60 * 1000,
   })
 }

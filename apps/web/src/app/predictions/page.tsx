@@ -37,6 +37,11 @@ interface SeasonPrediction {
   teams: TeamPrediction[];
 }
 
+function getErrorStatus(error: unknown): number | undefined {
+  return typeof error === 'object' && error !== null && 'status' in error &&
+    typeof error.status === 'number' ? error.status : undefined
+}
+
 async function fetchSeasonPrediction(): Promise<SeasonPrediction> {
   const res = await fetch("/api/predictions/season");
   if (!res.ok) {
@@ -87,7 +92,7 @@ export default function PredictionsPage() {
 
   // No finished matches yet — show a helpful empty state instead of a generic error
   if (isError) {
-    const status = (error as any)?.status;
+    const status = getErrorStatus(error);
     const isNoData = status === 400;
     const isProviderUnavailable = status === 502;
 

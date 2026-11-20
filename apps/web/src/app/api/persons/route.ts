@@ -5,6 +5,7 @@ import {
   apiFootballPlayerNameMatches,
   getApiFootballTeamSquad,
 } from '@/lib/api-football'
+import type { FootballDataTeamDetail } from '@/types/TypesBarrel'
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
   try {
     if (teamId) {
       const localTeam = await prisma.team.findUnique({ where: { id: teamId } })
-      let providerData: any = null
+      let providerData: FootballDataTeamDetail | null = null
       let providerStatus: number | null = null
       if (!localTeam) {
         const response = await fetch(
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
           },
         )
         if (response.ok) {
-          providerData = await response.json()
+          providerData = await response.json() as FootballDataTeamDetail
         } else {
           providerStatus = response.status
         }
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
           },
         )
         if (response.ok) {
-          providerData = await response.json()
+          providerData = await response.json() as FootballDataTeamDetail
         }
       }
 
@@ -127,13 +128,7 @@ export async function GET(req: NextRequest) {
               (player.name ?? '').toLocaleLowerCase().includes(normalizedQuery),
             )
             .slice(0, limit)
-            .map((player: {
-              id: number
-              name: string
-              position?: string
-              shirtNumber?: number | null
-              photo?: string | null
-            }) => ({
+            .map((player) => ({
               id: player.id,
               name: player.name,
               position: player.position ?? '',

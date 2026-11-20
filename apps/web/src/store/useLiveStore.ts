@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { toast } from "react-hot-toast";
 import { supabase } from "@/lib/supabase-browser";
+import type { FootballDataMatch } from "@/types/TypesBarrel";
 
 export interface LiveMatchUpdate {
   matchId: number;
@@ -40,21 +41,21 @@ async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
   if (!response.ok)
     throw new Error(`Failed to load live matches (${response.status})`);
 
-  const data = await response.json();
+  const data = await response.json() as { matches?: FootballDataMatch[] };
   return (data.matches ?? []).reduce(
-    (matches: Record<number, LiveMatchUpdate>, match: any) => {
+    (matches: Record<number, LiveMatchUpdate>, match) => {
       matches[match.id] = {
         matchId: match.id,
         status: match.status,
         minute: match.minute ?? null,
         homeTeamId: match.homeTeam.id,
         homeTeamName: match.homeTeam.name,
-        homeTeamCrest: match.homeTeam.crest,
-        homeTeamShortName: match.homeTeam.shortName,
+        homeTeamCrest: match.homeTeam.crest ?? null,
+        homeTeamShortName: match.homeTeam.shortName ?? match.homeTeam.name,
         awayTeamId: match.awayTeam.id,
         awayTeamName: match.awayTeam.name,
-        awayTeamCrest: match.awayTeam.crest,
-        awayTeamShortName: match.awayTeam.shortName,
+        awayTeamCrest: match.awayTeam.crest ?? null,
+        awayTeamShortName: match.awayTeam.shortName ?? match.awayTeam.name,
         homeGoals: match.score?.fullTime?.home ?? null,
         awayGoals: match.score?.fullTime?.away ?? null,
         competition: match.competition?.name ?? "",

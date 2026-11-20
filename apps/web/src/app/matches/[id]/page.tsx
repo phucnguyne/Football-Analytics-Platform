@@ -17,6 +17,7 @@ import { MatchChat } from "@/components/matches/MatchChat";
 import { ShotMap } from "@/components/matches/ShotMap";
 import { AlgorithmicPrediction } from "@/components/matches/AlgorithmicPrediction";
 import { TacticalInsights } from "@/components/tactics/TacticalInsights";
+import type { FootballDataMatchEvent } from "@/types/TypesBarrel";
 
 export default function MatchDetailsPage({
   params,
@@ -36,12 +37,12 @@ export default function MatchDetailsPage({
     enabled: !!id,
   });
 
-  const { data: providerEvents } = useQuery<{ events?: any[] }>({
+  const { data: providerEvents } = useQuery<{ events?: FootballDataMatchEvent[] }>({
     queryKey: ["provider-events", id],
     queryFn: async () => {
       const response = await fetch(`/api/matches/${id}/provider-events`);
       if (!response.ok) throw new Error("Failed to fetch provider events");
-      return response.json();
+      return response.json() as Promise<{ events?: FootballDataMatchEvent[] }>;
     },
     enabled: !!id,
     staleTime: 60 * 1000,
@@ -68,26 +69,26 @@ export default function MatchDetailsPage({
 
   const currentStatus = liveUpdate?.status ?? match.status;
   const currentMinute = liveUpdate?.minute ?? match.minute;
-  const homeGoals = liveUpdate?.homeGoals ?? match.score?.fullTime?.home;
-  const awayGoals = liveUpdate?.awayGoals ?? match.score?.fullTime?.away;
+  const homeGoals = liveUpdate?.homeGoals ?? match.score?.fullTime?.home ?? null;
+  const awayGoals = liveUpdate?.awayGoals ?? match.score?.fullTime?.away ?? null;
   const homeGoalsHT = match.score?.halfTime?.home;
   const awayGoalsHT = match.score?.halfTime?.away;
 
   const homeLineup = match.homeTeam?.lineup ?? [];
   const awayLineup = match.awayTeam?.lineup ?? [];
-  const goals = (match.goals ?? []).map((g: any) => ({
+  const goals = (match.goals ?? []).map((g) => ({
     ...g,
     eventType: "goal",
   }));
-  const shots = (match.shots ?? []).map((s: any) => ({
+  const shots = (match.shots ?? []).map((s) => ({
     ...s,
     eventType: "shot",
   }));
-  const bookings = (match.bookings ?? []).map((b: any) => ({
+  const bookings = (match.bookings ?? []).map((b) => ({
     ...b,
     eventType: "booking",
   }));
-  const substitutions = (match.substitutions ?? []).map((s: any) => ({
+  const substitutions = (match.substitutions ?? []).map((s) => ({
     ...s,
     eventType: "sub",
   }));
@@ -96,7 +97,7 @@ export default function MatchDetailsPage({
   let currentHomeLineup = [...homeLineup];
   let currentAwayLineup = [...awayLineup];
 
-  substitutions.forEach((sub: any) => {
+  substitutions.forEach((sub) => {
     if (sub.team?.id === match.homeTeam.id) {
       currentHomeLineup = currentHomeLineup.filter(
         (p) => p.id !== sub.playerOut?.id,
@@ -115,20 +116,20 @@ export default function MatchDetailsPage({
   const localEvents = [...goals, ...shots, ...bookings, ...substitutions];
   const externalEvents = providerEvents?.events ?? [];
   const allEvents = [...localEvents, ...externalEvents]
-    .filter((event: any, index: number, events: any[]) => {
+    .filter((event, index, events) => {
       const key = `${event.eventType}:${event.minute}:${event.player?.id ?? event.scorer?.id ?? ""}:${event.team?.id ?? event.team ?? ""}`;
       return (
         index ===
         events.findIndex(
-          (candidate: any) =>
+          (candidate) =>
             `${candidate.eventType}:${candidate.minute}:${candidate.player?.id ?? candidate.scorer?.id ?? ""}:${candidate.team?.id ?? candidate.team ?? ""}` ===
             key,
         )
       );
     })
-    .sort((a: any, b: any) => (a.minute ?? 0) - (b.minute ?? 0));
+    .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
 
-  const referee = match.referees?.find((r: any) => r.type === "REFEREE");
+  const referee = match.referees?.find((referee) => referee.type === "REFEREE");
 
   return (
     <Container className="py-10">
@@ -249,8 +250,8 @@ export default function MatchDetailsPage({
               </p>
               <ul className="space-y-1">
                 {goals
-                  .filter((g: any) => g.team?.id === match.homeTeam.id)
-                  .map((g: any, i: number) => (
+                  .filter((g) => g.team?.id === match.homeTeam.id)
+                  .map((g, i) => (
                     <li key={i} className="text-sm flex items-center gap-2">
                       <span className="font-bold">{g.scorer?.name}</span>
                       <span className="text-muted-foreground">
@@ -261,7 +262,7 @@ export default function MatchDetailsPage({
                           Pen
                         </span>
                       )}
-                      {["OWN", "OWN_GOAL"].includes(g.type) && (
+                      {["OWN", "OWN_GOAL"].includes(g.type ?? "") && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">
                           OG
                         </span>
@@ -273,7 +274,7 @@ export default function MatchDetailsPage({
                       )}
                     </li>
                   ))}
-                {goals.filter((g: any) => g.team?.id === match.homeTeam.id)
+                {goals.filter((g) => g.team?.id === match.homeTeam.id)
                   .length === 0 && (
                   <li className="text-sm text-muted-foreground">—</li>
                 )}
@@ -286,8 +287,8 @@ export default function MatchDetailsPage({
               </p>
               <ul className="space-y-1">
                 {goals
-                  .filter((g: any) => g.team?.id === match.awayTeam.id)
-                  .map((g: any, i: number) => (
+                  .filter((g) => g.team?.id === match.awayTeam.id)
+                  .map((g, i) => (
                     <li key={i} className="text-sm flex items-center gap-2">
                       <span className="font-bold">{g.scorer?.name}</span>
                       <span className="text-muted-foreground">
@@ -298,7 +299,7 @@ export default function MatchDetailsPage({
                           Pen
                         </span>
                       )}
-                      {["OWN", "OWN_GOAL"].includes(g.type) && (
+                      {["OWN", "OWN_GOAL"].includes(g.type ?? "") && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">
                           OG
                         </span>
@@ -310,7 +311,7 @@ export default function MatchDetailsPage({
                       )}
                     </li>
                   ))}
-                {goals.filter((g: any) => g.team?.id === match.awayTeam.id)
+                {goals.filter((g) => g.team?.id === match.awayTeam.id)
                   .length === 0 && (
                   <li className="text-sm text-muted-foreground">—</li>
                 )}
@@ -351,11 +352,11 @@ export default function MatchDetailsPage({
               Match Events
             </h3>
 
-            {allEvents.filter((e: any) => e.eventType !== "shot").length > 0 ? (
+            {allEvents.filter((e) => e.eventType !== "shot").length > 0 ? (
               <div className="space-y-3">
                 {allEvents
-                  .filter((e: any) => e.eventType !== "shot")
-                  .map((ev: any, i: number) => (
+                  .filter((e) => e.eventType !== "shot")
+                  .map((ev, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-4 px-4 py-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
@@ -379,7 +380,7 @@ export default function MatchDetailsPage({
                                 Pen
                               </span>
                             )}
-                            {["OWN", "OWN_GOAL"].includes(ev.type) && (
+                            {["OWN", "OWN_GOAL"].includes(ev.type ?? "") && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 font-bold uppercase">
                                 OG
                               </span>
@@ -537,7 +538,7 @@ export default function MatchDetailsPage({
                     )}
                   </div>
                   <ul className="space-y-1.5">
-                    {currentHomeLineup.map((p: any) => (
+                    {currentHomeLineup.map((p) => (
                       <li
                         key={p.id}
                         className="text-sm flex justify-between items-center py-1 px-2 rounded hover:bg-muted/30 transition-colors"
@@ -589,7 +590,7 @@ export default function MatchDetailsPage({
                     )}
                   </div>
                   <ul className="space-y-1.5">
-                    {currentAwayLineup.map((p: any) => (
+                    {currentAwayLineup.map((p) => (
                       <li
                         key={p.id}
                         className="text-sm flex justify-between items-center py-1 px-2 rounded hover:bg-muted/30 transition-colors"

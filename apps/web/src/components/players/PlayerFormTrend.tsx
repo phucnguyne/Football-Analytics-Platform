@@ -21,7 +21,10 @@ interface PlayerFormTrendProps {
 
 // Defined outside the component so Recharts gets a stable reference and
 // doesn't unmount/remount the tooltip overlay on every parent re-render.
-function FormCustomTooltip({ active, payload }: any) {
+function FormCustomTooltip({ active, payload }: {
+  active?: boolean
+  payload?: Array<{ payload: FormMatch }>
+}) {
   if (active && payload && payload.length) {
     const d = payload[0].payload
     return (
@@ -29,7 +32,7 @@ function FormCustomTooltip({ active, payload }: any) {
         <div className="flex items-center justify-between gap-3 border-b pb-1.5 font-bold">
           <span className="flex items-center gap-1.5">
             <span>vs</span>
-            <span>{d.opponent}</span>
+            <span>{d.opponent.shortName || d.opponent.name}</span>
           </span>
           <span
             className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${

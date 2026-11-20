@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Inter } from 'next/font/google'
 import '@/styles/app.css'
 import { Providers } from './providers'
@@ -37,64 +38,64 @@ export default function RootLayout({
               <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="container mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8">
                   <div className="mr-4 flex">
-                    <a
+                    <Link
                       className="mr-6 flex items-center space-x-2"
                       href="/"
                     >
                       <span className="font-bold text-xl tracking-tighter">
                         FA Pro
                       </span>
-                    </a>
+                    </Link>
 
                     <nav className="flex items-center space-x-6 text-sm font-medium">
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/matches"
                       >
                         Matches
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/live"
                       >
                         Live
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/standings"
                       >
                         Standings
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/teams"
                       >
                         Teams
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/players"
                       >
                         Players
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/players/compare"
                       >
                         Compare
-                      </a>
+                      </Link>
 
-                      <a
+                      <Link
                         className="transition-colors hover:text-foreground/80 text-foreground/60"
                         href="/predictions"
                       >
                         Predictions
-                      </a>
+                      </Link>
                     </nav>
                   </div>
 

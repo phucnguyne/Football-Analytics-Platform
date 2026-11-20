@@ -54,8 +54,24 @@ export interface SimilarPlayerResult {
   };
 }
 
+export interface PlayerPerformanceStats {
+  xG?: number | null
+  xA?: number | null
+  shotsPer90?: number | null
+  passCompletion?: number | null
+  progressivePasses?: number | null
+  tacklesPer90?: number | null
+  interceptions?: number | null
+  dribblesSuccess?: number | null
+}
+
+export interface ComparablePlayer {
+  name: string
+  stats?: PlayerPerformanceStats | null
+}
+
 // Key metrics normalized weightings for similarity
-const STAT_WEIGHTS: Record<string, { max: number; weight: number }> = {
+const STAT_WEIGHTS: Record<keyof PlayerPerformanceStats, { max: number; weight: number }> = {
   xG: { max: 1.0, weight: 1.4 },
   xA: { max: 0.6, weight: 1.4 },
   shotsPer90: { max: 5.0, weight: 1.0 },
@@ -69,14 +85,18 @@ const STAT_WEIGHTS: Record<string, { max: number; weight: number }> = {
 /**
  * Calculate statistical cosine similarity between two players
  */
-export function calculateCosineSimilarity(statsA: any, statsB: any): number {
+export function calculateCosineSimilarity(
+  statsA?: PlayerPerformanceStats | null,
+  statsB?: PlayerPerformanceStats | null,
+): number {
   if (!statsA || !statsB) return 50;
 
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
 
-  for (const [key, config] of Object.entries(STAT_WEIGHTS)) {
+  for (const key of Object.keys(STAT_WEIGHTS) as Array<keyof PlayerPerformanceStats>) {
+    const config = STAT_WEIGHTS[key]
     const valA = ((statsA[key] ?? 0) / config.max) * config.weight;
     const valB = ((statsB[key] ?? 0) / config.max) * config.weight;
 
@@ -96,7 +116,7 @@ export function calculateCosineSimilarity(statsA: any, statsB: any): number {
 /**
  * Assign tactical playing style tags based on player metrics
  */
-export function getPlayerStyleTags(stats: any): string[] {
+export function getPlayerStyleTags(stats?: PlayerPerformanceStats | null): string[] {
   if (!stats) return ["Versatile"];
   const tags: string[] = [];
 
@@ -115,7 +135,13 @@ export function getPlayerStyleTags(stats: any): string[] {
 /**
  * Generate automated qualitative comparative verdict between two players
  */
-export function generateComparisonVerdict(playerA: any, playerB: any) {
+export function generateComparisonVerdict(
+  playerA: ComparablePlayer | null,
+  playerB: ComparablePlayer | null,
+) {
+  if (!playerA || !playerB) {
+    return { headline: 'Player comparison unavailable', bullets: ['Player data is unavailable.'] }
+  }
   const sA = playerA.stats || {};
   const sB = playerB.stats || {};
 

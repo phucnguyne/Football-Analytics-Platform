@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
+import { Position } from '@app/database'
 import { toTeamResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
 import {
   apiFootballPlayerNameMatches,
   getApiFootballTeamSquad,
 } from '@/lib/api-football'
+import type { FootballDataPerson, FootballDataTeamDetail } from '@/types/TypesBarrel'
 
 /**
  * Heuristic: detect placeholder/seeded player names like "Chelsea Goalkeeper 0"
@@ -56,7 +58,7 @@ export async function GET(
     const needsLiveSquad = hasPlaceholderNames(dbPlayers)
 
     // Always fetch from football-data.org for coach + fresh squad
-    let externalData: any = null
+    let externalData: FootballDataTeamDetail | null = null
     try {
       const res = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
@@ -65,12 +67,12 @@ export async function GET(
           next: { revalidate: 3600 },
         }
       )
-      if (res.ok) externalData = await res.json()
+      if (res.ok) externalData = await res.json() as FootballDataTeamDetail
     } catch (e) {
       console.warn(`[TeamRoute] Could not reach football-data for team ${teamId}`)
     }
 
-    const externalSquad: any[] = externalData?.squad ?? externalData?.players ?? []
+    const externalSquad: FootballDataPerson[] = externalData?.squad ?? externalData?.players ?? []
     const playerPhotos = new Map(dbPlayers.map((player) => [player.id, player.photo]))
     const apiSquad = await getApiFootballTeamSquad(team.name)
     const externalSquadWithPhotos = externalSquad.map((player) => {
@@ -115,15 +117,15 @@ export async function GET(
 }
 
 /** Upsert real player names from football-data.org squad into the DB */
-async function upsertSquadInBackground(teamId: number, squad: any[]) {
+async function upsertSquadInBackground(teamId: number, squad: FootballDataPerson[]) {
   for (const p of squad) {
     if (!p.id || !p.name) continue
-    const positionMap: Record<string, string> = {
+    const positionMap: Record<string, Position> = {
       Goalkeeper: 'GOALKEEPER', Defender: 'DEFENDER',
       Midfielder: 'MIDFIELDER', Forward: 'FORWARD',
       Offence: 'FORWARD',
     }
-    const position = positionMap[p.position] ?? 'MIDFIELDER'
+    const position = positionMap[p.position ?? ''] ?? 'MIDFIELDER'
 
     try {
       await prisma.player.upsert({
@@ -138,7 +140,7 @@ async function upsertSquadInBackground(teamId: number, squad: any[]) {
         create: {
           id: p.id,
           name: p.name,
-          position: position as any,
+          position,
           nationality: p.nationality ?? null,
           dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : null,
           photo: p.photo ?? null,
