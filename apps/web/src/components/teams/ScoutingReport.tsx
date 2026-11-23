@@ -47,11 +47,12 @@ function ResultBadge({ result }: { result: 'W' | 'D' | 'L' }) {
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children, source }: { children: React.ReactNode; source: string }) {
   return (
     <h2 className="text-lg font-bold flex items-center gap-2 mb-4 print:text-base">
       <span className="w-1.5 h-5 bg-primary rounded-full print:hidden" />
       {children}
+      <span className="rounded border px-2 py-0.5 text-xs font-medium text-muted-foreground">{source}</span>
     </h2>
   )
 }
@@ -264,9 +265,15 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
                 #{report.leaguePosition} Premier League
               </span>
             )}
-            <RatingOrb rating={report.overallRating} />
+            <div className="flex flex-col items-center gap-1">
+              <RatingOrb rating={report.overallRating} />
+              <span className="text-xs text-muted-foreground">Generated rating</span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-1 mt-2 text-sm text-muted-foreground">
+            {report.provenance?.team === 'generated' && <span>Generated team profile</span>}
+            {report.provenance?.standing === 'database' && <span>Database standings</span>}
+            {report.provenance?.standing === 'unavailable' && <span>Standings unavailable</span>}
             {report.venue && <span>🏟 {report.venue}</span>}
             {report.founded && <span>📅 Est. {report.founded}</span>}
             {report.playedGames > 0 && (
@@ -294,7 +301,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Formation & Tactics ──────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
-          <SectionTitle>Formation & Tactics</SectionTitle>
+          <SectionTitle source="Generated">Formation & Tactics</SectionTitle>
           <div className="space-y-4">
             <div>
               <p className="text-xs text-muted-foreground mb-2">🏠 Home</p>
@@ -315,7 +322,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
           {/* Attacking */}
           <Card>
-            <SectionTitle>Attacking Patterns</SectionTitle>
+            <SectionTitle source="Generated">Attacking Patterns</SectionTitle>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-4">
                 <div>
@@ -344,7 +351,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
           {/* Defensive */}
           <Card>
-            <SectionTitle>Defensive Profile</SectionTitle>
+            <SectionTitle source="Generated">Defensive Profile</SectionTitle>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-3">
                 <div>
@@ -386,7 +393,11 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Key Players ──────────────────────────────────────────────────── */}
         <Card className="lg:col-span-2">
-          <SectionTitle>Key Players</SectionTitle>
+          <SectionTitle source={
+            report.provenance?.keyPlayers === 'database'
+              ? 'Database stats · Generated roles'
+              : report.provenance?.keyPlayers === 'generated' ? 'Generated' : 'Source unavailable'
+          }>Key Players</SectionTitle>
           <div className="space-y-3">
             {report.keyPlayers.map((player, i) => (
               <div
@@ -440,7 +451,11 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Recent Form ──────────────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
-          <SectionTitle>Recent Form</SectionTitle>
+          <SectionTitle source={
+            report.provenance?.recentForm === 'database'
+              ? 'Database results'
+              : report.provenance?.recentForm === 'generated' ? 'Generated' : 'Source unavailable'
+          }>Recent Form</SectionTitle>
           <div className="flex gap-2 mb-4">
             {report.recentForm.map((r, i) => (
               <ResultBadge key={i} result={r.result} />
@@ -467,7 +482,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Set Piece Analysis ───────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
-          <SectionTitle>Set Piece Analysis</SectionTitle>
+          <SectionTitle source="Generated">Set Piece Analysis</SectionTitle>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-center">
               {[
@@ -489,7 +504,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Strengths & Weaknesses ───────────────────────────────────────── */}
         <Card className="lg:col-span-2">
-          <SectionTitle>Analyst Summary</SectionTitle>
+          <SectionTitle source="Generated">Analyst Summary</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-5 mb-4">
             <div>
               <h3 className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-1.5">

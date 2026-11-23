@@ -54,7 +54,7 @@ function StatCell({ value, label }: { value: string | number; label?: string }) 
 
 // ── Season Table ──────────────────────────────────────────────────────────────
 
-function SeasonTable({ seasons }: { seasons: CareerSeason[] }) {
+function SeasonTable({ seasons, provenance }: { seasons: CareerSeason[]; provenance?: CareerStats['provenance'] }) {
   const headers = [
     { key: 'year',        label: 'Season'  },
     { key: 'team',        label: 'Club'    },
@@ -106,6 +106,13 @@ function SeasonTable({ seasons }: { seasons: CareerSeason[] }) {
                       Current
                     </span>
                   )}
+                  <span className="text-[10px] text-muted-foreground">
+                    {s.isCurrent && !provenance
+                      ? 'Source unavailable'
+                      : s.isCurrent && (provenance?.currentTeamFromDatabase || provenance?.currentStatsFromDatabase)
+                        ? 'Database + generated'
+                        : 'Generated'}
+                  </span>
                 </div>
               </td>
 
@@ -410,11 +417,16 @@ export function PlayerCareerTimeline({ playerId, playerName }: PlayerCareerTimel
       {/* Header */}
       <div className="flex items-center gap-2">
         <span className="w-1.5 h-6 bg-primary rounded-full" />
-        <h3 className="text-xl font-bold">Career Statistics</h3>
+        <h3 className="text-xl font-bold">Generated Career History</h3>
         {playerName && (
           <span className="text-muted-foreground text-sm">— {playerName}</span>
         )}
       </div>
+      <p className="text-sm text-muted-foreground">
+        Historical seasons, clubs, milestones and ratings are generated. Career totals include simulated seasons.
+        {career.provenance?.currentTeamFromDatabase && ' The current club comes from a stored team record.'}
+        {career.provenance?.currentStatsFromDatabase && ' Current appearances, minutes, goals, assists and cards come from stored stats. Missing xG and xA are shown as zero.'}
+      </p>
 
       {/* Career overview numbers */}
       <CareerOverview career={career} />
@@ -441,7 +453,7 @@ export function PlayerCareerTimeline({ playerId, playerName }: PlayerCareerTimel
       </div>
 
       {/* Tab content */}
-      {activeTab === 'seasons'    && <SeasonTable seasons={career.seasons} />}
+      {activeTab === 'seasons'    && <SeasonTable seasons={career.seasons} provenance={career.provenance} />}
       {activeTab === 'milestones' && <MilestonesTimeline milestones={career.milestones} />}
       {activeTab === 'clubs'      && <ClubHistoryList history={career.clubHistory} />}
     </div>

@@ -82,6 +82,12 @@ export interface StrengthWeakness {
 
 export interface ScoutingReport {
   teamId: number
+  provenance: {
+    team: 'database' | 'generated'
+    standing: 'database' | 'unavailable'
+    keyPlayers: 'database' | 'generated'
+    recentForm: 'database' | 'generated'
+  }
   teamName: string
   shortName: string
   crest?: string
@@ -204,6 +210,7 @@ const PLAYER_ROLES = [
 // ── Main generator ────────────────────────────────────────────────────────────
 
 export interface ScoutingInput {
+  teamSource?: ScoutingReport['provenance']['team']
   team: {
     id: number
     name: string
@@ -251,7 +258,10 @@ export interface ScoutingInput {
 }
 
 export function generateScoutingReport(input: ScoutingInput): ScoutingReport {
-  const { team, standing, topPlayers = [], recentMatches = [] } = input
+  const { team, standing, topPlayers = [], teamSource = 'generated' } = input
+  const recentMatches = (input.recentMatches ?? []).filter(
+    match => match.homeGoals != null && match.awayGoals != null,
+  )
   const seed = team.id
 
   // ── Formation tendency ─────────────────────────────────────────────────────
@@ -418,6 +428,12 @@ export function generateScoutingReport(input: ScoutingInput): ScoutingReport {
 
   return {
     teamId:    team.id,
+    provenance: {
+      team: teamSource,
+      standing: standing ? 'database' : 'unavailable',
+      keyPlayers: topPlayers.length ? 'database' : 'generated',
+      recentForm: recentMatches.length ? 'database' : 'generated',
+    },
     teamName:  team.name,
     shortName: team.shortName,
     crest:     team.crest ?? undefined,

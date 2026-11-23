@@ -73,6 +73,7 @@ export async function GET(
       where: {
         OR: [{ homeTeamId: id }, { awayTeamId: id }],
         status: 'FINISHED',
+        score: { isNot: null },
       },
       include: {
         homeTeam: { select: { id: true, name: true, crest: true } },
@@ -97,6 +98,7 @@ export async function GET(
 
     // ── Build input and generate report ─────────────────────────────────────
     const input: ScoutingInput = {
+      teamSource: 'database',
       team: {
         id:        team.id,
         name:      team.name,

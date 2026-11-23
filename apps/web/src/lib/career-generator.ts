@@ -51,6 +51,10 @@ export interface ClubHistoryEntry {
 
 export interface CareerStats {
   playerId: number
+  provenance: {
+    currentTeamFromDatabase: boolean
+    currentStatsFromDatabase: boolean
+  }
   totalSeasons: number
   totalMatches: number
   totalGoals: number
@@ -393,6 +397,10 @@ export function generateCareerStats(input: CareerInput): CareerStats {
 
   return {
     playerId,
+    provenance: {
+      currentTeamFromDatabase: currentTeam != null,
+      currentStatsFromDatabase: currentStats != null,
+    },
     totalSeasons:  allSeasons.length,
     totalMatches,
     totalGoals,
