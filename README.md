@@ -232,7 +232,6 @@ INTERNAL_SERVICE_SECRET="<random secret, at least 32 characters>"
 # apps/realtime/.env
 REALTIME_PORT=3001
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXTAUTH_SECRET="<same value as apps/web/.env>"
 INTERNAL_SERVICE_SECRET="<same value as apps/api/.env>"
 REDIS_URL="redis://localhost:6379"
 
@@ -264,8 +263,8 @@ docker compose ps
 # Generate the Prisma client (required after clone or schema changes)
 pnpm db:generate
 
-# Push schema to the database (creates all tables)
-pnpm db:push
+# Apply tables, database triggers and row policies
+pnpm db:migrate:deploy
 
 # Seed sample data
 pnpm db:seed
@@ -381,8 +380,8 @@ example `?status=IN_PLAY,PAUSED`.
 
 | Method | Route                     | Description               |
 | ------ | ------------------------- | ------------------------- |
-| GET    | `/api/predictions/season` | Season finish predictions |
-| GET    | `/api/platform-stats`     | Platform overview metrics |
+| GET    | `/api/predictions/season` | Season finish predictions (signed in) |
+| GET    | `/api/platform-stats`     | Platform overview metrics (administrator) |
 | *      | `/api/auth/[...nextauth]` | NextAuth.js authentication |
 
 ---
@@ -439,8 +438,8 @@ version when changes are pushed to that branch.
 - **Database:** Supabase PostgreSQL, accessed by the app through Prisma.
 - **Live score updates:** Supabase Cron calls the `sync-live` Edge Function
   every minute. The function fetches today's matches from football-data.org,
-  updates existing `matches` and `match_scores`, and Supabase Realtime notifies
-  connected browsers.
+  updates existing `matches` and `match_scores`. PostgreSQL publishes a minimal
+  signal through `live_match_updates`, then browsers refetch the public API.
 - **Initial data import:** `pnpm db:sync-current:production` manually imports
   the current competition season into Supabase. The scheduled function does
   not create missing fixtures.
@@ -470,18 +469,14 @@ receives them.
 
 ### 2. Supabase schema and live updates
 
-The production project already has its tables and current season data. For a
-new, empty Supabase project, bootstrap the Prisma schema once before applying
-the Realtime migration. Set the `DATABASE_URL` in
-`packages/database/.env` to that project and run `pnpm db:push`; then import
-fixtures with `pnpm db:sync-current:production`.
-`db:push` is only for initial schema setup, not routine production deployments.
-After that, complete these steps:
-
-1. In **SQL Editor**, run
-   [the Realtime/RLS migration](supabase/migrations/202611150001_realtime_match_updates.sql).
-   It grants anonymous read access to match and score rows and adds both tables
-   to the `supabase_realtime` publication.
+1. Use the intended Supabase project's Prisma connection URL and run
+   `pnpm db:migrate:deploy` to apply the committed migrations. This creates the
+   schema, row policies and public Realtime signal, and removes raw match tables
+   from the publication. Deploy the web app alongside this database change so its
+   subscription uses `live_match_updates`. For a new database, import fixtures with
+   `pnpm db:sync-current:production` after migration. If the database was created
+   using `db:push`, reconcile and baseline its existing schema against the
+   committed migration history before applying pending migrations.
 2. In **Database → Extensions**, make sure `pg_cron`, `pg_net`, and
    `supabase_vault` are enabled.
 3. In **Edge Functions**, deploy a function named `sync-live` using
@@ -579,8 +574,8 @@ After `docker compose up -d postgres`, create a PostgreSQL connection in DBeaver
 | Password | `POSTGRES_PASSWORD` from the root `.env`                   |
 
 Test the connection, then browse `Databases → football → Schemas → public →
-Tables`. Run `pnpm db:push` from the repository root first to create/update
-tables from `packages/database/prisma/schema.prisma`. To view relationships,
+Tables`. Run `pnpm db:migrate:deploy` from the repository root first to apply the
+committed schema and triggers. To view relationships,
 right-click the `public` schema or selected tables and choose **ER Diagram**.
 
 The named Docker volume preserves database data when containers stop. Avoid
@@ -614,6 +609,82 @@ pnpm --filter @app/realtime  dev
 
 ---
 
+## Authentication and service access
+
+Email/password sign-in uses a NextAuth v4 encrypted session cookie. The browser
+sends the HttpOnly, SameSite=Lax cookie on same-origin calls. HTTPS deployments
+enable Secure cookies. NextAuth renews its session cookie on session requests
+within an eight-hour rolling window and PostgreSQL enforces a seven-day absolute
+limit. Sign-out revokes the server-side session. The login does not issue a
+separate OAuth access token or refresh token. Existing cookies from releases
+without a server-side session ID require a fresh sign-in.
+
+Invalid email and password attempts share the same credentials error. Login
+limits are enforced atomically in PostgreSQL for 15-minute windows (five per
+email, 30 per trusted IP, or a shared fallback if there is no trusted IP).
+Passwords use bcrypt and have a 72-byte UTF-8 limit. Vercel provides the trusted
+IP. For self-hosting, enable `AUTH_TRUST_PROXY_IP=true` after configuring ingress
+to overwrite `X-Real-IP` with the actual client IP and blocking direct access to
+the Next.js listener.
+
+Use the deployment's own HTTPS origin in `NEXTAUTH_URL`, including previews that
+accept sign-ins. The browser API is same-origin and writes require that Origin
+header. Public match and player data remain available. The season forecast
+requires sign-in, and operational platform stats require the database `ADMIN`
+role. Personal dashboard, favorite, prediction and push records are scoped to the
+signed-in account.
+
+For legacy self-hosted services, configure `WEB_APP_URL` in Fastify and
+`NEXT_PUBLIC_APP_URL` in realtime with the exact web origin. Socket.IO clients
+can subscribe to updates, and score changes use the service endpoints.
+Fastify score writes require `Authorization: Bearer <LIVE_SCORE_WRITE_SECRET>`
+on a server-to-server request. Configure this optional secret only if you
+use those writes. Realtime broadcasting uses a separate `INTERNAL_SERVICE_SECRET`.
+Keep both values outside client configuration, and use a Supabase publishable
+or anon key for the browser.
+
+---
+
+## Dashboard, exports, and Web Push
+
+Sign in at `/dashboard`, follow a club from its team page, and save a result
+prediction on a match page before kickoff. The dashboard lists upcoming matches
+for followed clubs and the latest saved predictions for the signed-in account.
+Download CSV or PDF from the standings or from the detailed statistics on a
+player profile. The language control in the header persists English or Vietnamese
+for the browser. Some existing chart annotations and generated reports are in
+English.
+
+The app registers its service worker in production. Supported browsers display
+**Install app** in the header. The worker caches recently visited public pages
+and data for offline access. Personal dashboard data, auth endpoints, and live
+scores are fetched from the network.
+
+To enable goal and final-score push notifications:
+
+1. Apply the committed Prisma migrations with `pnpm db:migrate:deploy`. The score
+   trigger creates queued notifications for browsers subscribed by users who follow
+   either club.
+2. Run `pnpm --filter @app/database exec web-push generate-vapid-keys`. Set
+   `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, and `VAPID_PRIVATE_KEY` on the web server
+   for Supabase deployments or on the database sync worker for self-hosted delivery.
+   The web server also needs `VAPID_PUBLIC_KEY` in the self-hosted setup.
+3. For Supabase, set a shared random `PUSH_DISPATCH_SECRET` of at least 32 characters
+   in the web server and the `sync-live` Edge Function. Set `PUSH_DISPATCH_URL` in
+   the Edge Function to the absolute web URL ending in `/api/internal/push`.
+   Redeploy the Edge Function so the existing cron invokes delivery after each sync.
+   The self-hosted `db:sync-live:watch` worker dispatches directly.
+4. Open the app over HTTPS, follow a club, then opt in from the dashboard on each
+   device that should receive alerts. On iOS, open the app after adding it to the
+   Home Screen.
+
+Keep the same VAPID key pair across releases to preserve browser subscriptions.
+Legacy analytics without recorded provenance display an unverified source label.
+New imports may use `PlayerStats.dataSource` and `MatchEvent.analyticsSource` to
+record `REAL` or `GENERATED` when the source is known.
+
+---
+
 ## 🧪 Validation
 
 Run these checks from the repository root before submitting changes:
@@ -624,8 +695,9 @@ pnpm build
 pnpm test
 ```
 
-The repository does not yet contain automated test files, so `pnpm test` has no
-test cases to execute.
+`pnpm test` runs Jest unit tests, App Router handler tests with mocked data
+dependencies, and React component tests. The tests do not require a database or
+provider credentials. Use `pnpm test:coverage` to generate a coverage report.
 
 ---
 

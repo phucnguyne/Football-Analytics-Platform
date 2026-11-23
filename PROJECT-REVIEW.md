@@ -187,47 +187,33 @@ model Match {
 
 ## 🔒 5. Bảo Mật (Security)
 
-### 5.1 Authentication Issues
+### 5.1 Phiên đăng nhập
 
-| # | Vấn đề | File | Severity |
-|---|---|---|---|
-| 1 | Error messages tiết lộ thông tin: `"User not found"` vs `"Invalid credentials"` — cho attacker biết email có tồn tại | `auth/[...nextauth]/route.ts:27` | 🟡 |
-| 2 | Không có rate limiting trên login endpoint | Auth route | 🟡 |
-| 3 | Không có account lockout sau N lần sai | Auth route | 🟢 |
+- NextAuth Credentials dùng JWT mã hóa trong cookie HttpOnly, SameSite=Lax và Secure khi dùng HTTPS. Phiên gia hạn qua endpoint session, hết hạn sau 8 giờ không gia hạn và tối đa 7 ngày.
+- PostgreSQL lưu mã băm định danh phiên. Đăng xuất thu hồi phiên phía máy chủ. Đăng nhập bằng mật khẩu không phát access token hay refresh token OAuth riêng.
+- Các lỗi thông tin đăng nhập hiển thị cùng thông báo. PostgreSQL giới hạn 5 lần theo email và 30 lần theo IP đáng tin cậy trong 15 phút. Môi trường thiếu IP đáng tin cậy dùng ngưỡng chung.
 
-**Cách sửa:** Trả message chung cho cả 2 trường hợp: `"Invalid email or password"`.
+### 5.2 Quyền API
 
-### 5.2 API Routes Không Có Auth Protection
+| Route | Quyền |
+|---|---|
+| `GET /api/matches`, `GET /api/persons` | Công khai |
+| `GET /api/predictions/season` | Yêu cầu đăng nhập. Chỉ đọc và tính dự báo |
+| `GET /api/platform-stats` | Vai trò `ADMIN` được kiểm tra trong cơ sở dữ liệu |
+| Dashboard, đội yêu thích, dự đoán cá nhân và đăng ký Web Push | Phiên hợp lệ, giới hạn theo tài khoản |
+| Fastify `PATCH /api/live-scores/*` | Bearer secret riêng dành cho dịch vụ |
 
-| Route | Public? | Cần auth? | Severity |
-|---|---|---|---|
-| `/api/matches` | ✅ | Có thể để public | 🟢 |
-| `/api/persons` | ✅ | Có thể để public | 🟢 |
-| `/api/predictions/season` | ✅ | Nên yêu cầu auth (write data) | 🟡 |
-| `/api/platform-stats` | ✅ | Nên protect (thông tin internal) | 🟡 |
-| Tất cả API routes | ✅ | Không có middleware auth chung | 🟡 |
+### 5.3 Supabase và API keys
 
-### 5.3 Supabase Client Exposure
+- RLS và quyền SQL tách bảng nội bộ khỏi trình duyệt. Realtime chỉ công bố `live_match_updates` với ID trận và thời điểm cập nhật.
+- Bundle trình duyệt chấp nhận publishable key hoặc anon key. Khóa dịch vụ và khóa nhà cung cấp thuộc môi trường máy chủ. Yêu cầu có khóa từ web đến nhà cung cấp từ chối HTTP redirect.
 
-| File | Vấn đề | Severity |
-|---|---|---|
-| `apps/web/src/lib/supabase-browser.ts` | Supabase `anon key` exposed client-side — bình thường nếu có RLS, nhưng **không thấy RLS policies** trong migrations | 🟡 |
+### 5.4 CORS và chính sách trình duyệt
 
-### 5.4 API Key Exposure Risk
+- Next.js chỉ chấp nhận origin cấu hình qua `NEXTAUTH_URL` cho các thao tác API từ trình duyệt. CSP dùng nonce cho script và chặn nhúng trang trong iframe.
+- Fastify cho phép CORS đọc từ `WEB_APP_URL`. Socket.IO kiểm tra origin ở cả polling và WebSocket, với các sự kiện ghi bị giới hạn ở đường dịch vụ.
 
-| File | Vấn đề | Severity |
-|---|---|---|
-| `apps/web/src/lib/env.ts` | `FOOTBALL_DATA_API_KEY` được validate đúng server-side ✅ | ✅ |
-| `apps/web/src/lib/env.ts` | Có `server-only` import ✅ | ✅ |
-| Docker compose | Env vars passed correctly ✅ | ✅ |
-
-### 5.5 CORS Configuration
-
-| App | Config | Severity |
-|---|---|---|
-| `apps/api` (Fastify) | CORS chỉ cho phép `WEB_APP_URL` ✅ | ✅ |
-| `apps/realtime` | CORS set qua `env.webUrl` ✅ | ✅ |
-| `apps/web` (Next.js) | Không có explicit CORS — để Next.js default | 🟢 |
+Hướng dẫn môi trường và migration nằm trong [README](README.md#authentication-and-service-access).
 
 ---
 
