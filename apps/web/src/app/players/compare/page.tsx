@@ -1,37 +1,50 @@
-'use client'
+"use client";
 
-import React, { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Container } from '@/components/ui/grid'
-import { PageSpinner } from '@/components/ui/Spinner'
-import { PlayerComparisonDashboard } from '@/components/players/PlayerComparisonDashboard'
+import React, { Suspense } from "react";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Container } from "@/components/ui/grid";
+import { PageSpinner } from "@/components/ui/Spinner";
+
+const PlayerComparisonDashboard = dynamic(
+  () =>
+    import("@/components/players/PlayerComparisonDashboard").then((module) => ({
+      default: module.PlayerComparisonDashboard,
+    })),
+  {
+    loading: () => (
+      <div className="h-[640px] animate-pulse rounded-2xl border bg-muted/40" />
+    ),
+    ssr: false,
+  },
+);
 
 function CompareContent() {
-  const searchParams = useSearchParams()
-  const p1Param = searchParams.get('p1')
-  const p2Param = searchParams.get('p2')
+  const searchParams = useSearchParams();
+  const p1Param = searchParams.get("p1");
+  const p2Param = searchParams.get("p2");
 
-  const parsedPlayer1Id = p1Param ? Number(p1Param) : undefined
-  const parsedPlayer2Id = p2Param ? Number(p2Param) : undefined
+  const parsedPlayer1Id = p1Param ? Number(p1Param) : undefined;
+  const parsedPlayer2Id = p2Param ? Number(p2Param) : undefined;
   const player1Id =
     parsedPlayer1Id && Number.isInteger(parsedPlayer1Id) && parsedPlayer1Id > 0
       ? parsedPlayer1Id
-      : undefined
+      : undefined;
   const player2Id =
     parsedPlayer2Id && Number.isInteger(parsedPlayer2Id) && parsedPlayer2Id > 0
       ? parsedPlayer2Id
-      : undefined
-  const parsedPlayer1TeamId = Number(searchParams.get('p1TeamId'))
-  const parsedPlayer2TeamId = Number(searchParams.get('p2TeamId'))
+      : undefined;
+  const parsedPlayer1TeamId = Number(searchParams.get("p1TeamId"));
+  const parsedPlayer2TeamId = Number(searchParams.get("p2TeamId"));
   const player1TeamId =
     Number.isInteger(parsedPlayer1TeamId) && parsedPlayer1TeamId > 0
       ? parsedPlayer1TeamId
-      : undefined
+      : undefined;
   const player2TeamId =
     Number.isInteger(parsedPlayer2TeamId) && parsedPlayer2TeamId > 0
       ? parsedPlayer2TeamId
-      : undefined
+      : undefined;
 
   return (
     <Container className="py-10 space-y-6">
@@ -43,9 +56,12 @@ function CompareContent() {
           >
             ← Back to Players
           </Link>
-          <h1 className="text-3xl font-extrabold tracking-tight">Player Scouting Comparison</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            Player Scouting Comparison
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Search a club roster and select two players to compare tactical profiles, radar shapes, and advanced metrics.
+            Search a club roster and select two players to compare tactical
+            profiles, radar shapes, and advanced metrics.
           </p>
         </div>
       </div>
@@ -57,7 +73,7 @@ function CompareContent() {
         initialPlayer2TeamId={player2TeamId}
       />
     </Container>
-  )
+  );
 }
 
 export default function ComparePlayersPage() {
@@ -65,5 +81,5 @@ export default function ComparePlayersPage() {
     <Suspense fallback={<PageSpinner />}>
       <CompareContent />
     </Suspense>
-  )
+  );
 }

@@ -1,5 +1,6 @@
 "use client";
 import { use, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/ui/grid";
@@ -11,13 +12,38 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useMatchLive } from "@/hooks/useMatchLive";
 import { LiveStatsBars } from "@/components/matches/LiveStatsBars";
-import { MomentumGraph } from "@/components/matches/MomentumGraph";
 import { LivePredictionGame } from "@/components/matches/LivePredictionGame";
 import { MatchChat } from "@/components/matches/MatchChat";
-import { ShotMap } from "@/components/matches/ShotMap";
 import { AlgorithmicPrediction } from "@/components/matches/AlgorithmicPrediction";
 import { TacticalInsights } from "@/components/tactics/TacticalInsights";
 import type { FootballDataMatchEvent } from "@/types/TypesBarrel";
+
+function VisualizationFallback({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-2xl border bg-muted/40 ${className}`}
+    />
+  );
+}
+
+const MomentumGraph = dynamic(
+  () =>
+    import("@/components/matches/MomentumGraph").then((module) => ({
+      default: module.MomentumGraph,
+    })),
+  {
+    loading: () => <VisualizationFallback className="mb-6 h-[280px]" />,
+    ssr: false,
+  },
+);
+
+const ShotMap = dynamic(
+  () =>
+    import("@/components/matches/ShotMap").then((module) => ({
+      default: module.ShotMap,
+    })),
+  { loading: () => <VisualizationFallback className="h-96" />, ssr: false },
+);
 
 export default function MatchDetailsPage({
   params,
@@ -37,7 +63,9 @@ export default function MatchDetailsPage({
     enabled: !!id,
   });
 
-  const { data: providerEvents } = useQuery<{ events?: FootballDataMatchEvent[] }>({
+  const { data: providerEvents } = useQuery<{
+    events?: FootballDataMatchEvent[];
+  }>({
     queryKey: ["provider-events", id],
     queryFn: async () => {
       const response = await fetch(`/api/matches/${id}/provider-events`);
@@ -69,8 +97,10 @@ export default function MatchDetailsPage({
 
   const currentStatus = liveUpdate?.status ?? match.status;
   const currentMinute = liveUpdate?.minute ?? match.minute;
-  const homeGoals = liveUpdate?.homeGoals ?? match.score?.fullTime?.home ?? null;
-  const awayGoals = liveUpdate?.awayGoals ?? match.score?.fullTime?.away ?? null;
+  const homeGoals =
+    liveUpdate?.homeGoals ?? match.score?.fullTime?.home ?? null;
+  const awayGoals =
+    liveUpdate?.awayGoals ?? match.score?.fullTime?.away ?? null;
   const homeGoalsHT = match.score?.halfTime?.home;
   const awayGoalsHT = match.score?.halfTime?.away;
 

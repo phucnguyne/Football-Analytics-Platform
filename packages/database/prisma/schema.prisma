@@ -66,6 +66,15 @@ enum Role {
   ADMIN
 }
 
+model LoginAttempt {
+  key       String   @id
+  attempts  Int
+  expiresAt DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("login_attempts")
+}
+
 // ── Competition & Season ──────────────────────────────────────────────────────
 
 model League {
@@ -224,6 +233,7 @@ model Match {
   @@index([utcDate])
   @@index([homeTeamId])
   @@index([awayTeamId])
+  @@index([status, utcDate])
   @@map("matches")
 }
 
@@ -421,6 +431,7 @@ model PlayerStats {
 
   updatedAt         DateTime @updatedAt
 
+  @@index([seasonId])
   @@map("player_stats")
 }
 

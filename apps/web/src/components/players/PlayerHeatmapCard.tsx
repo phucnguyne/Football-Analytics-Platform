@@ -1,9 +1,17 @@
 'use client'
 
 import React, { useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
-import { PlayerHeatmap } from '@/components/tactics/PlayerHeatmap'
 import type { HeatPoint, ZoneBreakdown } from '@/lib/tactics-generator'
+
+const PlayerHeatmap = dynamic(
+  () => import('@/components/tactics/PlayerHeatmap').then((module) => ({ default: module.PlayerHeatmap })),
+  {
+    loading: () => <div className="h-[480px] animate-pulse rounded-xl bg-muted/40" />,
+    ssr: false,
+  },
+)
 
 interface PlayerHeatmapCardProps {
   player: {
