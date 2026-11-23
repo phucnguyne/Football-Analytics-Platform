@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
-import { Position } from '@app/database'
+import type { Position } from '@app/database'
 import { toTeamResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
 import {
