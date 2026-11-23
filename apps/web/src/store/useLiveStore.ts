@@ -35,6 +35,12 @@ let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let liveConsumers = 0;
 let connectPromise: Promise<void> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempts = 0;
+
+const FALLBACK_POLL_INTERVAL_MS = 30_000;
+const MAX_RECONNECT_DELAY_MS = 30_000;
 
 async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
   const response = await fetch("/api/matches?status=IN_PLAY,PAUSED");
@@ -104,6 +110,82 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
     refreshTimer = setTimeout(() => void refreshLiveMatches(), 250);
   };
 
+  const startFallbackPolling = () => {
+    if (fallbackPollTimer) return;
+    fallbackPollTimer = setInterval(
+      () => void refreshLiveMatches(),
+      FALLBACK_POLL_INTERVAL_MS,
+    );
+  };
+
+  const stopFallbackPolling = () => {
+    if (!fallbackPollTimer) return;
+    clearInterval(fallbackPollTimer);
+    fallbackPollTimer = null;
+  };
+
+  const scheduleReconnect = () => {
+    if (reconnectTimer || liveConsumers === 0) return;
+
+    const delay = Math.min(
+      1_000 * 2 ** reconnectAttempts,
+      MAX_RECONNECT_DELAY_MS,
+    );
+    reconnectAttempts += 1;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      if (liveConsumers > 0 && !realtimeChannel) subscribeToRealtime();
+    }, delay);
+  };
+
+  const subscribeToRealtime = () => {
+    const channel = supabase
+      .channel("live-match-updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "matches" },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "match_scores" },
+        scheduleRefresh,
+      );
+
+    realtimeChannel = channel;
+    channel.subscribe((status, error) => {
+      // An earlier channel can report CLOSED after it has been replaced.
+      if (realtimeChannel !== channel) return;
+
+      const connected = status === "SUBSCRIBED";
+      set({ isConnected: connected });
+
+      if (connected) {
+        reconnectAttempts = 0;
+        stopFallbackPolling();
+        scheduleRefresh();
+        return;
+      }
+
+      if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        // Keep live scores fresh even when the browser cannot maintain a
+        // WebSocket, then retry with bounded exponential backoff.
+        console.warn("Supabase Realtime unavailable; using polling fallback", {
+          status,
+          error,
+        });
+        realtimeChannel = null;
+        void supabase.removeChannel(channel);
+        startFallbackPolling();
+        scheduleReconnect();
+      }
+    });
+  };
+
   return {
     liveMatches: {},
     isConnected: false,
@@ -116,25 +198,7 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
 
       connectPromise = (async () => {
         await refreshLiveMatches();
-        realtimeChannel = supabase
-          .channel("live-match-updates")
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "matches" },
-            scheduleRefresh,
-          )
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "match_scores" },
-            scheduleRefresh,
-          )
-          .subscribe((status) => {
-            set({ isConnected: status === "SUBSCRIBED" });
-            if (status === "SUBSCRIBED") scheduleRefresh();
-            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-              console.error(`Supabase Realtime channel status: ${status}`);
-            }
-          });
+        if (liveConsumers > 0 && !realtimeChannel) subscribeToRealtime();
       })();
 
       try {
@@ -146,10 +210,15 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
 
     disconnect: () => {
       liveConsumers = Math.max(0, liveConsumers - 1);
-      if (liveConsumers > 0 || !realtimeChannel) return;
+      if (liveConsumers > 0) return;
       if (refreshTimer) clearTimeout(refreshTimer);
-      void supabase.removeChannel(realtimeChannel);
+      if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (realtimeChannel) void supabase.removeChannel(realtimeChannel);
       realtimeChannel = null;
+      fallbackPollTimer = null;
+      reconnectTimer = null;
+      reconnectAttempts = 0;
       set({ isConnected: false, isInitializing: true });
     },
   };
