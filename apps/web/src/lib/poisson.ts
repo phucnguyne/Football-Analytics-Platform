@@ -5,6 +5,7 @@
 
 /** Poisson probability: P(X=k) given mean lambda */
 export function poisson(k: number, lambda: number): number {
+  if (lambda === 0) return k === 0 ? 1 : 0
   // Use log-space to avoid factorial overflow for large k
   let logP = -lambda + k * Math.log(lambda)
   for (let i = 2; i <= k; i++) logP -= Math.log(i)

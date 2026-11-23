@@ -1,9 +1,12 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import type { SourceKind } from '@/lib/data-source'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { ChartSkeleton } from '@/components/ui/Skeleton'
 import type { SimilarPlayerResult } from '@/lib/player-analytics'
 import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
@@ -20,8 +23,10 @@ export function SimilarPlayersCard({
   playerTeamId,
   onSelectForCompare,
 }: SimilarPlayersCardProps) {
+  const t = useTranslations('Player')
   const { data, isLoading, isError } = useQuery<{
     similarPlayers: SimilarPlayerResult[]
+    statsProvenance?: SourceKind
   }>({
     queryKey: ['similar-players', playerId],
     queryFn: async () => {
@@ -32,19 +37,12 @@ export function SimilarPlayersCard({
     staleTime: 60 * 1000,
   })
 
-  if (isLoading) {
-    return (
-      <div className="bg-card p-8 rounded-2xl border flex flex-col items-center justify-center">
-        <PageSpinner />
-        <p className="text-xs text-muted-foreground mt-2">Computing statistical similarity matrix...</p>
-      </div>
-    )
-  }
+  if (isLoading) return <ChartSkeleton className="h-64" />
 
   if (isError || !data || data.similarPlayers.length === 0) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground text-sm">
-        No similar players identified.
+        {t('similarEmpty')}
       </div>
     )
   }
@@ -57,15 +55,17 @@ export function SimilarPlayersCard({
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-purple-500 rounded-full" />
-            <h3 className="text-lg font-bold">Similar Players (Scouting Radar)</h3>
+            <h3 className="text-lg font-bold">{t('similar')}</h3>
+            <DataSourceLabel kind={data.statsProvenance ?? 'unavailable'} />
+            <DataSourceLabel kind="model" />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Players with closest multidimensional performance profiles across the league
+            {t('similarDescription')}
           </p>
         </div>
 
         <span className="text-[10px] font-mono uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2.5 py-1 rounded-full font-bold">
-          Cosine Similarity
+          {t('cosine')}
         </span>
       </div>
 
@@ -118,7 +118,7 @@ export function SimilarPlayersCard({
                   <span className="text-xs font-black text-purple-400 tabular-nums">
                     {player.similarityScore}%
                   </span>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">Match</span>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground">{t('similarity')}</span>
                 </div>
                 <div className="h-1.5 w-20 bg-muted rounded-full overflow-hidden mt-1">
                   <div
@@ -133,14 +133,14 @@ export function SimilarPlayersCard({
                   onClick={() => onSelectForCompare(player)}
                   className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold text-xs transition-colors border border-primary/20"
                 >
-                  Compare
+                  {t('compare')}
                 </button>
               ) : (
                 <Link
                   href={`/players/compare?p1=${playerId}&p2=${player.id}${playerTeamId ? `&p1TeamId=${playerTeamId}` : ''}&p2TeamId=${player.team.id}`}
                   className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold text-xs transition-colors border border-primary/20"
                 >
-                  Compare
+                  {t('compare')}
                 </Link>
               )}
             </div>

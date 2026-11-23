@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React from 'react'
 
 interface PredictionProps {
@@ -13,6 +15,7 @@ interface PredictionProps {
 }
 
 export function AlgorithmicPrediction({ prediction, homeTeamName, awayTeamName }: PredictionProps) {
+  const t = useTranslations('Match')
   if (!prediction) return null;
 
   // Route already returns percentages (e.g. 45.3, not 0.453) — do NOT multiply by 100
@@ -24,10 +27,11 @@ export function AlgorithmicPrediction({ prediction, homeTeamName, awayTeamName }
     <div className="bg-card p-6 rounded-2xl border mb-6">
       <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
         <span className="w-2 h-6 bg-purple-500 rounded-full" />
-        AI Match Prediction
+        {t('prediction')}
+        <DataSourceLabel kind="model" detail="Poisson" />
       </h3>
       <p className="text-sm text-muted-foreground mb-6">
-        Based on historical team strength and Poisson distribution modeling.
+        {t('predictionBasis')}
       </p>
 
       <div className="relative h-12 flex rounded-xl overflow-hidden mb-4 border border-border">
@@ -64,7 +68,7 @@ export function AlgorithmicPrediction({ prediction, homeTeamName, awayTeamName }
           {homeTeamName}
         </div>
         <div className="text-neutral-500 w-1/3 text-center">
-          Draw
+          {t('draw')}
         </div>
         <div className="text-red-500 truncate w-1/3 text-right">
           {awayTeamName}

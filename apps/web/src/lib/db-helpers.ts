@@ -49,6 +49,7 @@ type MatchWithDetails = MatchWithIncludes & {
     minuteExtra: number | null;
     team: string;
     xG: number | null;
+    analyticsSource?: "REAL" | "GENERATED" | null;
     x: number | null;
     y: number | null;
     player: { id: number; name: string } | null;
@@ -186,6 +187,7 @@ export function toMatchDetailResponse(m: MatchWithDetails) {
           ? { id: e.relatedPlayer.id, name: e.relatedPlayer.name }
           : null,
         xG: e.xG ?? null,
+        analyticsSource: e.analyticsSource ?? null,
         x: e.x ?? null,
         y: e.y ?? null,
       };

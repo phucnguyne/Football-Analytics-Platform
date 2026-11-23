@@ -1,11 +1,12 @@
 "use client";
 
+import { useTranslations } from 'next-intl'
 import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/ui/grid";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { ChartSkeleton, PageSkeleton } from "@/components/ui/Skeleton";
 
 const PlayerComparisonDashboard = dynamic(
   () =>
@@ -14,13 +15,14 @@ const PlayerComparisonDashboard = dynamic(
     })),
   {
     loading: () => (
-      <div className="h-[640px] animate-pulse rounded-2xl border bg-muted/40" />
+      <ChartSkeleton className="h-[640px]" />
     ),
     ssr: false,
   },
 );
 
 function CompareContent() {
+  const t = useTranslations('Compare')
   const searchParams = useSearchParams();
   const p1Param = searchParams.get("p1");
   const p2Param = searchParams.get("p2");
@@ -54,14 +56,13 @@ function CompareContent() {
             href="/players"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-2"
           >
-            ← Back to Players
+            ← {t('back')}
           </Link>
           <h1 className="text-3xl font-extrabold tracking-tight">
-            Player Scouting Comparison
+            {t('title')}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Search a club roster and select two players to compare tactical
-            profiles, radar shapes, and advanced metrics.
+            {t('intro')}
           </p>
         </div>
       </div>
@@ -78,7 +79,7 @@ function CompareContent() {
 
 export default function ComparePlayersPage() {
   return (
-    <Suspense fallback={<PageSpinner />}>
+    <Suspense fallback={<PageSkeleton variant="detail" />}>
       <CompareContent />
     </Suspense>
   );

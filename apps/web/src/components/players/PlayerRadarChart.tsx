@@ -1,5 +1,7 @@
 "use client";
 
+import { dataSourceFor } from '@/lib/data-source'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { memo } from "react";
 import {
   Radar,
@@ -24,7 +26,7 @@ interface PlayerStats {
 }
 
 interface PlayerRadarProps {
-  playerStats: PlayerStats | null;
+  playerStats: (PlayerStats & { dataSource?: string | null }) | null;
   positionalAverages: PlayerStats | null;
   playerName: string;
   position: string;
@@ -126,6 +128,7 @@ export const PlayerRadarChart = memo(function PlayerRadarChart({
     <div className="bg-card p-6 rounded-2xl border h-[400px] flex flex-col">
       <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
         <span className="text-xl">🎯</span> Radar Profile
+        <DataSourceLabel kind={dataSourceFor([playerStats?.dataSource])} />
       </h3>
       <div className="flex-1 w-full relative -ml-4">
         <ResponsiveContainer width="100%" height="100%">

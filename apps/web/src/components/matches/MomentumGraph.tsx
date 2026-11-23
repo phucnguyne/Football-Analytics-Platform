@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import { memo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -25,6 +27,7 @@ export const MomentumGraph = memo(function MomentumGraph({
   homeTeam: DisplayTeam;
   awayTeam: DisplayTeam;
 }) {
+  const t = useTranslations('Match')
   const { data: stats } = useQuery({
     queryKey: ["match-stats", matchId],
     queryFn: async () => {
@@ -40,7 +43,7 @@ export const MomentumGraph = memo(function MomentumGraph({
   if (!stats.momentum || stats.momentum.length === 0) {
     return (
       <div className="bg-card p-6 rounded-2xl border mb-6">
-        <h3 className="text-xl font-bold mb-2">Match Momentum</h3>
+        <h3 className="text-xl font-bold mb-2">{t('momentum')}</h3>
         <p className="text-sm text-muted-foreground">
           Momentum is unavailable because the match feed does not provide
           time-based pressure or attacking-event data.
@@ -53,10 +56,12 @@ export const MomentumGraph = memo(function MomentumGraph({
     <div className="bg-card p-6 rounded-2xl border mb-6">
       <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
         <span className="w-2 h-6 bg-primary rounded-full" />
-        Match Momentum
+        {t('momentum')}
+        <DataSourceLabel kind="model" />
+        <DataSourceLabel kind={stats.momentumProvenance ?? 'unavailable'} />
       </h3>
       <p className="text-xs text-muted-foreground mb-6">
-        Pressure and attacking dominance
+        {t('weighted')}
       </p>
 
       <div className="h-[200px] w-full">

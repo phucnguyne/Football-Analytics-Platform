@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale } from 'next-intl/server'
 import { Inter } from 'next/font/google'
 import '@/styles/app.css'
 import { Providers } from './providers'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { Header } from '@/components/navigation/Header'
 import { cn } from '@/lib/utils'
 import QueryProvider from '@/providers/query-provider'
 import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({
-  subsets: ['latin'],
+  subsets: ['latin', 'vietnamese'],
   variable: '--font-inter',
 })
 
@@ -19,98 +20,31 @@ export const metadata: Metadata = {
     'Premium football analytics and data insights platform.',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const locale = await getLocale()
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={cn(
           'min-h-screen bg-background font-sans antialiased selection:bg-primary/20 selection:text-primary',
           inter.variable
         )}
       >
-        <QueryProvider>
-          <Providers>
-            <div className="relative flex min-h-screen flex-col">
-              <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8">
-                  <div className="mr-4 flex">
-                    <Link
-                      className="mr-6 flex items-center space-x-2"
-                      href="/"
-                    >
-                      <span className="font-bold text-xl tracking-tighter">
-                        FA Pro
-                      </span>
-                    </Link>
-
-                    <nav className="flex items-center space-x-6 text-sm font-medium">
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/matches"
-                      >
-                        Matches
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/live"
-                      >
-                        Live
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/standings"
-                      >
-                        Standings
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/teams"
-                      >
-                        Teams
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/players"
-                      >
-                        Players
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/players/compare"
-                      >
-                        Compare
-                      </Link>
-
-                      <Link
-                        className="transition-colors hover:text-foreground/80 text-foreground/60"
-                        href="/predictions"
-                      >
-                        Predictions
-                      </Link>
-                    </nav>
-                  </div>
-
-                  <div className="flex flex-1 items-center justify-end space-x-4">
-                    <nav className="flex items-center space-x-2">
-                      <ThemeToggle />
-                    </nav>
-                  </div>
-                </div>
-              </header>
-
-              <main className="flex-1">{children}</main>
-            </div>
-          </Providers>
-        </QueryProvider>
+        <NextIntlClientProvider>
+          <QueryProvider>
+            <Providers>
+              <div className="relative flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1">{children}</main>
+              </div>
+            </Providers>
+          </QueryProvider>
+        </NextIntlClientProvider>
         <Toaster />
       </body>
     </html>

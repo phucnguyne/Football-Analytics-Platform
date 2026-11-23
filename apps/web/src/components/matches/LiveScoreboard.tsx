@@ -1,10 +1,13 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { CardGridSkeleton } from '@/components/ui/Skeleton'
 import { useMatchLive } from '@/hooks/useMatchLive'
 import Link from 'next/link'
 import Image from 'next/image'
 
 export function LiveScoreboard() {
+  const t = useTranslations('Live')
   const { liveMatchesArray, isConnected, isInitializing } = useMatchLive()
   const activeMatches = liveMatchesArray
     .filter((match) => ['IN_PLAY', 'PAUSED', 'LIVE'].includes(match.status))
@@ -14,30 +17,28 @@ export function LiveScoreboard() {
     <section className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Live Match Center</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Real-time scores and match status across tracked competitions.
+            {t('description')}
           </p>
         </div>
 
         <span className={`inline-flex items-center gap-2 text-sm font-semibold ${isConnected ? 'text-green-600' : 'text-muted-foreground'}`}>
           <span className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'animate-pulse bg-red-500' : 'bg-muted-foreground'}`} />
-          {isConnected ? 'Live feed connected' : 'Connecting to live feed'}
+          {isConnected ? t('connected') : t('connecting')}
         </span>
       </div>
 
       {isInitializing ? (
-        <div className="rounded-2xl border bg-card p-10 text-center text-muted-foreground">
-          Loading live matches...
-        </div>
+        <CardGridSkeleton />
       ) : activeMatches.length === 0 ? (
         <div className="rounded-2xl border bg-card p-10 text-center">
-          <p className="text-lg font-semibold">No matches are live right now</p>
+          <p className="text-lg font-semibold">{t('empty')}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This page updates automatically when a tracked match starts.
+            {t('auto')}
           </p>
           <Link href="/matches" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
-            View the match schedule
+            {t('schedule')}
           </Link>
         </div>
       ) : (
@@ -49,13 +50,13 @@ export function LiveScoreboard() {
               className="rounded-2xl border bg-card p-5 transition-colors hover:border-primary/50"
             >
               <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                <span className="truncate">{match.competition || 'Live match'}</span>
+                <span className="truncate">{match.competition || t('fallback')}</span>
                 <span className="shrink-0 rounded-full bg-red-500/10 px-2.5 py-1 font-bold text-red-600">
                   {match.status === 'PAUSED'
-                    ? 'HALF-TIME'
+                    ? t('half')
                     : match.minute != null
                       ? `${match.minute}'`
-                      : 'LIVE'}
+                      : t('live')}
                 </span>
               </div>
 

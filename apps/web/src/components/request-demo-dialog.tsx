@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,29 +16,30 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function RequestDemoDialog() {
+  const t = useTranslations('Demo')
   const [open, setOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="lg" className="h-12 px-8 text-base">
-          Request Demo
+          {t('request')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Request a Personalized Demo</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            Fill out the form below and our analytics experts will reach out to schedule your demo.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t('name')}</Label>
             <Input id="name" placeholder="Jurgen Klopp" />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="club">Club / Organization</Label>
+            <Label htmlFor="club">{t('club')}</Label>
             <Input id="club" placeholder="Liverpool FC" />
           </div>
         </div>
@@ -45,11 +47,11 @@ export function RequestDemoDialog() {
           <Button
             type="button"
             onClick={() => {
-              alert('Demo request submitted!')
+              alert(t('submitted'))
               setOpen(false)
             }}
           >
-            Submit Request
+            {t('submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

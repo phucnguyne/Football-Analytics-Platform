@@ -1,14 +1,17 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import { ChartSkeleton } from '@/components/ui/Skeleton'
 import { useQuery } from '@tanstack/react-query'
 import type { HeatPoint, ZoneBreakdown } from '@/lib/tactics-generator'
 
 const PlayerHeatmap = dynamic(
   () => import('@/components/tactics/PlayerHeatmap').then((module) => ({ default: module.PlayerHeatmap })),
   {
-    loading: () => <div className="h-[480px] animate-pulse rounded-xl bg-muted/40" />,
+    loading: () => <ChartSkeleton className="h-[480px]" />,
     ssr: false,
   },
 )
@@ -22,7 +25,8 @@ interface PlayerHeatmapCardProps {
 }
 
 export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
-  const { data } = useQuery<{ available: boolean; points: HeatPoint[] }>({
+  const t = useTranslations('Player')
+  const { data, isPending } = useQuery<{ available: boolean; points: HeatPoint[] }>({
     queryKey: ['player-heatmap', player.id],
     queryFn: async () => {
       const response = await fetch(`/api/persons/${player.id}/heatmap`)
@@ -67,10 +71,12 @@ export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
     },
   }
 
+  if (isPending) return <ChartSkeleton className="h-[480px]" />
+
   if (!data?.available) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-sm text-muted-foreground">
-        Player heatmap is unavailable because StatsBomb open data has no matching event file for this player.
+        {t('heatmapUnavailable')}
       </div>
     )
   }
@@ -81,10 +87,11 @@ export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-rose-500 rounded-full" />
-            <h3 className="text-lg font-bold">Season Heatmap & Operating Area</h3>
+            <h3 className="text-lg font-bold">{t('heatmap')}</h3>
+            <DataSourceLabel kind="real" detail="StatsBomb Open Data" />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Spatial touch distribution and corridor bias across all matches
+            {t('heatmapDescription')}
           </p>
         </div>
         <span className="text-xs font-bold bg-muted px-2.5 py-1 rounded-md text-foreground">

@@ -1,16 +1,19 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { use, useMemo } from 'react'
 import Image from 'next/image'
 import { Container } from '@/components/ui/grid'
 import { useQuery } from '@tanstack/react-query'
 import { getTeam, getTeamAllMatches } from '@/lib/api'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { FollowTeamButton } from '@/components/dashboard/FollowTeamButton'
+import { PageSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { MatchCard } from '@/components/matches/MatchCard'
 import Link from 'next/link'
 import type { Match } from '@/types/TypesBarrel'
 
 export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const t = useTranslations('Team')
   const { teamId } = use(params)
   
   const { data: team, isLoading, isError } = useQuery({
@@ -37,14 +40,14 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
     return Object.entries(groups).map(([comp, matchList]) => ({ comp, matches: matchList }))
   }, [matches])
 
-  if (isLoading) return <PageSpinner />
+  if (isLoading) return <PageSkeleton variant="detail" />
   if (isError || !team) return <ErrorMessage />
 
   return (
     <Container size="2xl" className="py-10">
       {/* Back link */}
       <Link href="/teams" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-6">
-        ← Back to Teams
+        ← {t('back')}
       </Link>
 
       {/* Header */}
@@ -53,7 +56,10 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
           <Image src={team.crest} alt={team.name} width={100} height={100} className="object-contain" />
         )}
         <div className="flex-1">
-          <h1 className="text-4xl font-bold">{team.name}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-4xl font-bold">{team.name}</h1>
+            <FollowTeamButton teamId={Number(teamId)} />
+          </div>
           <p className="text-xl text-muted-foreground">{team.shortName}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -67,7 +73,7 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
             href={`/teams/${teamId}/scouting`}
             className="px-6 py-3 rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 transition-colors shadow-lg text-center flex items-center gap-2 justify-center"
           >
-            🔍 Scouting Report
+            🔍 {t('scouting')}
           </Link>
         </div>
       </div>
@@ -75,17 +81,17 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
       {/* Info cards */}
       <div className="grid md:grid-cols-2 gap-8 mb-12">
         <div className="bg-card p-6 rounded-2xl border">
-          <h2 className="text-2xl font-semibold mb-4">Club Information</h2>
+          <h2 className="text-2xl font-semibold mb-4">{t('info')}</h2>
           <dl className="grid grid-cols-2 gap-y-4">
-            <dt className="text-muted-foreground">Founded</dt>
+            <dt className="text-muted-foreground">{t('founded')}</dt>
             <dd className="font-medium">{team.founded || 'N/A'}</dd>
-            <dt className="text-muted-foreground">Venue</dt>
+            <dt className="text-muted-foreground">{t('venue')}</dt>
             <dd className="font-medium">{team.venue || 'N/A'}</dd>
-            <dt className="text-muted-foreground">Club Colors</dt>
+            <dt className="text-muted-foreground">{t('colors')}</dt>
             <dd className="font-medium">{team.clubColors || 'N/A'}</dd>
-            <dt className="text-muted-foreground">Address</dt>
+            <dt className="text-muted-foreground">{t('address')}</dt>
             <dd className="font-medium">{team.address || 'N/A'}</dd>
-            <dt className="text-muted-foreground">Website</dt>
+            <dt className="text-muted-foreground">{t('site')}</dt>
             <dd className="font-medium">
               {team.website ? <a href={team.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">{team.website}</a> : 'N/A'}
             </dd>
@@ -93,15 +99,15 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
         </div>
 
         <div className="bg-card p-6 rounded-2xl border">
-          <h2 className="text-2xl font-semibold mb-4">Club Details</h2>
+          <h2 className="text-2xl font-semibold mb-4">{t('details')}</h2>
           <dl className="grid grid-cols-2 gap-y-4">
-            <dt className="text-muted-foreground">Owner</dt>
+            <dt className="text-muted-foreground">{t('owner')}</dt>
             <dd className="font-medium">{team.owner || 'N/A'}</dd>
-            <dt className="text-muted-foreground">Sponsor</dt>
+            <dt className="text-muted-foreground">{t('sponsor')}</dt>
             <dd className="font-medium">{team.sponsor || 'N/A'}</dd>
           </dl>
           <div className="mt-6">
-            <h3 className="font-medium mb-2">History</h3>
+            <h3 className="font-medium mb-2">{t('history')}</h3>
             <p className="text-sm text-muted-foreground">{team.history || 'No history available.'}</p>
           </div>
         </div>
@@ -114,7 +120,7 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
           Coaching Staff
         </h2>
 
-        <h3 className="text-lg font-medium mb-4 text-primary">Current Head Coach</h3>
+        <h3 className="text-lg font-medium mb-4 text-primary">{t('coach')}</h3>
         {team.coach ? (
           <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-xl border max-w-sm">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-2xl">
@@ -127,16 +133,16 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
             </div>
           </div>
         ) : (
-          <p className="text-muted-foreground italic">Current coach information not available.</p>
+          <p className="text-muted-foreground italic">{t('noCoach')}</p>
         )}
       </div>
 
       {/* Full Season Matches History - grouped by competition */}
       <div>
-        <h2 className="text-2xl font-bold mb-6">Full Season Matches History</h2>
+        <h2 className="text-2xl font-bold mb-6">{t('results')}</h2>
         
         {matchesByCompetition.length === 0 && (
-          <p className="text-muted-foreground text-center py-8">No matches found.</p>
+          <p className="text-muted-foreground text-center py-8">{t('noMatches')}</p>
         )}
 
         <div className="space-y-10">

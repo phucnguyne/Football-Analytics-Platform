@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>FA Pro · Offline</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 32rem; padding: 12vh 1.5rem; }
+  h1 { font-size: 2rem; }
+  p { line-height: 1.6; }
+</style>
+<main>
+  <h1>You're offline</h1>
+  <p>This page needs a connection. You can still open public pages you recently visited on this device.</p>
+  <a href="/">Go to home</a>
+</main>
+<script>
+  if (document.cookie.split('; ').includes('FA_LOCALE=vi')) {
+    document.documentElement.lang = 'vi'
+    document.title = 'FA Pro · Ngoại tuyến'
+    document.querySelector('h1').textContent = 'Bạn đang ngoại tuyến'
+    document.querySelector('p').textContent = 'Trang này cần kết nối mạng. Bạn vẫn có thể mở các trang công khai đã truy cập gần đây trên thiết bị này.'
+    document.querySelector('a').textContent = 'Về trang chủ'
+  }
+</script>
+</html>

@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server'
+import { getCurrentUser } from '@/lib/auth'
 import prisma from '@app/database/src/client'
 
-export const revalidate = 300 // ISR: revalidate every 5 min
+const privateHeaders = { 'Cache-Control': 'private, no-store' }
 
 export async function GET() {
+  const user = await getCurrentUser()
+  if (!user || user.role !== 'ADMIN') {
+    return NextResponse.json({ error: user ? 'Forbidden' : 'Unauthorized' }, {
+      status: user ? 403 : 401,
+      headers: privateHeaders,
+    })
+  }
+
   try {
     const [matchCount, playerCount, finishedCount, leagueCount] = await Promise.all([
       prisma.match.count(),
@@ -14,13 +23,13 @@ export async function GET() {
 
     return NextResponse.json(
       { matchCount, playerCount, finishedCount, leagueCount },
-      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
+      { headers: privateHeaders }
     )
   } catch {
     // Return zeroes gracefully so the home page still renders
     return NextResponse.json(
       { matchCount: 0, playerCount: 0, finishedCount: 0, leagueCount: 0 },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: privateHeaders }
     )
   }
 }

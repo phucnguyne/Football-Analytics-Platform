@@ -1,10 +1,11 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { use } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Container } from '@/components/ui/grid'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { PageSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { ScoutingReport } from '@/components/teams/ScoutingReport'
 import type { ScoutingReport as ScoutingReportType } from '@/lib/scouting-generator'
@@ -20,6 +21,7 @@ export default function ScoutingReportPage({
 }: {
   params: Promise<{ teamId: string }>
 }) {
+  const t = useTranslations('Team')
   const { teamId } = use(params)
 
   const { data: report, isLoading, isError } = useQuery({
@@ -29,7 +31,7 @@ export default function ScoutingReportPage({
     staleTime: 5 * 60 * 1000, // 5 min
   })
 
-  if (isLoading) return <PageSpinner />
+  if (isLoading) return <PageSkeleton variant="detail" />
   if (isError || !report) return <ErrorMessage />
 
   return (
@@ -43,7 +45,7 @@ export default function ScoutingReportPage({
           ← Back to {report.teamName}
         </Link>
         <span className="text-muted-foreground">/</span>
-        <span className="text-sm font-medium">Scouting Report</span>
+        <span className="text-sm font-medium">{t('scouting')}</span>
       </div>
 
       <ScoutingReport report={report} />

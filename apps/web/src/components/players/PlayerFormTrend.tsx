@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -11,7 +13,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { ChartSkeleton } from '@/components/ui/Skeleton'
 import type { FormMatch, FormSummary } from '@/lib/player-analytics'
 
 interface PlayerFormTrendProps {
@@ -25,6 +27,7 @@ function FormCustomTooltip({ active, payload }: {
   active?: boolean
   payload?: Array<{ payload: FormMatch }>
 }) {
+  const t = useTranslations('Player')
   if (active && payload && payload.length) {
     const d = payload[0].payload
     return (
@@ -48,15 +51,15 @@ function FormCustomTooltip({ active, payload }: {
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
-          <span className="text-muted-foreground">Match Rating:</span>
+          <span className="text-muted-foreground">{t('ratingLabel')}</span>
           <span className="font-bold text-primary">{d.rating} / 10</span>
-          <span className="text-muted-foreground">Minutes Played:</span>
+          <span className="text-muted-foreground">{t('minutesLabel')}</span>
           <span className="font-semibold">{d.minutes}'</span>
           <span className="text-muted-foreground">xG / xA:</span>
           <span className="font-semibold text-foreground">
             {d.xG} / {d.xA}
           </span>
-          <span className="text-muted-foreground">Goals / Assists:</span>
+          <span className="text-muted-foreground">{t('goalsAssists')}</span>
           <span className="font-semibold text-emerald-400">
             {d.goals}G, {d.assists}A
           </span>
@@ -68,11 +71,13 @@ function FormCustomTooltip({ active, payload }: {
 }
 
 export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) {
+  const t = useTranslations('Player')
   const [metric, setMetric] = useState<'rating' | 'xg_xa' | 'goals_assists'>('rating')
 
   const { data, isLoading, isError } = useQuery<{
     matches: FormMatch[]
     summary: FormSummary
+    source: string
   }>({
     queryKey: ['player-form', playerId],
     queryFn: async () => {
@@ -83,14 +88,7 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
     staleTime: 60 * 1000,
   })
 
-  if (isLoading) {
-    return (
-      <div className="bg-card p-8 rounded-2xl border flex flex-col items-center justify-center">
-        <PageSpinner />
-        <p className="text-xs text-muted-foreground mt-2">Loading form trajectory...</p>
-      </div>
-    )
-  }
+  if (isLoading) return <ChartSkeleton className="h-72" />
 
   if (isError || !data || data.matches.length === 0) {
     return (
@@ -128,7 +126,9 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-primary rounded-full" />
-            <h3 className="text-lg font-bold">Form Over Time (Form Trend)</h3>
+            <h3 className="text-lg font-bold">{t('formTrend')}</h3>
+            <DataSourceLabel kind="real" detail={data.source === 'api-football' ? 'API-Football' : 'StatsBomb Open Data'} />
+            {metric === 'rating' && data.source === 'statsbomb-open-data' && <DataSourceLabel kind="model" />}
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               Last {matches.length} Matches
             </span>
@@ -187,15 +187,15 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
 
         <div className="flex items-center gap-4 text-xs">
           <div className="text-right">
-            <span className="text-[10px] text-muted-foreground block uppercase font-bold">Goals (L5)</span>
+            <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('goalsL5')}</span>
             <span className="font-bold text-emerald-400">{summary.totalGoalsLast5}</span>
           </div>
           <div className="text-right border-l pl-4">
-            <span className="text-[10px] text-muted-foreground block uppercase font-bold">Assists (L5)</span>
+            <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('assistsL5')}</span>
             <span className="font-bold text-sky-400">{summary.totalAssistsLast5}</span>
           </div>
           <div className="text-right border-l pl-4">
-            <span className="text-[10px] text-muted-foreground block uppercase font-bold">Trend</span>
+            <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('trend')}</span>
             <span
               className={`font-bold ${
                 summary.trend === 'UP'
@@ -313,7 +313,7 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
       {/* Match-by-Match Strip */}
       <div className="border-t pt-4">
         <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-2">
-          Recent Match Form Sequence
+          {t('ratingHistory')}
         </span>
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
           {matches.map((m, idx) => (

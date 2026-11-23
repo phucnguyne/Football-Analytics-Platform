@@ -1,5 +1,8 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { PageSkeleton } from '@/components/ui/Skeleton'
+
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
@@ -11,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 function LoginForm() {
+  const t = useTranslations('Login')
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') ?? '/'
   const errorParam = searchParams.get('error')
@@ -18,13 +22,11 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(
-    errorParam === 'CredentialsSignin' ? 'Invalid email or password.' : null
-  )
+  const [error, setError] = useState(errorParam === 'CredentialsSignin')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
+    setError(false)
     setIsLoading(true)
 
     try {
@@ -36,7 +38,7 @@ function LoginForm() {
       })
 
       if (!result?.ok || result.error || !result.url) {
-        setError('Invalid email or password.')
+        setError(true)
         return
       }
 
@@ -45,7 +47,7 @@ function LoginForm() {
         target.origin === window.location.origin
       window.location.assign(isSameOrigin ? target.href : '/')
     } catch {
-      setError('Invalid email or password.')
+      setError(true)
     } finally {
       setIsLoading(false)
     }
@@ -60,25 +62,25 @@ function LoginForm() {
             <span className="text-3xl">⚽</span>
             Football Analytics
           </Link>
-          <p className="text-muted-foreground text-sm mt-2">Sign in to access the platform</p>
+          <p className="text-muted-foreground text-sm mt-2">{t('access')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Sign In</CardTitle>
-            <CardDescription>Enter your credentials to continue.</CardDescription>
+            <CardTitle>{t('title')}</CardTitle>
+            <CardDescription>{t('credentials')}</CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               {error && (
                 <div className="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-                  {error}
+                  {t('invalid')}
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -92,7 +94,7 @@ function LoginForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('password')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -108,10 +110,10 @@ function LoginForm() {
 
             <CardFooter className="flex flex-col gap-3">
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in…' : 'Sign In'}
+                {isLoading ? t('busy') : t('title')}
               </Button>
               <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                ← Back to Home
+                ← {t('back')}
               </Link>
             </CardFooter>
           </form>
@@ -123,7 +125,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="text-muted-foreground">Loading…</span></div>}>
+    <Suspense fallback={<PageSkeleton variant="login" />}>
       <LoginForm />
     </Suspense>
   )

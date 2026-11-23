@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 
 interface SeasonOption {
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function SeasonSelector({ competition, value, onChange }: Props) {
+  const t = useTranslations('Common')
   const { data, isLoading } = useQuery<{ seasons: SeasonOption[] }>({
     queryKey: ['competition-seasons', competition],
     queryFn: async () => {
@@ -33,12 +35,12 @@ export function SeasonSelector({ competition, value, onChange }: Props) {
       value={value}
       onChange={(event) => onChange(event.target.value)}
       disabled={isLoading || !data?.seasons.length}
-      aria-label="Select season"
+      aria-label={t('allSeasons')}
     >
-      <option value="">Current season</option>
+      <option value="">{t('currentSeason')}</option>
       {(data?.seasons ?? []).map((season) => (
         <option key={season.id} value={season.id}>
-          {season.year}/{String(season.year + 1).slice(-2)}{season.isCurrent ? ' (Current)' : ''}
+          {season.year}/{String(season.year + 1).slice(-2)}{season.isCurrent ? ` (${t('current')})` : ''}
         </option>
       ))}
     </select>

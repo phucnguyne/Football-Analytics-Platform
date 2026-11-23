@@ -1,3 +1,4 @@
+import { dataSourceFor } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { generateScoutingReport, type ScoutingInput } from '@/lib/scouting-generator'
@@ -45,7 +46,7 @@ export async function GET(
       take: 50, // load up to 50 and filter below
     })
 
-    const topPlayers = playerTeamRows
+    const topPlayerRows = playerTeamRows
       .filter(pt => pt.player.stats !== null)
       .sort((a, b) => {
         const aXG = a.player.stats?.xG ?? 0
@@ -53,7 +54,7 @@ export async function GET(
         return bXG - aXG
       })
       .slice(0, 5)
-      .map(pt => ({
+    const topPlayers = topPlayerRows.map(pt => ({
         id:                pt.player.id,
         name:              pt.player.name,
         position:          pt.player.position as string,
@@ -126,6 +127,7 @@ export async function GET(
 
     const report = generateScoutingReport(input)
 
+    report.keyPlayerStatsProvenance = dataSourceFor(topPlayerRows.map(({ player }) => player.stats?.dataSource))
     return NextResponse.json(report, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })

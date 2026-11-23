@@ -1,9 +1,10 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { Container } from '@/components/ui/grid'
 import { MatchCard } from '@/components/matches/MatchCard'
 import { useMatches } from '@/hooks/useMatches'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { CardGridSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import type { Match } from '@/types/TypesBarrel'
 import { SeasonSelector } from '@/components/seasons/SeasonSelector'
@@ -23,6 +24,7 @@ const COMPETITIONS = [
 ]
 
 export default function MatchesPage() {
+  const t = useTranslations('Match')
   const [competition, setCompetition] = useState('PL')
   const [seasonId, setSeasonId] = useState('')
   const selectedComp = COMPETITIONS.find((c) => c.code === competition) ?? COMPETITIONS[0]
@@ -57,13 +59,9 @@ export default function MatchesPage() {
       {/* Header + Competition Selector */}
       <div className="mb-10 flex flex-col md:flex-row md:items-end gap-4">
         <div className="flex-1">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-2">Match Schedule</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-2">{t('schedule')}</h1>
           <p className="text-lg text-muted-foreground">
-            Full season schedule for the{' '}
-            <span className="font-semibold text-foreground">
-              {selectedComp.flag} {selectedComp.name}
-            </span>
-            .
+            {t('seasonSchedule', { competition: `${selectedComp.flag} ${selectedComp.name}` })}
           </p>
         </div>
 
@@ -73,7 +71,7 @@ export default function MatchesPage() {
             className="flex h-10 w-full sm:w-56 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={competition}
             onChange={(e) => setCompetition(e.target.value)}
-            aria-label="Select competition"
+            aria-label={t('chooseLeague')}
           >
             {COMPETITIONS.map((c) => (
               <option key={c.code} value={c.code}>
@@ -85,11 +83,11 @@ export default function MatchesPage() {
         </div>
       </div>
 
-      {isLoading && <PageSpinner />}
+      {isLoading && <CardGridSkeleton />}
       {isError && <ErrorMessage onRetry={refetch} />}
 
       {matches && matches.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">No matches found for this competition.</p>
+        <p className="text-center text-muted-foreground py-12">{t('noMatches')}</p>
       )}
 
       {/* Upcoming match schedule */}
@@ -97,7 +95,7 @@ export default function MatchesPage() {
         <section className="mb-16">
           <div className="flex items-center gap-4 mb-6">
             <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 whitespace-nowrap">
-              Upcoming Matches
+              {t('upcoming')}
             </h2>
             <div className="flex-1 h-px bg-border" />
           </div>
@@ -120,7 +118,7 @@ export default function MatchesPage() {
               {/* Matchday header */}
               <div className="flex items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-foreground/80 whitespace-nowrap">
-                  {day === 0 ? 'TBD / Group Stage' : `Matchday ${day}`}
+                  {day === 0 ? t('groupStage') : t('matchday', { day })}
                 </h2>
                 <div className="flex-1 h-px bg-border/30" />
               </div>

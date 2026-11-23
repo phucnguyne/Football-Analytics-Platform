@@ -1,10 +1,13 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import { useQuery } from '@tanstack/react-query'
 
 type DisplayTeam = { name: string; shortName?: string }
 
 export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId: string; homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
+  const t = useTranslations('Match')
   const { data: stats } = useQuery({
     queryKey: ['match-stats', matchId],
     queryFn: async () => {
@@ -20,18 +23,19 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
   }
 
   const statRows = [
-    { label: 'Possession %', home: stats.possession?.home, away: stats.possession?.away },
-    { label: 'Total Shots', home: stats.shots?.home, away: stats.shots?.away },
-    { label: 'Shots on Target', home: stats.shotsOnTarget?.home, away: stats.shotsOnTarget?.away },
-    { label: 'Corners', home: stats.corners?.home, away: stats.corners?.away },
-    { label: 'Fouls', home: stats.fouls?.home, away: stats.fouls?.away },
+    { label: t('possession'), home: stats.possession?.home, away: stats.possession?.away },
+    { label: t('shots'), home: stats.shots?.home, away: stats.shots?.away },
+    { label: t('onTarget'), home: stats.shotsOnTarget?.home, away: stats.shotsOnTarget?.away },
+    { label: t('corners'), home: stats.corners?.home, away: stats.corners?.away },
+    { label: t('fouls'), home: stats.fouls?.home, away: stats.fouls?.away },
   ]
 
   return (
     <div className="bg-card p-6 rounded-2xl border mb-6">
       <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
         <span className="w-2 h-6 bg-primary rounded-full" />
-        Match Statistics
+        {t('statistics')}
+        <DataSourceLabel kind="real" />
       </h3>
 
       <div className="flex justify-between items-center mb-4 px-2">

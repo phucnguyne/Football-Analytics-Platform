@@ -1,11 +1,15 @@
 "use client";
 
+import { useSession } from 'next-auth/react'
+import { loginLink } from '@/lib/login-link'
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/ui/grid";
 import { useQuery } from "@tanstack/react-query";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 
 interface TeamPrediction {
   teamId: number;
@@ -81,14 +85,26 @@ function ProbBar({
 }
 
 export default function PredictionsPage() {
+  const t = useTranslations('Forecast')
+  const common = useTranslations('Common')
+  const { data: session, status } = useSession()
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["season-prediction"],
+    queryKey: ["season-prediction", session?.user.id],
+    enabled: status === "authenticated",
     queryFn: fetchSeasonPrediction,
     staleTime: 1000 * 60 * 10, // cache 10 min
     retry: false,
   });
 
-  if (isLoading) return <PageSpinner />;
+  if (status === "loading" || isLoading) return <PageSkeleton variant="table" />;
+  if (status === "unauthenticated" || getErrorStatus(error) === 401) {
+    return (
+      <Container className="space-y-4 py-10">
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
+        <Link className="text-primary hover:underline" href={loginLink('/predictions')}>{common('signIn')}</Link>
+      </Container>
+    );
+  }
 
   // No finished matches yet — show a helpful empty state instead of a generic error
   if (isError) {
@@ -100,20 +116,20 @@ export default function PredictionsPage() {
       <Container className="py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-            <span className="text-4xl">🔮</span> Season Predictions
+            <span className="text-4xl">🔮</span> {t('title')}
           </h1>
         </div>
         <div className="flex flex-col items-center justify-center text-center py-20 bg-card rounded-2xl border">
           <span className="text-5xl mb-6">{isNoData ? "📊" : "⚠️"}</span>
           <h2 className="text-xl font-bold mb-3">
-            {isNoData ? "Not enough match data yet" : "Predictions unavailable"}
+            {isNoData ? t('insufficient') : t('unavailable')}
           </h2>
           <p className="text-muted-foreground max-w-md text-sm">
             {isNoData
-              ? "Football-data.org has not returned any completed results for the current Premier League season yet."
+              ? t('noResults')
               : isProviderUnavailable
-                ? "Could not load current results and fixtures from Football-data.org. Please try again later."
-                : "An unexpected error occurred while loading predictions. Please try again later."}
+                ? t('providerError')
+                : t('error')}
           </p>
         </div>
       </Container>
@@ -126,85 +142,82 @@ export default function PredictionsPage() {
     <Container className="py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <span className="text-4xl">🔮</span> {data.competition} Season
-          Predictions
+          <span className="text-4xl">🔮</span> {t('competition', { competition: data.competition })}
         </h1>
         <p className="text-muted-foreground">
-          {data.season}/{String(data.season + 1).slice(-2)} season · Current
-          positions use actual completed results. Forecasts simulate the{" "}
-          {data.matchesRemaining} remaining matches (
-          {data.simulations.toLocaleString()} runs).
+          {t('overview', {
+            season: `${data.season}/${String(data.season + 1).slice(-2)}`,
+            matches: data.matchesRemaining,
+            runs: data.simulations,
+          })}
         </p>
       </div>
 
       {/* Model Info */}
       <div className="bg-card p-5 rounded-2xl border mb-8 flex flex-wrap gap-6 text-sm">
         <div>
-          <span className="text-muted-foreground">Real matches played:</span>{" "}
+          <span className="text-muted-foreground">{t('played')}</span>{" "}
           <span className="font-bold">{data.matchesPlayed}</span>
         </div>
         <div>
           <span className="text-muted-foreground">
-            Recent-weighted home goals:
+            {t('homeGoals')}
           </span>{" "}
           <span className="font-bold">{data.leagueAvgHomeGoals}</span>
         </div>
         <div>
           <span className="text-muted-foreground">
-            Recent-weighted away goals:
+            {t('awayGoals')}
           </span>{" "}
           <span className="font-bold">{data.leagueAvgAwayGoals}</span>
         </div>
         <div>
-          <span className="text-muted-foreground">Model:</span>{" "}
-          <span className="font-bold">Recent form + Poisson</span>
+          <span className="text-muted-foreground">{t('model')}</span>{" "}
+          <span className="font-bold">{t('poisson')}</span>
         </div>
         <div className="w-full text-xs text-muted-foreground">
-          Source: {data.source}
+          <DataSourceLabel kind="real" detail="Football-data.org" />
+          <DataSourceLabel kind="model" detail="Poisson" className="ml-2" />
         </div>
       </div>
 
       <details className="mb-8 rounded-2xl border bg-card px-5 py-4">
         <summary className="cursor-pointer font-semibold">
-          How to read these predictions
+          {t('how')}
         </summary>
         <dl className="mt-4 grid gap-4 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <dt className="font-semibold text-foreground"># and Team</dt>
+            <dt className="font-semibold text-foreground">{t('position')}</dt>
             <dd>
-              Real current league position calculated from completed matches:
-              points, goal difference, then goals scored.
+              {t('positionExplanation')}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">P, Pts and GD</dt>
+            <dt className="font-semibold text-foreground">{t('record')}</dt>
             <dd>
-              Matches played, current points, and current goal difference from
-              completed matches.
-            </dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-foreground">
-              Pred Pos and Pred Pts
-            </dt>
-            <dd>
-              Average finishing position and average final points across all
-              simulations. These are forecasts, not actual standings.
+              {t('recordExplanation')}
             </dd>
           </div>
           <div>
             <dt className="font-semibold text-foreground">
-              🏆 Title and ⭐ Top 4
+              {t('predicted')}
             </dt>
             <dd>
-              Share of simulations in which a club finishes first or in the top
-              four.
+              {t('predictedExplanation')}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">⬇️ Releg.</dt>
+            <dt className="font-semibold text-foreground">
+              🏆 {t('titleAndTopFour')}
+            </dt>
             <dd>
-              Share of simulations in which a club finishes in the bottom three.
+              {t('titleExplanation')}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-foreground">⬇️ {t('relegation')}</dt>
+            <dd>
+              {t('relegationExplanation')}
             </dd>
           </div>
         </dl>
@@ -220,41 +233,41 @@ export default function PredictionsPage() {
                   className="text-left p-4 w-12"
                   title="Real current position"
                 >
-                  # Real
+                  {t('position')}
                 </th>
-                <th className="text-left p-4">Team</th>
+                <th className="text-left p-4">{t('team')}</th>
                 <th className="text-center p-4" title="Matches Played">
-                  P
+                  {t('matchesColumn')}
                 </th>
                 <th className="text-center p-4" title="Current Points">
-                  Pts
+                  {t('pointsColumn')}
                 </th>
                 <th className="text-center p-4" title="Goal Difference">
-                  GD
+                  {t('goalDiffColumn')}
                 </th>
                 <th
                   className="text-center p-4"
                   title="Average finishing position across simulations"
                 >
-                  Pred Pos
+                  {t('forecastPosition')}
                 </th>
                 <th
                   className="text-center p-4 hidden md:table-cell"
                   title="Predicted Avg Points"
                 >
-                  Pred Pts
+                  {t('forecastPoints')}
                 </th>
                 <th className="p-4 w-36" title="Title Probability">
-                  <div className="flex items-center gap-1">🏆 Title</div>
+                  <div className="flex items-center gap-1">🏆 {t('champion')}</div>
                 </th>
                 <th
                   className="p-4 w-36"
                   title="Top 4 (Champions League) Probability"
                 >
-                  <div className="flex items-center gap-1">⭐ Top 4</div>
+                  <div className="flex items-center gap-1">⭐ {t('topFour')}</div>
                 </th>
                 <th className="p-4 w-36" title="Relegation Probability">
-                  <div className="flex items-center gap-1">⬇️ Releg.</div>
+                  <div className="flex items-center gap-1">⬇️ {t('relegation')}</div>
                 </th>
               </tr>
             </thead>

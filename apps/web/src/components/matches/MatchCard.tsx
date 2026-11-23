@@ -1,9 +1,10 @@
 "use client";
+import { useFormatter, useTranslations } from 'next-intl'
 import { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import { StatusBadge } from "@/components/ui/Badge";
-import { formatTime, formatDate } from "@/lib/utils";
 import type { Match } from "@/types/TypesBarrel";
 
 interface MatchCardProps {
@@ -11,6 +12,9 @@ interface MatchCardProps {
 }
 
 export const MatchCard = memo(function MatchCard({ match }: MatchCardProps) {
+  const t = useTranslations('Match')
+  const format = useFormatter()
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const home = match.homeTeam;
   const away = match.awayTeam;
   const score = match.score;
@@ -31,8 +35,8 @@ export const MatchCard = memo(function MatchCard({ match }: MatchCardProps) {
           )}
         </div>
         <div className="text-[10px] text-muted-foreground text-right leading-tight">
-          <p>{formatDate(match.utcDate)}</p>
-          <p>{formatTime(match.utcDate)}</p>
+          <p>{format.dateTime(new Date(match.utcDate), { dateStyle: 'medium', timeZone })}</p>
+          <p>{format.dateTime(new Date(match.utcDate), { timeStyle: 'short', timeZone })}</p>
         </div>
       </div>
 
@@ -70,17 +74,17 @@ export const MatchCard = memo(function MatchCard({ match }: MatchCardProps) {
               </span>
             ) : (
               <span className="text-sm font-medium text-muted-foreground mb-1">
-                vs
+                {t('versus')}
               </span>
             )}
             <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-semibold group-hover/link:text-primary transition-colors">
-              Details
+              {t('details')}
             </span>
           </Link>
           {score?.homeTeamGoalsHT !== undefined &&
             score.homeTeamGoalsHT !== null && (
               <p className="text-[10px] text-muted-foreground mt-1 font-medium">
-                HT {score.homeTeamGoalsHT} - {score.awayTeamGoalsHT}
+                {t('halfTimeScore', { home: score.homeTeamGoalsHT, away: score.awayTeamGoalsHT ?? '—' })}
               </p>
             )}
         </div>
@@ -110,6 +114,7 @@ export const MatchCard = memo(function MatchCard({ match }: MatchCardProps) {
       {match.prediction &&
         (match.status === "SCHEDULED" || match.status === "TIMED") && (
           <div className="mt-3 pt-3 border-t border-border/30">
+            <DataSourceLabel kind="model" className="mb-2" />
             <div className="flex h-1.5 rounded-full overflow-hidden">
               <div
                 style={{ width: `${match.prediction.homeWin.toFixed(0)}%` }}

@@ -24,7 +24,7 @@ export async function GET(
       // Proxy to upstream if not found in our DB
       const res = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/persons/${playerId}`,
-        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY } }
+        { headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY }, redirect: 'error' }
       )
       if (!res.ok) return NextResponse.json({ error: 'not found' }, { status: res.status })
       return NextResponse.json(await res.json())
@@ -32,7 +32,7 @@ export async function GET(
 
     // Get positional averages for comparison
     const positionalStats = await prisma.playerStats.aggregate({
-      where: { player: { position: player.position }, matchesPlayed: { gt: 5 } },
+      where: { player: { position: player.position }, dataSource: player.stats?.dataSource ?? null, matchesPlayed: { gt: 5 } },
       _avg: {
         xG: true,
         xA: true,

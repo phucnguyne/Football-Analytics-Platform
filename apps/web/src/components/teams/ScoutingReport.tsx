@@ -1,5 +1,8 @@
 'use client'
 
+import type { SourceKind } from '@/lib/data-source'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
+import { useTranslations } from 'next-intl'
 import React, { useRef } from 'react'
 import Image from 'next/image'
 import type { ScoutingReport } from '@/lib/scouting-generator'
@@ -47,12 +50,12 @@ function ResultBadge({ result }: { result: 'W' | 'D' | 'L' }) {
   )
 }
 
-function SectionTitle({ children, source }: { children: React.ReactNode; source: string }) {
+function SectionTitle({ children, source, detail }: { children: React.ReactNode; source: SourceKind; detail?: string }) {
   return (
     <h2 className="text-lg font-bold flex items-center gap-2 mb-4 print:text-base">
       <span className="w-1.5 h-5 bg-primary rounded-full print:hidden" />
       {children}
-      <span className="rounded border px-2 py-0.5 text-xs font-medium text-muted-foreground">{source}</span>
+      <DataSourceLabel kind={source} detail={detail} />
     </h2>
   )
 }
@@ -229,6 +232,8 @@ interface ScoutingReportProps {
 export function ScoutingReport({ report }: ScoutingReportProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
+  const t = useTranslations('Scout')
+  const sources = useTranslations('Sources')
   const handlePrint = () => {
     window.print()
   }
@@ -267,13 +272,12 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
             )}
             <div className="flex flex-col items-center gap-1">
               <RatingOrb rating={report.overallRating} />
-              <span className="text-xs text-muted-foreground">Generated rating</span>
+              <span className="text-xs text-muted-foreground">{t('rating')}</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-1 mt-2 text-sm text-muted-foreground">
-            {report.provenance?.team === 'generated' && <span>Generated team profile</span>}
-            {report.provenance?.standing === 'database' && <span>Database standings</span>}
-            {report.provenance?.standing === 'unavailable' && <span>Standings unavailable</span>}
+            <DataSourceLabel kind={report.provenance?.team === 'database' ? 'real' : 'generated'} />
+            {report.provenance?.standing === 'database' && <DataSourceLabel kind="real" detail={sources('database')} />}
             {report.venue && <span>🏟 {report.venue}</span>}
             {report.founded && <span>📅 Est. {report.founded}</span>}
             {report.playedGames > 0 && (
@@ -292,7 +296,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
           onClick={handlePrint}
           className="print:hidden px-4 py-2 bg-muted hover:bg-muted/80 border rounded-xl text-sm font-medium flex items-center gap-2 transition-colors"
         >
-          🖨️ Export PDF
+          🖨️ {t('pdf')}
         </button>
       </div>
 
@@ -301,14 +305,14 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Formation & Tactics ──────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
-          <SectionTitle source="Generated">Formation & Tactics</SectionTitle>
+          <SectionTitle source="generated">{t('formation')}</SectionTitle>
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground mb-2">🏠 Home</p>
+              <p className="text-xs text-muted-foreground mb-2">🏠 {t('home')}</p>
               <FormationMiniPitch formation={report.formationTendency.home} />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-2">✈️ Away</p>
+              <p className="text-xs text-muted-foreground mb-2">✈️ {t('away')}</p>
               <FormationMiniPitch formation={report.formationTendency.away} />
             </div>
             <p className="text-xs text-muted-foreground italic leading-relaxed border-t pt-3">
@@ -322,11 +326,11 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
           {/* Attacking */}
           <Card>
-            <SectionTitle source="Generated">Attacking Patterns</SectionTitle>
+            <SectionTitle source="generated">{t('attack')}</SectionTitle>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2">Attack Zone Distribution</p>
+                  <p className="text-xs text-muted-foreground mb-2">{t('zones')}</p>
                   <ZoneBar
                     left={report.attackingPattern.leftFlank}
                     central={report.attackingPattern.central}
@@ -334,7 +338,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Play Style</span>
+                  <span className="text-xs text-muted-foreground">{t('style')}</span>
                   <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold">
                     {report.attackingPattern.style}
                   </span>
@@ -351,11 +355,11 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
           {/* Defensive */}
           <Card>
-            <SectionTitle source="Generated">Defensive Profile</SectionTitle>
+            <SectionTitle source="generated">{t('defense')}</SectionTitle>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Pressing Intensity (PPDA)</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('pressing')}</p>
                   <PPDAGauge ppda={report.defensiveProfile.ppda} />
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -395,9 +399,9 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
         <Card className="lg:col-span-2">
           <SectionTitle source={
             report.provenance?.keyPlayers === 'database'
-              ? 'Database stats · Generated roles'
-              : report.provenance?.keyPlayers === 'generated' ? 'Generated' : 'Source unavailable'
-          }>Key Players</SectionTitle>
+              ? report.keyPlayerStatsProvenance === 'real' || report.keyPlayerStatsProvenance === 'mixed' ? 'mixed' : 'generated'
+              : report.provenance?.keyPlayers === 'generated' ? 'generated' : 'unavailable'
+          } detail={report.provenance?.keyPlayers === 'database' && (!report.keyPlayerStatsProvenance || report.keyPlayerStatsProvenance === 'unavailable') ? sources('storedUnverified') : undefined}>{t('keyPlayers')}</SectionTitle>
           <div className="space-y-3">
             {report.keyPlayers.map((player, i) => (
               <div
@@ -453,9 +457,9 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
         <Card className="lg:col-span-1">
           <SectionTitle source={
             report.provenance?.recentForm === 'database'
-              ? 'Database results'
-              : report.provenance?.recentForm === 'generated' ? 'Generated' : 'Source unavailable'
-          }>Recent Form</SectionTitle>
+              ? 'real'
+              : report.provenance?.recentForm === 'generated' ? 'generated' : 'unavailable'
+          }>{t('recent')}</SectionTitle>
           <div className="flex gap-2 mb-4">
             {report.recentForm.map((r, i) => (
               <ResultBadge key={i} result={r.result} />
@@ -482,7 +486,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Set Piece Analysis ───────────────────────────────────────────── */}
         <Card className="lg:col-span-1">
-          <SectionTitle source="Generated">Set Piece Analysis</SectionTitle>
+          <SectionTitle source="generated">{t('setPieces')}</SectionTitle>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-center">
               {[
@@ -504,11 +508,11 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
 
         {/* ── Strengths & Weaknesses ───────────────────────────────────────── */}
         <Card className="lg:col-span-2">
-          <SectionTitle source="Generated">Analyst Summary</SectionTitle>
+          <SectionTitle source="generated">{t('summary')}</SectionTitle>
           <div className="grid sm:grid-cols-2 gap-5 mb-4">
             <div>
               <h3 className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-1.5">
-                <span>✅</span> Strengths
+                <span>✅</span> {t('strengths')}
               </h3>
               <ul className="space-y-2">
                 {report.strengthsWeaknesses.strengths.map((s, i) => (
@@ -521,7 +525,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-1.5">
-                <span>⚠️</span> Weaknesses
+                <span>⚠️</span> {t('weaknesses')}
               </h3>
               <ul className="space-y-2">
                 {report.strengthsWeaknesses.weaknesses.map((w, i) => (
@@ -534,7 +538,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
             </div>
           </div>
           <div className="border-t pt-4">
-            <h3 className="text-xs font-semibold text-muted-foreground mb-1.5">📋 Analyst Note</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground mb-1.5">📋 {t('note')}</h3>
             <p className="text-sm italic text-muted-foreground leading-relaxed">
               "{report.strengthsWeaknesses.analystNote}"
             </p>

@@ -1,3 +1,4 @@
+import { dataSourceFor } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { generateComparisonVerdict, getPlayerStyleTags } from '@/lib/player-analytics'
@@ -33,7 +34,7 @@ async function getPlayer(id: number) {
   if (player) return player
 
   const response = await fetch(`${env.FOOTBALL_DATA_API_URL}/persons/${id}`, {
-    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+    redirect: "error",    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
     next: { revalidate: 3600 },
   })
   if (!response.ok) {
@@ -84,7 +85,7 @@ async function getTeamForComparison(
   if (team) return team
 
   const response = await fetch(`${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`, {
-    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+    redirect: "error",    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
     next: { revalidate: 3600 },
   })
   if (!response.ok) return fallback
@@ -240,6 +241,7 @@ export async function GET(req: NextRequest) {
       verdict,
       metricsAvailable,
       statsSource,
+      statsProvenance: statsSource === 'API-Football' ? 'real' : dataSourceFor([p1.stats?.dataSource, p2.stats?.dataSource]),
       statsSeason,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },

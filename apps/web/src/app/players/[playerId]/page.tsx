@@ -1,32 +1,28 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { DataExport } from "@/components/ui/DataExport";
+import { DataSourceLabel } from "@/components/ui/DataSourceLabel";
+import { dataSourceFor } from "@/lib/data-source";
 import { use } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Container } from "@/components/ui/grid";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { ChartSkeleton, PageSkeleton } from "@/components/ui/Skeleton";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { PlayerHeatmapCard } from "@/components/players/PlayerHeatmapCard";
 import { SimilarPlayersCard } from "@/components/players/SimilarPlayersCard";
 import { PlayerCareerTimeline } from "@/components/players/PlayerCareerTimeline";
 import { PlayerPhoto } from "@/components/players/PlayerPhoto";
 
-function ChartFallback({ className = "h-[400px]" }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-2xl border bg-muted/40 ${className}`}
-    />
-  );
-}
-
 const PlayerRadarChart = dynamic(
   () =>
     import("@/components/players/PlayerRadarChart").then((module) => ({
       default: module.PlayerRadarChart,
     })),
-  { loading: () => <ChartFallback />, ssr: false },
+  { loading: () => <ChartSkeleton />, ssr: false },
 );
 
 const PlayerFormTrend = dynamic(
@@ -34,7 +30,7 @@ const PlayerFormTrend = dynamic(
     import("@/components/players/PlayerFormTrend").then((module) => ({
       default: module.PlayerFormTrend,
     })),
-  { loading: () => <ChartFallback className="h-[480px]" />, ssr: false },
+  { loading: () => <ChartSkeleton className="h-[480px]" />, ssr: false },
 );
 
 const PlayerComparisonDashboard = dynamic(
@@ -42,7 +38,7 @@ const PlayerComparisonDashboard = dynamic(
     import("@/components/players/PlayerComparisonDashboard").then((module) => ({
       default: module.PlayerComparisonDashboard,
     })),
-  { loading: () => <ChartFallback className="h-[640px]" />, ssr: false },
+  { loading: () => <ChartSkeleton className="h-[640px]" />, ssr: false },
 );
 
 async function getPlayer(id: string) {
@@ -56,6 +52,9 @@ export default function PlayerDetailsPage({
 }: {
   params: Promise<{ playerId: string }>;
 }) {
+  const t = useTranslations('Player')
+  const metric = useTranslations("Export");
+  const common = useTranslations("Common");
   const { playerId } = use(params);
 
   const {
@@ -68,7 +67,7 @@ export default function PlayerDetailsPage({
     enabled: !!playerId,
   });
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading) return <PageSkeleton variant="detail" />;
   if (isError || !player) return <ErrorMessage />;
 
   const stats = player.stats;
@@ -80,7 +79,7 @@ export default function PlayerDetailsPage({
         href="/teams"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-6"
       >
-        ← Back to Teams
+        ← {common("backToTeams")}
       </Link>
 
       <div className="grid lg:grid-cols-3 gap-8">
@@ -130,20 +129,20 @@ export default function PlayerDetailsPage({
             <div className="w-full grid grid-cols-2 gap-4 mt-6 text-sm">
               <div className="bg-muted/30 p-3 rounded-xl border border-transparent">
                 <p className="text-muted-foreground text-xs uppercase mb-1">
-                  Nationality
+                  {t('nationality')}
                 </p>
                 <p className="font-semibold">
-                  {player.nationality || "Unknown"}
+                  {player.nationality || t('unknown')}
                 </p>
               </div>
               <div className="bg-muted/30 p-3 rounded-xl border border-transparent">
                 <p className="text-muted-foreground text-xs uppercase mb-1">
-                  Age
+                  {t('age')}
                 </p>
                 <p className="font-semibold">
                   {player.dateOfBirth
                     ? `${new Date().getFullYear() - new Date(player.dateOfBirth).getFullYear()} yrs`
-                    : "Unknown"}
+                    : t('unknown')}
                 </p>
               </div>
             </div>
@@ -152,14 +151,15 @@ export default function PlayerDetailsPage({
           {/* Basic Stats Summary */}
           {stats && (
             <div className="bg-card p-6 rounded-2xl border">
-              <h3 className="text-lg font-bold mb-4">Season Summary</h3>
+              <h3 className="text-lg font-bold mb-2">{t('seasonSummary')}</h3>
+              <DataSourceLabel kind={dataSourceFor([stats.dataSource])} className="mb-4" />
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
                     {stats.matchesPlayed}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
-                    Matches
+                    {metric('matches')}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
@@ -167,7 +167,7 @@ export default function PlayerDetailsPage({
                     {stats.goals}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
-                    Goals
+                    {metric('goals')}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
@@ -175,7 +175,7 @@ export default function PlayerDetailsPage({
                     {stats.assists}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
-                    Assists
+                    {metric('assists')}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
@@ -183,7 +183,7 @@ export default function PlayerDetailsPage({
                     {stats.minutesPlayed}'
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
-                    Minutes
+                    {metric('minutes')}
                   </p>
                 </div>
               </div>
@@ -197,7 +197,7 @@ export default function PlayerDetailsPage({
             playerStats={stats}
             positionalAverages={player.positionalAverages}
             playerName={player.name}
-            position={player.position?.replace("_", " ") || "Unknown"}
+            position={player.position?.replace("_", " ") || t('unknown')}
           />
 
           <PlayerFormTrend playerId={player.id} playerName={player.name} />
@@ -215,29 +215,46 @@ export default function PlayerDetailsPage({
           {stats && (
             <div className="bg-card p-6 rounded-2xl border">
               <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                <span className="text-xl">📊</span> Detailed Metrics
+                <span className="text-xl">📊</span> {t('detailed')}
               </h3>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <DataSourceLabel kind={dataSourceFor([stats.dataSource])} />
+                <DataExport
+                  filename={`player-${player.id}-statistics`}
+                  title={metric("playerStats", { name: player.name })}
+                  columns={[metric("metric"), metric("value")]}
+                  rows={[
+                    [metric("matches"), stats.matchesPlayed], [metric("goals"), stats.goals],
+                    [metric("assists"), stats.assists], [metric("minutes"), stats.minutesPlayed],
+                    [metric("xg"), stats.xG], [metric("xa"), stats.xA],
+                    [metric("shotsPer90"), stats.shotsPer90], [metric("passAccuracy"), stats.passCompletion],
+                    [metric("progressivePasses"), stats.progressivePasses], [metric("dribblesSuccess"), stats.dribblesSuccess],
+                    [metric("tackles"), stats.tacklesPer90], [metric("interceptions"), stats.interceptions],
+                    [metric("yellowCards"), stats.yellowCards], [metric("redCards"), stats.redCards],
+                  ]}
+                />
+              </div>
 
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 border-b pb-2">
-                    Attacking
+                    {t('attacking')}
                   </h4>
                   <ul className="space-y-3">
                     <li className="flex justify-between items-center text-sm">
-                      <span>Expected Goals (xG)</span>
+                      <span>{metric('xg')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.xG?.toFixed(2) || "0.00"}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
-                      <span>Expected Assists (xA)</span>
+                      <span>{metric('xa')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.xA?.toFixed(2) || "0.00"}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
-                      <span>Shots / 90</span>
+                      <span>{metric('shotsPer90')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.shotsPer90?.toFixed(2) || "0.00"}
                       </span>
@@ -247,23 +264,23 @@ export default function PlayerDetailsPage({
 
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 border-b pb-2">
-                    Possession
+                    {t('possession')}
                   </h4>
                   <ul className="space-y-3">
                     <li className="flex justify-between items-center text-sm">
-                      <span>Pass Completion</span>
+                      <span>{metric('passAccuracy')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.passCompletion?.toFixed(1) || "0.0"}%
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
-                      <span>Prog. Passes</span>
+                      <span>{metric('progressivePasses')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.progressivePasses?.toFixed(1) || "0.0"}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
-                      <span>Successful Dribbles</span>
+                      <span>{metric('dribblesSuccess')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.dribblesSuccess?.toFixed(1) || "0.0"}%
                       </span>
@@ -273,23 +290,23 @@ export default function PlayerDetailsPage({
 
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 border-b pb-2">
-                    Defending
+                    {t('defending')}
                   </h4>
                   <ul className="space-y-3">
                     <li className="flex justify-between items-center text-sm">
-                      <span>Tackles / 90</span>
+                      <span>{metric('tackles')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.tacklesPer90?.toFixed(2) || "0.00"}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
-                      <span>Interceptions</span>
+                      <span>{metric('interceptions')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.interceptions?.toFixed(2) || "0.00"}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm text-red-500">
-                      <span>Cards (Y/R)</span>
+                      <span>{t('cards')}</span>
                       <span className="font-bold tabular-nums">
                         {stats.yellowCards} / {stats.redCards}
                       </span>

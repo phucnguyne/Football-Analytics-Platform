@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from 'next-intl'
 import { use, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -6,7 +7,7 @@ import Link from "next/link";
 import { Container } from "@/components/ui/grid";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMatch } from "@/lib/api";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { ChartSkeleton, PageSkeleton } from "@/components/ui/Skeleton";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { StatusBadge } from "@/components/ui/Badge";
 import { formatDate, formatTime } from "@/lib/utils";
@@ -14,17 +15,10 @@ import { useMatchLive } from "@/hooks/useMatchLive";
 import { LiveStatsBars } from "@/components/matches/LiveStatsBars";
 import { LivePredictionGame } from "@/components/matches/LivePredictionGame";
 import { MatchChat } from "@/components/matches/MatchChat";
+import { MatchPredictionForm } from "@/components/dashboard/MatchPredictionForm";
 import { AlgorithmicPrediction } from "@/components/matches/AlgorithmicPrediction";
 import { TacticalInsights } from "@/components/tactics/TacticalInsights";
 import type { FootballDataMatchEvent } from "@/types/TypesBarrel";
-
-function VisualizationFallback({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-2xl border bg-muted/40 ${className}`}
-    />
-  );
-}
 
 const MomentumGraph = dynamic(
   () =>
@@ -32,7 +26,7 @@ const MomentumGraph = dynamic(
       default: module.MomentumGraph,
     })),
   {
-    loading: () => <VisualizationFallback className="mb-6 h-[280px]" />,
+    loading: () => <ChartSkeleton className="mb-6 h-[280px]" />,
     ssr: false,
   },
 );
@@ -42,7 +36,7 @@ const ShotMap = dynamic(
     import("@/components/matches/ShotMap").then((module) => ({
       default: module.ShotMap,
     })),
-  { loading: () => <VisualizationFallback className="h-96" />, ssr: false },
+  { loading: () => <ChartSkeleton className="h-96" />, ssr: false },
 );
 
 export default function MatchDetailsPage({
@@ -50,6 +44,7 @@ export default function MatchDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useTranslations('Match')
   const { id } = use(params);
   const queryClient = useQueryClient();
 
@@ -92,7 +87,7 @@ export default function MatchDetailsPage({
     id,
   ]);
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading) return <PageSkeleton variant="detail" />;
   if (isError || !match) return <ErrorMessage />;
 
   const currentStatus = liveUpdate?.status ?? match.status;
@@ -167,7 +162,7 @@ export default function MatchDetailsPage({
         href="/matches"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-6"
       >
-        ← Back to Matches
+        ← {t('back')}
       </Link>
 
       <div className="bg-card p-8 rounded-2xl border mb-8 flex flex-col items-center shadow-lg relative overflow-hidden">
@@ -257,7 +252,10 @@ export default function MatchDetailsPage({
         </div>
       </div>
 
-      {/* AI Prediction (for upcoming matches) */}
+      {(currentStatus === "SCHEDULED" || currentStatus === "TIMED") &&
+        new Date(match.utcDate).getTime() > Date.now() && (
+          <MatchPredictionForm matchId={Number(id)} />
+        )}
       {match.prediction && (
         <AlgorithmicPrediction
           prediction={match.prediction}
@@ -379,7 +377,7 @@ export default function MatchDetailsPage({
           <div className="bg-card p-6 rounded-2xl border">
             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
               <span className="w-2 h-6 bg-primary rounded-full" />
-              Match Events
+              {t('events')}
             </h3>
 
             {allEvents.filter((e) => e.eventType !== "shot").length > 0 ? (

@@ -1,3 +1,4 @@
+import type { SourceKind } from './data-source'
 /**
  * Scouting Report Generator
  *
@@ -82,6 +83,7 @@ export interface StrengthWeakness {
 
 export interface ScoutingReport {
   teamId: number
+  keyPlayerStatsProvenance?: SourceKind
   provenance: {
     team: 'database' | 'generated'
     standing: 'database' | 'unavailable'

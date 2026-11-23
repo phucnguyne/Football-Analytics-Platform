@@ -1,5 +1,8 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { dataSourceFor } from '@/lib/data-source'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -8,7 +11,7 @@ import type { CareerStats, CareerSeason, CareerMilestone, ClubHistoryEntry } fro
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
 
-async function fetchCareer(playerId: number): Promise<CareerStats> {
+async function fetchCareer(playerId: number): Promise<CareerStats & { currentStatsSource?: string | null }> {
   const res = await fetch(`/api/persons/${playerId}/career`)
   if (!res.ok) throw new Error('Failed to fetch career stats')
   return res.json()
@@ -392,6 +395,8 @@ interface PlayerCareerTimelineProps {
 export function PlayerCareerTimeline({ playerId, playerName }: PlayerCareerTimelineProps) {
   const [activeTab, setActiveTab] = useState<Tab>('seasons')
 
+  const t = useTranslations('Sources')
+  const player = useTranslations('Player')
   const { data: career, isLoading, isError } = useQuery({
     queryKey: ['career', playerId],
     queryFn:  () => fetchCareer(playerId),
@@ -417,15 +422,19 @@ export function PlayerCareerTimeline({ playerId, playerName }: PlayerCareerTimel
       {/* Header */}
       <div className="flex items-center gap-2">
         <span className="w-1.5 h-6 bg-primary rounded-full" />
-        <h3 className="text-xl font-bold">Generated Career History</h3>
+        <h3 className="text-xl font-bold">{player('career')}</h3>
+        <DataSourceLabel kind={career.provenance?.currentTeamFromDatabase ? 'mixed' : 'generated'} />
         {playerName && (
           <span className="text-muted-foreground text-sm">— {playerName}</span>
         )}
       </div>
+      {career.provenance?.currentStatsFromDatabase && (
+        <DataSourceLabel kind={dataSourceFor([career.currentStatsSource])} detail={t('currentSeasonStats')} />
+      )}
       <p className="text-sm text-muted-foreground">
         Historical seasons, clubs, milestones and ratings are generated. Career totals include simulated seasons.
         {career.provenance?.currentTeamFromDatabase && ' The current club comes from a stored team record.'}
-        {career.provenance?.currentStatsFromDatabase && ' Current appearances, minutes, goals, assists and cards come from stored stats. Missing xG and xA are shown as zero.'}
+        {career.provenance?.currentStatsFromDatabase && ' Current-season figures include stored statistics. Missing xG and xA are shown as zero.'}
       </p>
 
       {/* Career overview numbers */}

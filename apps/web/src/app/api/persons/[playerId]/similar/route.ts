@@ -1,3 +1,4 @@
+import { dataSourceFor } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { calculateCosineSimilarity, getPlayerStyleTags } from '@/lib/player-analytics'
@@ -57,6 +58,7 @@ export async function GET(
             crest: team.crest ?? undefined,
           },
           similarityScore: similarity,
+          dataSource: c.stats?.dataSource,
           styleTags: getPlayerStyleTags(c.stats),
           stats: {
             goals: c.stats?.goals ?? 0,
@@ -79,6 +81,7 @@ export async function GET(
         position: target.position,
       },
       similarPlayers: scored,
+      statsProvenance: dataSourceFor([target.stats.dataSource, ...scored.map((player) => player.dataSource)]),
     })
   } catch (error) {
     console.error('Error fetching similar players:', error)

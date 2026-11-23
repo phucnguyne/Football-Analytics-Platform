@@ -1,5 +1,6 @@
 import "server-only";
 import prisma from "@app/database/src/client";
+import { escapeSearchTerm } from "@/lib/search";
 import { env } from "@/lib/env";
 import {
   apiFootballPlayerNameMatches,
@@ -27,7 +28,7 @@ export async function searchPlayers({
       const response = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
         {
-          headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY },
+          redirect: "error",          headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY },
           next: { revalidate: 3600 },
         },
       );
@@ -126,7 +127,7 @@ export async function searchPlayers({
       const response = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`,
         {
-          headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY },
+          redirect: "error",          headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY },
           next: { revalidate: 3600 },
         },
       );
@@ -229,7 +230,7 @@ export async function searchPlayers({
     where: query
       ? {
           name: {
-            contains: query,
+            contains: escapeSearchTerm(query),
             mode: "insensitive",
           },
         }

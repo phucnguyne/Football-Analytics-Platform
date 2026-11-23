@@ -1,11 +1,12 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { Container, Grid } from '@/components/ui/grid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { usePlayers } from '@/hooks/usePlayers'
 import { useTeams } from '@/hooks/useTeams'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { CardGridSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { cn } from '@/lib/utils'
 import { PlayerPhoto } from '@/components/players/PlayerPhoto'
@@ -32,6 +33,7 @@ function PositionBadge({ position }: { position: string }) {
 }
 
 function PlayersContent() {
+  const t = useTranslations('Player')
   const searchParams = useSearchParams()
   const urlTeamId = searchParams.get('teamId')
   
@@ -55,8 +57,8 @@ function PlayersContent() {
   return (
     <Container className="py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Players</h1>
-        <p className="text-muted-foreground">Browse squads across the Premier League</p>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('browse')}</p>
       </div>
 
       {/* Controls */}
@@ -71,18 +73,18 @@ function PlayersContent() {
           ))}
         </select>
         <Input
-          placeholder="Search players…"
+          placeholder={t('search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="sm:max-w-xs"
         />
       </div>
 
-      {isLoading && <PageSpinner />}
+      {isLoading && <CardGridSkeleton />}
       {isError && <ErrorMessage onRetry={refetch} />}
 
       {filtered && filtered.length === 0 && !isLoading && (
-        <p className="text-center text-muted-foreground py-12">No players found.</p>
+        <p className="text-center text-muted-foreground py-12">{t('empty')}</p>
       )}
 
       <Grid cols={4} gap="lg">
@@ -121,7 +123,7 @@ function PlayersContent() {
 
 export default function PlayersPage() {
   return (
-    <Suspense fallback={<PageSpinner />}>
+    <Suspense fallback={<CardGridSkeleton />}>
       <PlayersContent />
     </Suspense>
   )

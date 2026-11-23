@@ -1,3 +1,4 @@
+import { dataSourceFor } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 
@@ -66,7 +67,7 @@ export async function GET(
       include: {
         statistics: true,
         events: {
-          select: { minute: true, type: true, team: true },
+          select: { minute: true, type: true, team: true, analyticsSource: true },
           orderBy: { minute: 'asc' },
         },
       },
@@ -108,6 +109,7 @@ export async function GET(
       corners: { home: home?.corners ?? null, away: away?.corners ?? null },
       fouls: { home: home?.fouls ?? null, away: away?.fouls ?? null },
       momentum,
+      momentumProvenance: dataSourceFor(momentumEvents.map((event) => event.type === 'SHOT' ? event.analyticsSource : 'REAL')),
     })
   } catch (error) {
     console.error('Error fetching match statistics:', error)

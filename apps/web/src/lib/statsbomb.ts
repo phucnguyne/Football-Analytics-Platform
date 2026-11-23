@@ -139,6 +139,7 @@ export interface StatsBombCompetition {
 }
 
 export interface ShotPoint {
+  teamId: number | null;
   x: number;
   y: number;
   xG: number;
@@ -454,6 +455,7 @@ export function buildStatsBombShotMap(events: StatsBombEvent[]): ShotPoint[] {
         x: Math.round(((e.location![0] ?? 100) / 120) * 100),
         y: Math.round(((e.location![1] ?? 40) / 80) * 100),
         xG: e.shot?.statsbomb_xg ?? 0,
+        teamId: e.team?.id ?? null,
         outcome,
         player: e.player?.name ?? "Unknown",
         playerId: e.player?.id ?? 0,

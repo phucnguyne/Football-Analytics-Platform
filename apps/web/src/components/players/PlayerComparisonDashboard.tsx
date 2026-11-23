@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -12,7 +14,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { ChartSkeleton } from '@/components/ui/Skeleton'
 import { useTeams } from '@/hooks/useTeams'
 import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
@@ -44,6 +46,7 @@ export function PlayerComparisonDashboard({
   initialPlayer1TeamId,
   initialPlayer2TeamId,
 }: PlayerComparisonDashboardProps) {
+  const t = useTranslations('Compare')
   const [player1Id, setPlayer1Id] = useState<number | null>(initialPlayer1Id ?? null)
   const [player2Id, setPlayer2Id] = useState<number | null>(initialPlayer2Id ?? null)
   const [selectedTeam1Id, setSelectedTeam1Id] = useState(initialPlayer1TeamId ? String(initialPlayer1TeamId) : '')
@@ -158,17 +161,17 @@ export function PlayerComparisonDashboard({
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-gradient-to-b from-sky-400 to-amber-400 rounded-full" />
-            <h3 className="text-xl font-bold tracking-tight">Head-to-Head Player Comparison</h3>
+            <h3 className="text-xl font-bold tracking-tight">{t('heading')}</h3>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Compare tactical output, radar shapes & multidimensional skill distributions
+            {t('overview')}
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <section className="min-w-0 space-y-2 rounded-xl border border-sky-500/20 p-3">
             <label className="flex flex-col gap-1 text-xs font-semibold text-sky-400">
-              Player A club
+              {t('clubA')}
               <select
                 value={activeTeam1Id}
                 onChange={(event) => {
@@ -176,7 +179,7 @@ export function PlayerComparisonDashboard({
                   setPlayer1Id(null)
                 }}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Select Player A club"
+                aria-label={t('clubA')}
               >
                 {teams?.map((team) => (
                   <option key={team.id} value={team.id}>{team.name}</option>
@@ -184,25 +187,25 @@ export function PlayerComparisonDashboard({
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-sky-400">
-              Search Player A
+              {t('searchA')}
               <input
                 type="search"
-                placeholder="Search players..."
+                placeholder={t('search')}
                 value={searchPlayer1}
                 onChange={(event) => setSearchPlayer1(event.target.value)}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Search Player A"
+                aria-label={t('searchA')}
               />
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-sky-400">
-              Select Player A
+              {t('selectA')}
               <select
                 value={player1Id ?? ''}
                 onChange={(event) => setPlayer1Id(event.target.value ? Number(event.target.value) : null)}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Select Player A"
+                aria-label={t('selectA')}
               >
-                <option value="">Select Player A...</option>
+                <option value="">{t('selectA')}</option>
                 {player1Id && !player1List?.players.some((player) => player.id === player1Id) && (
                   <option value={player1Id}>Current selection (ID {player1Id})</option>
                 )}
@@ -217,14 +220,14 @@ export function PlayerComparisonDashboard({
             </label>
             {debouncedPlayer1 && player1List?.players.length === 0 && (
               <span className="font-normal text-muted-foreground" role="status">
-                No matches in this roster. Try another club.
+                {t('noMatches')}
               </span>
             )}
           </section>
 
           <section className="min-w-0 space-y-2 rounded-xl border border-amber-500/20 p-3">
             <label className="flex flex-col gap-1 text-xs font-semibold text-amber-400">
-              Player B club
+              {t('clubB')}
               <select
                 value={activeTeam2Id}
                 onChange={(event) => {
@@ -232,7 +235,7 @@ export function PlayerComparisonDashboard({
                   setPlayer2Id(null)
                 }}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Select Player B club"
+                aria-label={t('clubB')}
               >
                 {teams?.map((team) => (
                   <option key={team.id} value={team.id}>{team.name}</option>
@@ -240,25 +243,25 @@ export function PlayerComparisonDashboard({
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-amber-400">
-              Search Player B
+              {t('searchB')}
               <input
                 type="search"
-                placeholder="Search players..."
+                placeholder={t('search')}
                 value={searchPlayer2}
                 onChange={(event) => setSearchPlayer2(event.target.value)}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Search Player B"
+                aria-label={t('searchB')}
               />
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-amber-400">
-              Select Player B
+              {t('selectB')}
               <select
                 value={player2Id ?? ''}
                 onChange={(event) => setPlayer2Id(event.target.value ? Number(event.target.value) : null)}
                 className="h-9 w-full rounded-lg border bg-background px-3 text-xs text-foreground"
-                aria-label="Select Player B"
+                aria-label={t('selectB')}
               >
-                <option value="">Select Player B...</option>
+                <option value="">{t('selectB')}</option>
                 {player2Id && !player2List?.players.some((player) => player.id === player2Id) && (
                   <option value={player2Id}>Current selection (ID {player2Id})</option>
                 )}
@@ -273,7 +276,7 @@ export function PlayerComparisonDashboard({
             </label>
             {debouncedPlayer2 && player2List?.players.length === 0 && (
               <span className="font-normal text-muted-foreground" role="status">
-                No matches in this roster. Try another club.
+                {t('noMatches')}
               </span>
             )}
           </section>
@@ -282,7 +285,7 @@ export function PlayerComparisonDashboard({
 
       {(teamsError || player1SearchError || player2SearchError) && (
         <p className="text-sm text-destructive">
-          Could not load clubs or players. Please try again later.
+          {t('unavailable')}
         </p>
       )}
 
@@ -295,13 +298,13 @@ export function PlayerComparisonDashboard({
               : 'Select two players to compare'}
           </h4>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Search within a club roster, then select Player A and Player B to compare their profiles.
+            {t('choose')}
           </p>
         </div>
       ) : isLoading ? (
         <div className="py-12 flex flex-col items-center justify-center space-y-3">
-          <PageSpinner />
-          <p className="text-xs text-muted-foreground font-medium">Computing comparative metrics...</p>
+          <ChartSkeleton className="h-96 w-full" />
+          <p className="text-xs text-muted-foreground font-medium">{t('loading')}</p>
         </div>
       ) : isError || !p1 || !p2 ? (
         <div className="p-6 text-center text-destructive text-sm">
@@ -332,7 +335,7 @@ export function PlayerComparisonDashboard({
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase font-bold text-sky-400 tracking-wider block">
-                  Player A
+                  {t('playerA')}
                 </span>
                 <span className="text-sm font-bold text-foreground">
                   {p1.stats?.goals ?? '—'}G, {p1.stats?.assists ?? '—'}A
@@ -359,7 +362,7 @@ export function PlayerComparisonDashboard({
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider block">
-                  Player B
+                  {t('playerB')}
                 </span>
                 <span className="text-sm font-bold text-foreground">
                   {p2.stats?.goals ?? '—'}G, {p2.stats?.assists ?? '—'}A
@@ -371,20 +374,19 @@ export function PlayerComparisonDashboard({
           {/* Overlaid Dual Radar Chart */}
           <div className="bg-card p-6 rounded-2xl border flex flex-col min-h-[420px]">
             <h4 className="font-bold text-base flex items-center gap-2 mb-2">
-              <span>🎯</span> Player Comparison Spider Chart
+              <span>🎯</span> {t('chart')}
             </h4>
             {comparisonData?.metricsAvailable ? (
               <p className="mb-2 text-xs text-muted-foreground" role="status">
-                Data source: {comparisonData.statsSource}
+                <DataSourceLabel kind={comparisonData.statsProvenance ?? 'unavailable'} detail={comparisonData.statsSource ?? undefined} />
                 {comparisonData.statsSeason ? ` · ${comparisonData.statsSeason} season` : ''}.
                 {p1.stats?.competition && p2.stats?.competition
                   ? ` Player A: ${p1.stats.competition}; Player B: ${p2.stats.competition}.`
                   : ''}
-                {' '}Only actual metrics available for both players are shown.
               </p>
             ) : (
               <p className="mb-2 text-xs text-muted-foreground" role="status">
-                No shared performance metrics are available for this player pair from the configured data sources. Values are not estimated or fabricated.
+                {t('noMetrics')}
               </p>
             )}
 
@@ -442,7 +444,7 @@ export function PlayerComparisonDashboard({
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  A spider chart needs at least one real shared metric.
+                  {t('chartUnavailable')}
                 </div>
               )}
             </div>

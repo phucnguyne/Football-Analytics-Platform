@@ -1,10 +1,11 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Container, Grid } from '@/components/ui/grid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTeams } from '@/hooks/useTeams'
-import { PageSpinner } from '@/components/ui/Spinner'
+import { CardGridSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { SeasonSelector } from '@/components/seasons/SeasonSelector'
 import { useState } from 'react'
@@ -13,6 +14,7 @@ import { useState } from 'react'
 const DEFAULT_LEAGUE = 'PL'
 
 export default function TeamsPage() {
+  const t = useTranslations('Team')
   const [seasonId, setSeasonId] = useState('')
   const { data: teams, isLoading, isError, refetch } = useTeams(DEFAULT_LEAGUE, seasonId)
 
@@ -20,17 +22,17 @@ export default function TeamsPage() {
     <Container className="py-10">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Teams</h1>
-          <p className="text-muted-foreground">All clubs in the Premier League</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('premierLeague')}</p>
         </div>
         <SeasonSelector competition={DEFAULT_LEAGUE} value={seasonId} onChange={setSeasonId} />
       </div>
 
-      {isLoading && <PageSpinner />}
+      {isLoading && <CardGridSkeleton />}
       {isError && <ErrorMessage onRetry={refetch} />}
 
       {teams && teams.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">No teams found.</p>
+        <p className="text-center text-muted-foreground py-12">{t('empty')}</p>
       )}
 
       <Grid cols={4} gap="lg">

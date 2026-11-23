@@ -1,9 +1,11 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
 export function MatchChat({ isLive }: { isLive: boolean }) {
+  const t = useTranslations('Match')
   const [messages, setMessages] = useState([
     { id: 1, user: 'Gooner99', text: 'Come on!! We need a goal.', time: '2m ago', role: 'user' },
     { id: 2, user: 'BlueIsColor', text: 'Defending looks solid today.', time: '1m ago', role: 'user' },
@@ -42,7 +44,7 @@ export function MatchChat({ isLive }: { isLive: boolean }) {
         </h3>
         <span className="text-xs flex items-center gap-1 text-green-500 font-semibold bg-green-500/10 px-2 py-1 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          Demo mode
+          {t('chatDemo')}
         </span>
       </div>
 
@@ -74,7 +76,7 @@ export function MatchChat({ isLive }: { isLive: boolean }) {
         <form onSubmit={handleSend} className="flex gap-2">
           <input 
             type="text" 
-            placeholder="Say something..." 
+            placeholder={t('chatInput')}
             className="flex-1 bg-muted/50 border-none rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             value={input}
             onChange={e => setInput(e.target.value)}

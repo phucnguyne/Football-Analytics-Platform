@@ -61,7 +61,7 @@ export async function GET(
 
     const career = generateCareerStats(input)
 
-    return NextResponse.json(career, {
+    return NextResponse.json({ ...career, currentStatsSource: stats?.dataSource }, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
       },

@@ -1,11 +1,16 @@
 "use client";
 
+import { useTranslations } from 'next-intl'
+import { dataSourceFor } from '@/lib/data-source'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { memo, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { ChartSkeleton } from "@/components/ui/Skeleton";
 import type { FootballDataMatchEvent } from "@/types/TypesBarrel";
 
 interface ShotPoint {
+  teamId: number | null;
+  analyticsSource?: string | null;
   x: number;
   y: number;
   xG: number;
@@ -39,6 +44,7 @@ export const ShotMap = memo(function ShotMap({
   awayTeam,
   events = [],
 }: ShotMapProps) {
+  const t = useTranslations('Match')
   // Fetch StatsBomb shot data from the new /api/matches/[id]/shots route
   const { data: sbData, isLoading } = useQuery<ShotMapApiResponse>({
     queryKey: ["match-shots", matchId],
@@ -67,6 +73,8 @@ export const ShotMap = memo(function ShotMap({
           x: typeof e.x === "number" && e.x > 1 ? e.x : (e.x ?? 0.5) * 100,
           y: typeof e.y === "number" && e.y > 1 ? e.y : (e.y ?? 0.5) * 100,
           xG: e.xG ?? 0,
+          teamId: e.team?.id ?? null,
+          analyticsSource: e.analyticsSource,
           outcome:
             e.type === "GOAL" || e.eventType === "goal" ? "Goal" : "Saved",
           player: e.scorer?.name ?? e.player?.name ?? "Unknown",
@@ -80,13 +88,7 @@ export const ShotMap = memo(function ShotMap({
     [events],
   );
 
-  if (isLoading) {
-    return (
-      <div className="bg-card p-8 rounded-2xl border flex justify-center items-center min-h-[200px]">
-        <PageSpinner />
-      </div>
-    );
-  }
+  if (isLoading) return <ChartSkeleton className="h-96" />
 
   const shots: ShotPoint[] = sbData?.available ? sbData.shots : fallbackShots;
 
@@ -94,7 +96,7 @@ export const ShotMap = memo(function ShotMap({
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground">
         <p className="text-sm">
-          Shot map unavailable — no shot coordinates for this match.
+          {t('unavailableShots')}
         </p>
         {sbData && (
           <p className="text-xs mt-1 opacity-60">
@@ -107,10 +109,8 @@ export const ShotMap = memo(function ShotMap({
     );
   }
 
-  const homeShots = shots
-    .filter((s) => s.playerId !== 0)
-    .slice(0, Math.ceil(shots.length / 2));
-  const awayShots = shots.slice(Math.ceil(shots.length / 2));
+  const homeShots = shots.filter(({ teamId }) => teamId === homeTeam.id);
+  const awayShots = shots.filter(({ teamId }) => teamId === awayTeam.id);
 
   const totalXg = {
     home: +shots
@@ -136,7 +136,11 @@ export const ShotMap = memo(function ShotMap({
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-6 bg-primary rounded-full" />
-            <h3 className="text-lg font-bold">Shot Map & xG</h3>
+            <h3 className="text-lg font-bold">{t('shotMap')}</h3>
+            <DataSourceLabel
+              kind={sbData?.available ? 'real' : dataSourceFor(fallbackShots.map((shot) => shot.analyticsSource))}
+              detail={sbData?.available ? 'StatsBomb Open Data' : undefined}
+            />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             {sbData?.available
@@ -200,12 +204,13 @@ export const ShotMap = memo(function ShotMap({
         {shots.map((shot, i) => {
           // StatsBomb: x along pitch (0=home goal, 100=away goal), y = width
           // We show home shots attacking right (high x), away attacking left
-          const isHome = i < Math.ceil(shots.length / 2);
+          const isHome = shot.teamId === homeTeam.id;
+          const isAway = shot.teamId === awayTeam.id;
           // Normalize x to [0,1], flipping for away team
           const nx = shot.x / 100;
           const ny = shot.y / 100;
-          const displayX = isHome ? nx : 1 - nx;
-          const displayY = isHome ? ny : 1 - ny;
+          const displayX = isAway ? 1 - nx : nx;
+          const displayY = isAway ? 1 - ny : ny;
           const size = Math.max(7, Math.min(28, shot.xG * 40 + 7));
 
           return (
@@ -213,7 +218,7 @@ export const ShotMap = memo(function ShotMap({
               key={i}
               title={`${shot.minute}' – ${shot.player} · ${shot.outcome} · xG: ${shot.xG.toFixed(3)}${shot.technique ? ` · ${shot.technique}` : ""}`}
               className={`absolute rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-crosshair
-                ${isHome ? "bg-blue-500" : "bg-red-500"}
+                ${isHome ? "bg-blue-500" : isAway ? "bg-red-500" : "bg-neutral-400"}
                 ${shot.isGoal ? "border-[3px] border-white z-10 shadow-lg" : "opacity-70 border border-black/20"}
               `}
               style={{
@@ -231,17 +236,17 @@ export const ShotMap = memo(function ShotMap({
       <div className="text-xs text-muted-foreground flex gap-6 justify-center flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-neutral-400 opacity-70 border border-black/20" />
-          <span>Shot</span>
+          <span>{t('shot')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-neutral-400 border-[3px] border-white ring-1 ring-black/20" />
-          <span>Goal</span>
+          <span>{t('goal')}</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
           <div className="w-3 h-3 rounded-full bg-neutral-400" />
           <div className="w-5 h-5 rounded-full bg-neutral-400" />
-          <span className="ml-1">Size = xG</span>
+          <span className="ml-1">{t('sizeXg')}</span>
         </div>
       </div>
     </div>

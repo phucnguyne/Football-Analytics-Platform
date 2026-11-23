@@ -83,6 +83,7 @@ export interface FootballDataMatchEvent {
   x?: number | null
   y?: number | null
   xG?: number | null
+  analyticsSource?: "REAL" | "GENERATED" | null
 }
 
 export interface FootballDataReferee {

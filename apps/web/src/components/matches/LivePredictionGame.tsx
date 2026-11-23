@@ -1,11 +1,14 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
 type DisplayTeam = { name: string; shortName?: string }
 
 export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { matchId: string; homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
+  const t = useTranslations('Match')
   const [prediction, setPrediction] = useState<string | null>(null)
   
   if (!isLive) return null;
@@ -15,15 +18,16 @@ export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { ma
       <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 to-transparent opacity-50" />
       
       <h3 className="text-lg font-bold mb-2 flex items-center gap-2 relative z-10">
-        <span>🎯</span> Live Prediction
+        <span>🎯</span> {t('nextGoal')}
+        <DataSourceLabel kind="generated" />
       </h3>
-      <p className="text-xs text-muted-foreground mb-4 relative z-10">Who will score the next goal?</p>
+      <p className="text-xs text-muted-foreground mb-4 relative z-10">{t('whoScores')}</p>
 
       <div className="space-y-2 relative z-10">
         {[
           { id: 'home', label: homeTeam.shortName || homeTeam.name, pct: 42 },
           { id: 'away', label: awayTeam.shortName || awayTeam.name, pct: 28 },
-          { id: 'none', label: 'No more goals', pct: 30 }
+          { id: 'none', label: t('none'), pct: 30 }
         ].map(option => {
           const isSelected = prediction === option.id;
           
@@ -49,7 +53,7 @@ export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { ma
 
       {prediction && (
         <div className="mt-4 text-center text-xs font-semibold text-amber-500 animate-in fade-in slide-in-from-bottom-2">
-          Prediction locked! (Demo — XP not persisted)
+          {t('locked')}
         </div>
       )}
     </div>
