@@ -1,60 +1,33 @@
-// ─── socket/notification.socket.ts ───────────────────────────────────────────
-// Đăng ký tất cả event liên quan đến thông báo cho 1 socket.
-//
-// Events client → server:
-//   notification:subscribe   { matchId }        → theo dõi thông báo của trận
-//   notification:unsubscribe { matchId }        → huỷ theo dõi
-//   notification:get-subs    (không cần data)   → lấy danh sách trận đang theo dõi
-//
-// Events server → client:
-//   notification:push        Notification       → thông báo mới (goal, card, v.v.)
-//   notification:subscribed  { matchId, subs }  → xác nhận đăng ký
-//   notification:subs-list   string[]           → danh sách matchId
-
-import type { Server, Socket } from "socket.io";
+import type { Socket } from "socket.io";
 import {
   handleSubscribe,
   handleUnsubscribe,
   handleGetSubscriptions,
   handleDisconnect,
 } from "../handlers/notification.handler";
+import { matchPayload } from "./payload";
 
-export function registerNotificationSocket(io: Server, socket: Socket): void {
-  // userId fallback = socketId nếu user ẩn danh
-  const userId = socket.user?.sub ?? socket.id;
+export function registerNotificationSocket(socket: Socket): void {
+  const subscriber = socket.id;
 
-  // ── Đăng ký nhận thông báo của 1 trận ────────────────────────────────────
-  socket.on("notification:subscribe", ({ matchId }: { matchId: string }) => {
-    const result = handleSubscribe(userId, matchId);
-
-    // Vào room notification riêng cho user (để server có thể push trực tiếp)
-    socket.join(`notify:${userId}`);
-
-    const subs = handleGetSubscriptions(userId);
-    socket.emit("notification:subscribed", { matchId, subs });
-
-    if (io) {
-      // io được giữ để dùng sau — không cần gửi gì thêm ở đây
-      void result;
-    }
+  socket.on("notification:subscribe", (input: unknown) => {
+    const parsed = matchPayload.safeParse(input);
+    if (!parsed.success || handleGetSubscriptions(subscriber).length >= 50) return;
+    const { matchId } = parsed.data;
+    handleSubscribe(subscriber, matchId);
+    socket.emit("notification:subscribed", { matchId, subs: handleGetSubscriptions(subscriber) });
   });
 
-  // ── Huỷ theo dõi ──────────────────────────────────────────────────────────
-  socket.on("notification:unsubscribe", ({ matchId }: { matchId: string }) => {
-    handleUnsubscribe(userId, matchId);
-
-    const subs = handleGetSubscriptions(userId);
-    socket.emit("notification:subscribed", { matchId: null, subs });
+  socket.on("notification:unsubscribe", (input: unknown) => {
+    const parsed = matchPayload.safeParse(input);
+    if (!parsed.success) return;
+    handleUnsubscribe(subscriber, parsed.data.matchId);
+    socket.emit("notification:subscribed", { matchId: null, subs: handleGetSubscriptions(subscriber) });
   });
 
-  // ── Lấy danh sách trận đang theo dõi ─────────────────────────────────────
   socket.on("notification:get-subs", () => {
-    const subs = handleGetSubscriptions(userId);
-    socket.emit("notification:subs-list", subs);
+    socket.emit("notification:subs-list", handleGetSubscriptions(subscriber));
   });
 
-  // ── Dọn dẹp khi disconnect ────────────────────────────────────────────────
-  socket.on("disconnect", () => {
-    handleDisconnect(userId);
-  });
+  socket.on("disconnect", () => handleDisconnect(subscriber));
 }

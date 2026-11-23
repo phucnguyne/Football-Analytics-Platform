@@ -3,6 +3,7 @@
 // /internal/emit. Đây KHÔNG phải JWT của user — chỉ là 1 secret dùng chung
 // giữa các service trong hệ thống (đặt trong .env: INTERNAL_SERVICE_SECRET).
 
+import { matchesSecret } from "@app/config";
 import type { Request, Response, NextFunction } from "express";
 import { env } from "../config/env";
 
@@ -21,7 +22,7 @@ export function internalAuthMiddleware(
     return;
   }
 
-  if (secret !== env.internalServiceSecret) {
+  if (req.headers.origin || !matchesSecret(env.internalServiceSecret, secret)) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

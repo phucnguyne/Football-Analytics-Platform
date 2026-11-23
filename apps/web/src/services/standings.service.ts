@@ -203,7 +203,7 @@ export async function getCompetitionStandings(
   const res = await fetch(
     `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/standings${getExternalSeasonQuery(seasonYear)}`,
     {
-      headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+      redirect: "error",      headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
       next: { revalidate: 300 },
     },
   )
@@ -238,7 +238,7 @@ export async function getCompetitionStandings(
     const matchesResponse = await fetch(
       `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/matches${getExternalSeasonQuery(seasonYear)}`,
       {
-        headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+        redirect: "error",        headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
         next: { revalidate: 300 },
       },
     )

@@ -15,8 +15,13 @@ export function createSocketServer(
     cors: {
       origin: env.webUrl,
       methods: ["GET", "POST"],
-      credentials: true,
+      credentials: false,
     },
+    allowRequest: (request, done) => {
+      const origin = request.headers.origin;
+      done(null, origin === undefined || origin === env.webUrl);
+    },
+    maxHttpBufferSize: 16_384,
     // Cho phép cả polling lẫn websocket để hỗ trợ mọi client
     transports: ["polling", "websocket"],
     // Tự động nâng cấp từ polling → websocket

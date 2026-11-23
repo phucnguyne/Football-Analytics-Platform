@@ -2,8 +2,10 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
+  '@parcel/watcher': false
   '@prisma/client': false
   '@prisma/engines': false
+  '@swc/core': false
   esbuild: true
   prisma: false
   sharp: false

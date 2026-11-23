@@ -13,7 +13,6 @@ import {
   getRedisClient,
 } from "./config/redis";
 import { createSocketServer } from "./config/socket";
-import { authMiddleware } from "./middleware/auth";
 import { loggerMiddleware } from "./middleware/logger";
 import { rateLimitMiddleware } from "./middleware/rateLimit";
 import { registerSockets } from "./socket";
@@ -22,7 +21,8 @@ import { seedDemoMatch } from "./service/match.service";
 
 // ── HTTP app (chỉ dùng để tạo httpServer, không cần route) ──────────────────
 const app = express();
-app.use(express.json());
+app.disable("x-powered-by");
+app.use(express.json({ limit: "16kb" }));
 
 app.get("/health", (_req, res) => {
   const redisClient = getRedisClient();
@@ -44,9 +44,12 @@ async function startServer(): Promise<void> {
 
   // Route HTTP nội bộ — chỉ service `api` gọi sang để trigger broadcast
   app.use("/internal", createInternalRouter(io));
+  app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const status = (error as { status?: number })?.status;
+    res.status(status === 400 || status === 413 ? status : 500).json({ error: "Request failed" });
+  });
 
-  // Middleware chạy theo thứ tự: auth → logger → rateLimit
-  io.use(authMiddleware);
+  // Public sockets can subscribe to the live feed.
   io.use(loggerMiddleware);
   io.use(rateLimitMiddleware({ maxEvents: 30, windowMs: 10_000 }));
 

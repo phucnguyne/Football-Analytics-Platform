@@ -41,7 +41,7 @@ async function request<T>(
     if (value !== undefined) url.searchParams.set(key, String(value))
   })
   const response = await fetch(url, {
-    headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
+    redirect: "error",    headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
     next: { revalidate },
   })
   if (!response.ok) return []

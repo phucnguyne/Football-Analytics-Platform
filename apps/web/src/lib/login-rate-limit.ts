@@ -6,8 +6,9 @@ import { env } from "@/lib/env";
 
 const MAX_ATTEMPTS_PER_EMAIL = 5;
 const MAX_ATTEMPTS_PER_IP = 30;
+const MAX_UNATTRIBUTED_ATTEMPTS = 120;
 
-function bucketKey(scope: "email" | "ip", value: string) {
+function bucketKey(scope: "email" | "ip" | "fallback", value: string) {
   return createHmac("sha256", env.NEXTAUTH_SECRET)
     .update(`login:${scope}:${value}`)
     .digest("hex");
@@ -33,16 +34,14 @@ export async function reserveLoginAttempt(
   email: string,
   headers: Record<string, unknown> | undefined,
 ) {
-  // Vercel supplies this header at its ingress. Self-hosted instances still
-  // apply the email limit without trusting arbitrary client-supplied headers.
   const forwardedIp = process.env.VERCEL === "1"
     ? headers?.["x-vercel-forwarded-for"]
-    : undefined;
+    : process.env.AUTH_TRUST_PROXY_IP === "true" ? headers?.["x-real-ip"] : undefined;
   const ip = typeof forwardedIp === "string" ? forwardedIp.trim() : "";
-
-  if (isIP(ip) && !(await reserveAttempt(bucketKey("ip", ip), MAX_ATTEMPTS_PER_IP))) {
-    return null;
-  }
+  const limit = isIP(ip)
+    ? await reserveAttempt(bucketKey("ip", ip), MAX_ATTEMPTS_PER_IP)
+    : await reserveAttempt(bucketKey("fallback", "unattributed"), MAX_UNATTRIBUTED_ATTEMPTS);
+  if (!limit) return null;
 
   if (Math.random() < 0.01) {
     await prisma.$executeRaw`

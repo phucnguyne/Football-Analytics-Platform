@@ -1,4 +1,6 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { matchesSecret } from "@app/config";
+import { env } from "../lib/env.js";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { notifyRealtime } from "../lib/realtime-client.js";
@@ -23,6 +25,17 @@ const matchInclude = {
   events: { orderBy: { minute: "desc" as const }, take: 20 },
 } as const;
 
+async function requireScoreWriter(request: FastifyRequest, reply: FastifyReply) {
+  const bearer = request.headers.authorization?.match(/^Bearer ([^\s]+)$/i)?.[1];
+  if (request.headers.origin || !matchesSecret(env.LIVE_SCORE_WRITE_SECRET, bearer)) {
+    return reply.code(401).send({ error: "Unauthorized" });
+  }
+}
+
+function publicMatch<T extends { rawData: unknown }>({ rawData, ...match }: T) {
+  return match;
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 export async function liveScoresRoutes(app: FastifyInstance) {
@@ -34,7 +47,7 @@ export async function liveScoresRoutes(app: FastifyInstance) {
       orderBy: [{ utcDate: "asc" }],
       take: 50,
     });
-    return reply.send({ data: matches });
+    return reply.send({ data: matches.map(publicMatch) });
   });
 
   // GET /api/live-scores/:id – single match detail with recent events
@@ -54,13 +67,14 @@ export async function liveScoresRoutes(app: FastifyInstance) {
       if (!match) {
         return reply.status(404).send({ error: "Match not found" });
       }
-      return reply.send({ data: match });
+      return reply.send({ data: publicMatch(match) });
     },
   );
 
   // PATCH /api/live-scores/:id – update score → write to DB + notify realtime server
   app.patch<{ Params: { id: string } }>(
     "/live-scores/:id",
+    { onRequest: requireScoreWriter },
     async (request, reply) => {
       const id = parseInt(request.params.id, 10);
       if (isNaN(id)) {
@@ -143,6 +157,7 @@ export async function liveScoresRoutes(app: FastifyInstance) {
   // PATCH /api/live-scores/:id/finish – mark a match as FINISHED
   app.patch<{ Params: { id: string } }>(
     "/live-scores/:id/finish",
+    { onRequest: requireScoreWriter },
     async (request, reply) => {
       const id = parseInt(request.params.id, 10);
       if (isNaN(id)) {

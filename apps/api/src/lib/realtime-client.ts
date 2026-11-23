@@ -13,9 +13,7 @@ import { env } from "./env.js";
 
 interface EmitPayload {
   /** Tên event phía client sẽ lắng nghe, ví dụ: "score:updated" */
-  event: string;
-  /** Room/channel để emit tới, ví dụ: "live-scores" */
-  room?: string;
+  event: "score:updated";
   /** Dữ liệu gửi kèm event */
   data: unknown;
 }
@@ -30,6 +28,7 @@ export async function notifyRealtime(payload: EmitPayload): Promise<void> {
   try {
     const res = await fetch(`${env.REALTIME_INTERNAL_URL}/internal/emit`, {
       method: "POST",
+      redirect: "error",
       headers: {
         "Content-Type": "application/json",
         "x-internal-secret": env.INTERNAL_SERVICE_SECRET,

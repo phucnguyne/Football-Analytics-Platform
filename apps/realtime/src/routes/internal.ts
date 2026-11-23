@@ -1,73 +1,46 @@
-// ─── routes/internal.ts ───────────────────────────────────────────────────────
-// Route HTTP nội bộ, KHÔNG dành cho client (browser). Chỉ service `api`
-// (Fastify, port 3001) gọi sang để báo realtime server broadcast 1 event.
-//
-// POST /internal/emit
-// Headers: x-internal-secret: <INTERNAL_SERVICE_SECRET>
-// Body:    { event: string, room?: string, data: unknown }
-//
-// Nếu payload có dạng live-score (matchId + homeScore/awayScore...),
-// đồng bộ vào shared cache của match.service để mọi realtime instance và
-// client join room sau đó (match:join) vẫn lấy được tỉ số mới nhất.
-
-import { Router, type Request, type Response } from "express";
+import { Router } from "express";
 import type { Server } from "socket.io";
+import { z } from "zod";
 import { internalAuthMiddleware } from "../middleware/internalAuth";
 import { upsertLiveScore } from "../service/match.service";
 
-interface EmitBody {
-  event: string;
-  room?: string;
-  data?: Record<string, unknown>;
-}
-
-function isLiveScorePayload(
-  data: unknown,
-): data is { matchId: string | number } & Record<string, unknown> {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    "matchId" in data &&
-    (typeof data.matchId === "string" || typeof data.matchId === "number")
-  );
-}
+const goals = z.number().int().min(0).max(2_147_483_647);
+const scoreUpdate = z.object({
+  event: z.literal("score:updated"),
+  data: z.object({
+    matchId: z.union([z.string().regex(/^[a-z0-9_-]{1,64}$/i), z.number().int().positive()]),
+    homeTeam: z.string().max(200).optional(),
+    awayTeam: z.string().max(200).optional(),
+    homeScore: goals,
+    awayScore: goals,
+    minute: z.number().int().min(0).max(130).nullish(),
+    status: z.enum(["SCHEDULED", "LIVE", "HT", "FT"]),
+    updatedAt: z.string().datetime().optional(),
+  }),
+});
 
 export function createInternalRouter(io: Server): Router {
   const router = Router();
 
-  router.post(
-    "/emit",
-    internalAuthMiddleware,
-    async (req: Request, res: Response) => {
-      const { event, room, data } = req.body as EmitBody;
+  router.post("/emit", internalAuthMiddleware, async (request, response) => {
+    const payload = scoreUpdate.safeParse(request.body);
+    if (!payload.success) {
+      response.status(400).json({ error: "Invalid score update" });
+      return;
+    }
 
-      if (!event || typeof event !== "string") {
-        res.status(400).json({ error: "Missing or invalid 'event'" });
-        return;
-      }
-
-      // Nếu là sự kiện liên quan tới tỉ số trận đấu, đồng bộ cache trước khi emit
-      // để các client join room sau thời điểm này vẫn nhận được dữ liệu đúng.
-      if (event === "score:updated" && isLiveScorePayload(data)) {
-        await upsertLiveScore(String(data.matchId), {
-          homeTeam: data.homeTeam as string | undefined,
-          awayTeam: data.awayTeam as string | undefined,
-          homeScore: data.homeScore as number | undefined,
-          awayScore: data.awayScore as number | undefined,
-          minute: data.minute as number | undefined,
-          status: data.status as "SCHEDULED" | "LIVE" | "HT" | "FT" | undefined,
-        });
-      }
-
-      if (room) {
-        io.to(room).emit(event, data);
-      } else {
-        io.emit(event, data);
-      }
-
-      res.status(200).json({ ok: true });
-    },
-  );
+    const { event, data } = payload.data;
+    await upsertLiveScore(String(data.matchId), {
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+      homeScore: data.homeScore,
+      awayScore: data.awayScore,
+      minute: data.minute ?? undefined,
+      status: data.status,
+    });
+    io.emit(event, data);
+    response.json({ ok: true });
+  });
 
   return router;
 }

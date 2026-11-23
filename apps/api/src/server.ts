@@ -18,7 +18,9 @@ async function buildServer() {
 
   await app.register(cors, {
     origin: [env.WEB_APP_URL],
-    credentials: true,
+    methods: ["GET", "HEAD"],
+    credentials: false,
+    allowedHeaders: ["Content-Type"],
   });
 
   // Mount routes dưới prefix /api để khớp với reverse proxy / Next.js rewrites nếu có
@@ -26,10 +28,9 @@ async function buildServer() {
   await app.register(liveScoresRoutes, { prefix: "/api" });
 
   app.setErrorHandler((error, request, reply) => {
-    app.log.error(error);
-    reply.status(error.statusCode ?? 500).send({
-      error: error.message ?? "Internal Server Error",
-    });
+    const status = error.statusCode ?? 500;
+    if (status >= 500) request.log.error({ code: error.code }, "API request failed");
+    reply.status(status).send({ error: status < 500 ? error.message : "Internal Server Error" });
   });
 
   return app;

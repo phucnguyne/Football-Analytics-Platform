@@ -49,7 +49,7 @@ export async function GET(
       const res = await fetch(
         `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}/teams${getExternalSeasonQuery(season?.year ?? (requestedSeason && requestedSeason >= 1800 ? requestedSeason : undefined))}`,
         {
-          headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+          redirect: "error",          headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
           next: { revalidate: 300 },
         },
       )

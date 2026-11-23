@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emptyStringToUndefined, env as sharedEnv } from '@app/config'
+import { emptyStringToUndefined, httpOrigin, env as sharedEnv } from '@app/config'
 
 const serviceSecretSchema = z
   .string({ required_error: 'INTERNAL_SERVICE_SECRET is required' })
@@ -15,11 +15,12 @@ const apiEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // URL of the Next.js web app (used for CORS allow-list)
-  WEB_APP_URL: z.string().url().default('http://localhost:3000'),
+  WEB_APP_URL: httpOrigin.default('http://localhost:3000'),
 
   // Internal communication with apps/realtime
   REALTIME_INTERNAL_URL: z.string().url().default('http://localhost:3001'),
   INTERNAL_SERVICE_SECRET: serviceSecretSchema,
+  LIVE_SCORE_WRITE_SECRET: serviceSecretSchema.optional(),
 });
 
 function parseEnv() {
@@ -30,6 +31,7 @@ function parseEnv() {
     WEB_APP_URL:             emptyStringToUndefined(process.env.WEB_APP_URL),
     REALTIME_INTERNAL_URL:   emptyStringToUndefined(process.env.REALTIME_INTERNAL_URL),
     INTERNAL_SERVICE_SECRET: emptyStringToUndefined(process.env.INTERNAL_SERVICE_SECRET),
+    LIVE_SCORE_WRITE_SECRET: emptyStringToUndefined(process.env.LIVE_SCORE_WRITE_SECRET),
   });
 
   if (!result.success) {

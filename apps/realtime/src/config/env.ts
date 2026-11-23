@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { emptyStringToUndefined, env as sharedEnv } from "@app/config";
+import { emptyStringToUndefined, httpOrigin, env as sharedEnv } from "@app/config";
 
 /**
  * Type-safe env for apps/realtime (Express + Socket.io).
@@ -11,12 +11,7 @@ const realtimeEnvSchema = z
     REALTIME_PORT: z.coerce.number().int().positive().default(3001),
 
     // URL of the Next.js app — used for CORS allow-list
-    NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-
-    // JWT secret — must match NextAuth's NEXTAUTH_SECRET
-    NEXTAUTH_SECRET: z
-      .string({ required_error: "NEXTAUTH_SECRET is required" })
-      .min(32, "NEXTAUTH_SECRET must be at least 32 characters"),
+    NEXT_PUBLIC_APP_URL: httpOrigin.default("http://localhost:3000"),
 
     // Redis is required for shared state and Socket.io broadcasts in production.
     REDIS_URL: z
@@ -56,7 +51,6 @@ function parseEnv() {
     NEXT_PUBLIC_APP_URL: emptyStringToUndefined(
       process.env.NEXT_PUBLIC_APP_URL,
     ),
-    NEXTAUTH_SECRET: emptyStringToUndefined(process.env.NEXTAUTH_SECRET),
     REDIS_URL: emptyStringToUndefined(process.env.REDIS_URL),
     INTERNAL_SERVICE_SECRET: emptyStringToUndefined(
       process.env.INTERNAL_SERVICE_SECRET,
@@ -78,7 +72,6 @@ function parseEnv() {
     DATABASE_URL: sharedEnv.DATABASE_URL,
     port: result.data.REALTIME_PORT,
     webUrl: result.data.NEXT_PUBLIC_APP_URL,
-    jwtSecret: result.data.NEXTAUTH_SECRET,
     redisUrl: result.data.REDIS_URL ?? "",
     internalServiceSecret: result.data.INTERNAL_SERVICE_SECRET,
     nodeEnv: result.data.NODE_ENV,

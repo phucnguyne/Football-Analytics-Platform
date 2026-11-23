@@ -29,7 +29,7 @@ const getRecentFinishedMatches = unstable_cache(
 /** Fetch and cache the provider's unmodified match details in the match record. */
 async function fetchAndCacheMatchDetails(matchId: number) {
   const res = await fetch(`${API_URL}/matches/${matchId}`, {
-    headers: { "X-Auth-Token": API_KEY },
+    redirect: "error",    headers: { "X-Auth-Token": API_KEY },
   });
   if (!res.ok) {
     console.warn("Football provider match detail request failed:", {
@@ -198,7 +198,7 @@ export async function getMatchDetail(matchId: number) {
 
   if (!match) {
     const res = await fetch(`${API_URL}/matches/${matchId}`, {
-      headers: { "X-Auth-Token": API_KEY },
+      redirect: "error",      headers: { "X-Auth-Token": API_KEY },
     });
     if (!res.ok) return { data: { error: "not found" }, status: res.status };
     return { data: await res.json() };
@@ -238,7 +238,7 @@ export async function getMatchDetail(matchId: number) {
   if (match.status === "IN_PLAY" || match.status === "PAUSED") {
     try {
       const requestInit: RequestInit & { next: { revalidate: number } } = {
-        headers: { "X-Auth-Token": API_KEY },
+        redirect: "error",        headers: { "X-Auth-Token": API_KEY },
         // Short cache so CDN/Next cache doesn't serve stale score
         next: { revalidate: 30 },
       };

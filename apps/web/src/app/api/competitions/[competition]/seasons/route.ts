@@ -40,7 +40,7 @@ export async function GET(
     const response = await fetch(
       `${env.FOOTBALL_DATA_API_URL}/competitions/${competition}`,
       {
-        headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
+        redirect: "error",        headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
         next: { revalidate: 21600 },
       },
     )
