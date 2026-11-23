@@ -218,7 +218,3 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
     },
   };
 });
-
-// Legacy VM + Socket.IO client path retained for reference:
-// const socket = io(NEXT_PUBLIC_WEBSOCKET_URL);
-// socket.on("score:updated", applyScoreUpdate);
