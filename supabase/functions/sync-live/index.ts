@@ -6,6 +6,23 @@ const footballDataApiKey = Deno.env.get("FOOTBALL_DATA_API_KEY");
 const footballDataApiUrl =
   Deno.env.get("FOOTBALL_DATA_API_URL") ?? "https://api.football-data.org/v4";
 const syncSecret = Deno.env.get("SYNC_FUNCTION_SECRET");
+const pushDispatchUrl = Deno.env.get("PUSH_DISPATCH_URL");
+const pushDispatchSecret = Deno.env.get("PUSH_DISPATCH_SECRET");
+
+async function dispatchMatchPush() {
+  if (!pushDispatchUrl || !pushDispatchSecret) return;
+  try {
+    const response = await fetch(pushDispatchUrl, {
+      method: "POST",
+      redirect: "error",
+      headers: { "x-push-secret": pushDispatchSecret },
+      signal: AbortSignal.timeout(50_000),
+    });
+    if (!response.ok) console.error("Match push dispatch failed", response.status);
+  } catch {
+    console.error("Match push dispatch did not complete");
+  }
+}
 
 if (!supabaseUrl || !serviceRoleKey || !footballDataApiKey || !syncSecret) {
   throw new Error("Missing required Supabase live-sync function secrets");
@@ -50,11 +67,11 @@ Deno.serve(async (request) => {
     const today = new Date().toISOString().slice(0, 10);
     const providerResponse = await fetch(
       `${footballDataApiUrl}/matches?date=${today}`,
-      { headers: { "X-Auth-Token": footballDataApiKey } },
+      { headers: { "X-Auth-Token": footballDataApiKey }, redirect: "error" },
     );
     if (!providerResponse.ok) {
       throw new Error(
-        `football-data.org returned ${providerResponse.status}: ${await providerResponse.text()}`,
+        `football-data.org returned ${providerResponse.status}`,
       );
     }
 
@@ -62,6 +79,7 @@ Deno.serve(async (request) => {
     const providerMatches = providerData.matches ?? [];
     const providerIds = providerMatches.map((match: any) => Number(match.id));
     if (providerIds.length === 0) {
+      await dispatchMatchPush();
       return Response.json({ ok: true, processed: 0 });
     }
 
@@ -73,7 +91,7 @@ Deno.serve(async (request) => {
 
     const { data: existingScores, error: scoreQueryError } = await admin
       .from("match_scores")
-      .select('id,"matchId","homeTeamGoals","awayTeamGoals"')
+      .select('id,"matchId","homeTeamGoals","awayTeamGoals",winner')
       .in("matchId", providerIds);
     if (scoreQueryError) throw scoreQueryError;
 
@@ -97,8 +115,9 @@ Deno.serve(async (request) => {
       const awayGoals = providerMatch.score?.fullTime?.away;
       const hasFullTimeScore = Number.isInteger(homeGoals) && Number.isInteger(awayGoals);
       const minute = providerMatch.minute ?? null;
+      const winner = winnerMap[providerMatch.score?.winner] ?? null;
       const shouldUpdateScore = hasFullTimeScore && (
-        oldScore?.homeTeamGoals !== homeGoals || oldScore?.awayTeamGoals !== awayGoals
+        oldScore?.homeTeamGoals !== homeGoals || oldScore?.awayTeamGoals !== awayGoals || oldScore?.winner !== winner
       );
       const shouldUpdateMatch = existing.status !== status || existing.minute !== minute;
 
@@ -120,7 +139,7 @@ Deno.serve(async (request) => {
           awayTeamGoals: awayGoals,
           homeTeamGoalsHT: providerMatch.score?.halfTime?.home ?? null,
           awayTeamGoalsHT: providerMatch.score?.halfTime?.away ?? null,
-          winner: winnerMap[providerMatch.score?.winner] ?? null,
+          winner,
           duration: durationMap[providerMatch.score?.duration] ?? null,
         }, { onConflict: "matchId" });
         if (error) throw error;
@@ -130,11 +149,12 @@ Deno.serve(async (request) => {
       processed++;
     }
 
+    await dispatchMatchPush();
     return Response.json({ ok: true, processed, changed, date: today });
   } catch (error) {
     console.error("live sync failed", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "sync failed" },
+      { error: "sync failed" },
       { status: 500 },
     );
   }

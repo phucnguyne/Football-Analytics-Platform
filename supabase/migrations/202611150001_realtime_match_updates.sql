@@ -1,3 +1,9 @@
+-- Compatibility migration for databases provisioned before live_match_updates.
+DO $$
+BEGIN
+  IF to_regclass('public.live_match_updates') IS NOT NULL THEN
+    RETURN;
+  END IF;
 -- Public match/score data is readable by anonymous website visitors.
 -- Writes stay server-side through Prisma or the Edge Function service role.
 alter table public.matches enable row level security;
@@ -13,8 +19,6 @@ create policy "Public can read match scores"
 
 grant select on public.matches, public.match_scores to anon, authenticated;
 
-do $$
-begin
   if not exists (
     select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'

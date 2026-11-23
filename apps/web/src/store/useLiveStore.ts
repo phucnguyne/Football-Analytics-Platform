@@ -143,12 +143,7 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
       .channel("live-match-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "matches" },
-        scheduleRefresh,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "match_scores" },
+        { event: "*", schema: "public", table: "live_match_updates" },
         scheduleRefresh,
       );
 

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { deliverMatchPush } from "../src/push-delivery";
 import { env, getFootballDataEnv } from "@app/config";
 import {
   PrismaClient,
@@ -100,6 +101,7 @@ async function notifyRealtime(data: {
   try {
     const response = await fetch(`${realtimeUrl}/internal/emit`, {
       method: "POST",
+      redirect: "error",
       headers: {
         "Content-Type": "application/json",
         "x-internal-secret": internalServiceSecret,
@@ -271,7 +273,7 @@ async function syncLiveMatches() {
       });
 
       // Upsert score
-      if (m.score && m.score.fullTime?.home !== null) {
+      if (Number.isInteger(m.score?.fullTime?.home) && Number.isInteger(m.score?.fullTime?.away)) {
         await prisma.matchScore.upsert({
           where: { matchId: m.id },
           update: {
@@ -372,6 +374,11 @@ const watch = process.argv.includes("--watch");
 async function run() {
   do {
     await syncLiveMatches();
+    try {
+      await deliverMatchPush(prisma);
+    } catch (error) {
+      console.error("Match push dispatch failed:", error);
+    }
     if (watch) await sleep(60_000);
   } while (watch);
 }

@@ -1,12 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { publicEnv } from "./public-env";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const key = publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
-  throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required",
-  );
-}
-
-export const supabase = createClient(url, anonKey);
+export const supabase = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, key, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});

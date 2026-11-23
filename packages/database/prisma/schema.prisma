@@ -25,6 +25,7 @@ model User {
   sessions    Session[]
   favorites   Favorite[]
   predictions Prediction[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -213,6 +214,7 @@ model Match {
   seasonId Int?
   season   Season? @relation(fields: [seasonId], references: [id])
 
+  liveUpdate  LiveMatchUpdate?
   score       MatchScore?
   statistics  MatchStatistic[]
   events      MatchEvent[]
@@ -294,6 +296,7 @@ model MatchEvent {
   xG              Float?
   x               Float?
   y               Float?
+  analyticsSource DataProvenance?
 
   @@index([matchId, minute])
   @@map("match_events")
@@ -428,6 +431,7 @@ model PlayerStats {
   tacklesPer90      Float?   @default(0)
   interceptions     Float?   @default(0)
   dribblesSuccess   Float?   @default(0)
+  dataSource        DataProvenance?
 
   updatedAt         DateTime @updatedAt
 
@@ -499,4 +503,54 @@ enum SyncStatus {
   SUCCESS
   FAILED
   RUNNING
+}
+
+// Browser subscriptions and the match notifications awaiting delivery.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+  deliveries PushDelivery[]
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model PushDelivery {
+  subscriptionId String
+  subscription   PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventKey       String
+  matchId        Int
+  kind           String
+  homeTeam       String
+  awayTeam       String
+  homeScore      Int
+  awayScore      Int
+  attempts       Int                 @default(0)
+  availableAt    DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+  sentAt         DateTime?
+
+  @@id([subscriptionId, eventKey])
+  @@index([sentAt, availableAt])
+  @@index([createdAt])
+  @@map("push_deliveries")
+}
+
+enum DataProvenance {
+  REAL
+  GENERATED
+}
+
+model LiveMatchUpdate {
+  matchId   Int      @id @map("match_id")
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@map("live_match_updates")
 }
