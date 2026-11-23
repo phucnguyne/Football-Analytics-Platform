@@ -3,6 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@app/database";
 import bcrypt from "bcryptjs";
 import { env } from "@/lib/env";
+import { reserveLoginAttempt, resetLoginAttempts } from "@/lib/login-rate-limit";
+
+// Run bcrypt even when there is no password hash for the submitted email.
+const DUMMY_PASSWORD_HASH = "$2a$12$laHubqfXPTnNjGEGecyZseOwMS5lVMJi.s4CdZeF.Zsr29nAoQ2jW";
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -13,30 +17,31 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email", placeholder: "you@example.com" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+      async authorize(credentials, request) {
+        const email = typeof credentials?.email === "string" ? credentials.email.trim() : "";
+        const password = credentials?.password;
+        if (!email || email.length > 254 || typeof password !== "string" || !password) {
+          return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        });
+        try {
+          const attempt = await reserveLoginAttempt(email, request.headers);
+          if (!attempt) return null;
 
-        if (!user || !user.password) {
-          throw new Error("User not found");
+          const user = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, email: true, username: true, password: true },
+          });
+
+          const isMatch = await bcrypt.compare(password, user?.password || DUMMY_PASSWORD_HASH);
+          if (!user?.password || !isMatch) return null;
+
+          await resetLoginAttempts(attempt);
+          return { id: user.id, email: user.email, name: user.username };
+        } catch (error) {
+          console.error("Credentials sign-in failed", error);
+          return null;
         }
-
-        const isMatch = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isMatch) {
-          throw new Error("Invalid credentials");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.username,
-        };
       }
     })
   ],

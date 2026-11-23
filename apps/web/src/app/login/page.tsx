@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') ?? '/'
   const errorParam = searchParams.get('error')
@@ -28,19 +27,27 @@ function LoginForm() {
     setError(null)
     setIsLoading(true)
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    })
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        callbackUrl,
+        redirect: false,
+      })
 
-    setIsLoading(false)
+      if (!result?.ok || result.error || !result.url) {
+        setError('Invalid email or password.')
+        return
+      }
 
-    if (result?.error) {
+      const target = new URL(result.url, window.location.origin)
+      const isSameOrigin = target.protocol === window.location.protocol &&
+        target.origin === window.location.origin
+      window.location.assign(isSameOrigin ? target.href : '/')
+    } catch {
       setError('Invalid email or password.')
-    } else {
-      router.push(callbackUrl)
-      router.refresh()
+    } finally {
+      setIsLoading(false)
     }
   }
 
