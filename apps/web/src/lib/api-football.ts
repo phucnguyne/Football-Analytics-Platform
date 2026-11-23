@@ -34,6 +34,7 @@ async function request<T>(
   path: string,
   params: Record<string, string | number | undefined>,
   revalidate = 60,
+  signal?: AbortSignal,
 ): Promise<T[]> {
   if (!isApiFootballConfigured()) return []
   const url = new URL(path, `${env.API_FOOTBALL_API_URL}/`)
@@ -41,8 +42,10 @@ async function request<T>(
     if (value !== undefined) url.searchParams.set(key, String(value))
   })
   const response = await fetch(url, {
-    redirect: "error",    headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
+    redirect: "error",
+    headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
     next: { revalidate },
+    signal,
   })
   if (!response.ok) return []
   const body = await response.json() as ApiFootballResponse<T>
@@ -212,12 +215,16 @@ export function apiFootballPlayerNameMatches(
   return providerTokens.length === 1 && requestedTokens.includes(providerFirst)
 }
 
-async function getApiFootballTeamId(teamName: string, season: number): Promise<number | null> {
+async function getApiFootballTeamId(
+  teamName: string,
+  season: number,
+  signal?: AbortSignal,
+): Promise<number | null> {
   if (!env.API_FOOTBALL_LEAGUE_ID) return null
   const teams = await request<{ team?: { id?: number; name?: string } }>('teams', {
     league: env.API_FOOTBALL_LEAGUE_ID,
     season,
-  }, 86400)
+  }, 86400, signal)
   const targetName = normalizeTeamName(teamName)
   return teams.find((entry) =>
     normalizeTeamName(entry.team?.name ?? '') === targetName,
@@ -226,6 +233,7 @@ async function getApiFootballTeamId(teamName: string, season: number): Promise<n
 
 export async function getApiFootballTeamSquad(
   teamName: string,
+  signal?: AbortSignal,
 ): Promise<ApiFootballSquadPlayer[] | null> {
   if (!isApiFootballConfigured()) return null
 
@@ -233,7 +241,7 @@ export async function getApiFootballTeamSquad(
   const seasons = [...new Set([2024, configuredSeason, 2023, 2022])]
     .filter((season) => Number.isInteger(season) && season >= 2000)
   for (const season of seasons) {
-    const apiTeamId = await getApiFootballTeamId(teamName, season)
+    const apiTeamId = await getApiFootballTeamId(teamName, season, signal)
     if (!apiTeamId) continue
 
     const squads = await request<{
@@ -245,7 +253,7 @@ export async function getApiFootballTeamSquad(
         number?: number | null
         photo?: string | null
       }[]
-    }>('players/squads', { team: apiTeamId }, 86400)
+    }>('players/squads', { team: apiTeamId }, 86400, signal)
     const squad = squads.find(
       (entry) => String(entry.team?.id) === String(apiTeamId),
     ) ?? (squads.length === 1 ? squads[0] : undefined)
