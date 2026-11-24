@@ -1,3 +1,4 @@
+import { estimateShotXg, publicStatsBombMatches, xgModelInfo } from '@/lib/xg-model'
 import "server-only";
 
 // ---------------------------------------------------------------------------
@@ -142,7 +143,9 @@ export interface ShotPoint {
   teamId: number | null;
   x: number;
   y: number;
-  xG: number;
+  xG: number | null;
+  providerXg: number | null;
+  usesForm: boolean;
   outcome: string;
   player: string;
   playerId: number;
@@ -263,9 +266,20 @@ export async function readStatsBombEvents(
   const cached = eventCache.get(key);
   if (cached) return cached;
 
-  const data = await hfFetchJson<StatsBombEvent[]>(`events/${matchId}.json`);
+  let data = await hfFetchJson<StatsBombEvent[]>(`events/${matchId}.json`);
+  if (!data && publicStatsBombMatches.has(matchId)) {
+    try {
+      const response = await fetch(
+        `https://raw.githubusercontent.com/hudl/open-data/${xgModelInfo.revision}/data/events/${matchId}.json`,
+        { cache: "no-store", signal: AbortSignal.timeout(5000) },
+      );
+      if (response.ok) data = await response.json() as StatsBombEvent[];
+    } catch {
+      // Keep any match without usable event coverage explicitly unavailable.
+    }
+  }
   const result = Array.isArray(data) ? data : [];
-  eventCache.set(key, result);
+  if (Array.isArray(data)) eventCache.set(key, result);
   return result;
 }
 
@@ -440,11 +454,11 @@ export function buildStatsBombHeatmap(
     }));
 }
 
-export function buildStatsBombShotMap(events: StatsBombEvent[]): ShotPoint[] {
+export function buildStatsBombShotMap(events: StatsBombEvent[], matchId: number): ShotPoint[] {
   return events
     .filter(
       (e) =>
-        e.type?.name === "Shot" &&
+        e.type?.name === "Shot" && (e.period ?? 1) <= 4 &&
         Array.isArray(e.location) &&
         e.location.length >= 2,
     )
@@ -454,7 +468,8 @@ export function buildStatsBombShotMap(events: StatsBombEvent[]): ShotPoint[] {
         // Normalize from StatsBomb 120x80 → percentage of pitch
         x: Math.round(((e.location![0] ?? 100) / 120) * 100),
         y: Math.round(((e.location![1] ?? 40) / 80) * 100),
-        xG: e.shot?.statsbomb_xg ?? 0,
+        ...estimateShotXg(e, matchId),
+        providerXg: e.shot?.statsbomb_xg ?? null,
         teamId: e.team?.id ?? null,
         outcome,
         player: e.player?.name ?? "Unknown",

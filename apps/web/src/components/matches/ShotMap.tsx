@@ -1,7 +1,7 @@
 "use client";
 
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { dataSourceFor } from '@/lib/data-source'
 import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
 import React, { memo, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -10,10 +10,9 @@ import type { FootballDataMatchEvent } from "@/types/TypesBarrel";
 
 interface ShotPoint {
   teamId: number | null;
-  analyticsSource?: string | null;
   x: number;
   y: number;
-  xG: number;
+  xG: number | null;
   outcome: string;
   player: string;
   playerId: number;
@@ -28,6 +27,8 @@ interface ShotMapApiResponse {
   shots: ShotPoint[];
   source: string;
   matchId: number;
+  xgModel?: { name: string; source: string } | null;
+  form?: { homeMatches: number; awayMatches: number } | null;
 }
 
 interface ShotMapProps {
@@ -62,6 +63,7 @@ export const ShotMap = memo(function ShotMap({
       events
         .filter(
           (e) =>
+            e.analyticsSource === "REAL" &&
             (e.type === "SHOT" ||
               e.type === "GOAL" ||
               e.type === "PENALTY_GOAL" ||
@@ -72,9 +74,8 @@ export const ShotMap = memo(function ShotMap({
         .map((e, i) => ({
           x: typeof e.x === "number" && e.x > 1 ? e.x : (e.x ?? 0.5) * 100,
           y: typeof e.y === "number" && e.y > 1 ? e.y : (e.y ?? 0.5) * 100,
-          xG: e.xG ?? 0,
+          xG: null,
           teamId: e.team?.id ?? null,
-          analyticsSource: e.analyticsSource,
           outcome:
             e.type === "GOAL" || e.eventType === "goal" ? "Goal" : "Saved",
           player: e.scorer?.name ?? e.player?.name ?? "Unknown",
@@ -98,13 +99,6 @@ export const ShotMap = memo(function ShotMap({
         <p className="text-sm">
           {t('unavailableShots')}
         </p>
-        {sbData && (
-          <p className="text-xs mt-1 opacity-60">
-            {sbData.available === false
-              ? "This match is not in the StatsBomb dataset."
-              : "Source: " + sbData.source}
-          </p>
-        )}
       </div>
     );
   }
@@ -112,23 +106,12 @@ export const ShotMap = memo(function ShotMap({
   const homeShots = shots.filter(({ teamId }) => teamId === homeTeam.id);
   const awayShots = shots.filter(({ teamId }) => teamId === awayTeam.id);
 
-  const totalXg = {
-    home: +shots
-      .slice(0, Math.ceil(shots.length / 2))
-      .reduce((sum, s) => sum + s.xG, 0)
-      .toFixed(2),
-    away: +shots
-      .slice(Math.ceil(shots.length / 2))
-      .reduce((sum, s) => sum + s.xG, 0)
-      .toFixed(2),
-  };
-
-  const goalsCount = {
-    home: shots.slice(0, Math.ceil(shots.length / 2)).filter((s) => s.isGoal)
-      .length,
-    away: shots.slice(Math.ceil(shots.length / 2)).filter((s) => s.isGoal)
-      .length,
-  };
+  const total = (points: ShotPoint[]) => {
+    const predictions = points.filter((shot) => shot.xG !== null)
+    return predictions.length === points.length && points.length ? predictions.reduce((sum, shot) => sum + (shot.xG ?? 0), 0).toFixed(2) : '—'
+  }
+  const totalXg = { home: total(homeShots), away: total(awayShots) }
+  const goalsCount = { home: homeShots.filter((shot) => shot.isGoal).length, away: awayShots.filter((shot) => shot.isGoal).length }
 
   return (
     <div className="bg-card rounded-2xl border p-6 space-y-4">
@@ -138,10 +121,23 @@ export const ShotMap = memo(function ShotMap({
             <span className="w-2 h-6 bg-primary rounded-full" />
             <h3 className="text-lg font-bold">{t('shotMap')}</h3>
             <DataSourceLabel
-              kind={sbData?.available ? 'real' : dataSourceFor(fallbackShots.map((shot) => shot.analyticsSource))}
+              kind="real"
               detail={sbData?.available ? 'StatsBomb Open Data' : undefined}
             />
           </div>
+          {sbData?.xgModel && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <DataSourceLabel kind="model" detail={sbData.xgModel.name} />
+              <a href={sbData.xgModel.source} className="inline-flex items-center rounded bg-white px-2 py-1" rel="noreferrer">
+                <Image src="/statsbomb-attribution.png" alt="StatsBomb Open Data" width={88} height={14} className="h-auto w-[88px]" />
+              </a>
+            </div>
+          )}
+          {sbData?.form && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t('xgFormCoverage', { home: sbData.form.homeMatches, away: sbData.form.awayMatches })}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-0.5">
             {sbData?.available
               ? `StatsBomb open data · ${shots.length} shots`
@@ -211,12 +207,12 @@ export const ShotMap = memo(function ShotMap({
           const ny = shot.y / 100;
           const displayX = isAway ? 1 - nx : nx;
           const displayY = isAway ? 1 - ny : ny;
-          const size = Math.max(7, Math.min(28, shot.xG * 40 + 7));
+          const size = Math.max(7, Math.min(28, (shot.xG ?? 0) * 40 + 7));
 
           return (
             <div
               key={i}
-              title={`${shot.minute}' – ${shot.player} · ${shot.outcome} · xG: ${shot.xG.toFixed(3)}${shot.technique ? ` · ${shot.technique}` : ""}`}
+              title={`${shot.minute}' – ${shot.player} · ${shot.outcome} · xG: ${shot.xG?.toFixed(3) ?? '—'}${shot.technique ? ` · ${shot.technique}` : ""}`}
               className={`absolute rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-crosshair
                 ${isHome ? "bg-blue-500" : isAway ? "bg-red-500" : "bg-neutral-400"}
                 ${shot.isGoal ? "border-[3px] border-white z-10 shadow-lg" : "opacity-70 border border-black/20"}

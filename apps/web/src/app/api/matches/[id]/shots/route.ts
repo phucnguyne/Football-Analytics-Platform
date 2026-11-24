@@ -1,3 +1,4 @@
+import { matchFormHistory, xgModelInfo } from '@/lib/xg-model'
 import { NextResponse } from 'next/server'
 import { buildStatsBombShotMap, readStatsBombEvents } from '@/lib/statsbomb'
 
@@ -13,7 +14,7 @@ export async function GET(
   }
 
   const events = await readStatsBombEvents(matchId)
-  const shots = buildStatsBombShotMap(events)
+  const shots = buildStatsBombShotMap(events, matchId)
 
   return NextResponse.json(
     {
@@ -21,9 +22,11 @@ export async function GET(
       shots,
       source: shots.length > 0 ? 'statsbomb-open-data' : 'unavailable',
       matchId,
+      form: shots.some((shot) => shot.usesForm) ? matchFormHistory(matchId) : null,
+      xgModel: shots.some((shot) => shot.xG !== null) ? xgModelInfo : null,
     },
     {
-      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
+      headers: { 'Cache-Control': shots.length ? 'public, s-maxage=1800, stale-while-revalidate=3600' : 'public, s-maxage=60' },
     }
   )
 }
