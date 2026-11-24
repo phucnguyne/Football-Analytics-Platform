@@ -78,6 +78,7 @@ scripts/
 !packages/database/scripts/
 packages/database/scripts/*
 !packages/database/scripts/sync-live.ts
+!packages/database/scripts/apply-env.mjs
 !packages/database/scripts/seed-statsbomb.ts
 
 .npmrc

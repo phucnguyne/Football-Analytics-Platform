@@ -4,7 +4,9 @@
   "private": true,
   "packageManager": "pnpm@11.24.0",
   "scripts": {
-    "dev": "pnpm -r dev",
+    "dev": "node packages/database/scripts/apply-env.mjs development --start",
+    "apply:dev": "node packages/database/scripts/apply-env.mjs development",
+    "apply:prod": "node packages/database/scripts/apply-env.mjs production",
     "build": "pnpm -r build",
     "start": "pnpm -r start",
     "lint": "pnpm -r lint",

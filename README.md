@@ -190,16 +190,18 @@ cp apps/api/.env.example apps/api/.env
 # Realtime Socket.io server
 cp apps/realtime/.env.example apps/realtime/.env
 
-# Prisma commands and database seed
+# Standalone Prisma and seed commands
 cp packages/database/.env.example packages/database/.env
 
-# Dedicated env files for current-season imports
+# Local development and production release
 cp packages/database/.env.development.example packages/database/.env.development
 cp packages/database/.env.production.example packages/database/.env.production
 ```
 
-For local development, set `DATABASE_URL` in the app env files and
-`packages/database/.env` to the Docker database. The default URL is:
+For local development, set `DATABASE_URL` in `packages/database/.env.development`
+to the Docker database. `pnpm dev` passes that same URL to all three apps.
+Use the same URL in the app env files if you launch an app on its own. The
+default URL is:
 
 ```env
 DATABASE_URL="postgresql://postgres:change_me@localhost:5433/football?schema=public"
@@ -259,20 +261,17 @@ docker compose ps
 
 ### Step 4 — Set up the database
 
+`pnpm apply:dev` reads `packages/database/.env.development`, applies pending
+migrations, creates and applies a migration for any new Prisma schema changes,
+and regenerates Prisma Client. Pass a descriptive name when changing the schema,
+for example `pnpm apply:dev player_provenance`.
+
 ```bash
-# Generate the Prisma client (required after clone or schema changes)
-pnpm db:generate
+pnpm apply:dev
 
-# Apply tables, database triggers and row policies
-pnpm db:migrate:deploy
-
-# Seed sample data
-pnpm db:seed
+# Optional initial fixture import
+pnpm db:sync-current:dev
 ```
-
-`pnpm db:seed` fetches the current Premier League season and upserts teams,
-fixtures, results, and scores into the database configured in
-`packages/database/.env`. It does not delete existing rows.
 
 For a one-time current-season import, use the target-specific command and env
 file for the database you intend to update:
@@ -303,9 +302,11 @@ Function; do not run the local watcher as a Vercel production worker.
 pnpm dev
 ```
 
-This starts all three workspace applications for local development. The Fastify
-API and Socket.IO service are legacy components and are not used by the current
-Vercel production architecture.
+This first applies database changes and generates Prisma Client, then starts
+all three workspace applications. Code edits reload in the running dev servers.
+After a Prisma schema edit, restart with `pnpm dev` to load the regenerated
+client. Use `pnpm apply:dev` when you only want to apply the database changes.
+The Fastify API and Socket.IO service are used for local or self-hosted setups.
 
 | App             | URL                   | Description         |
 | --------------- | --------------------- | ------------------- |
@@ -330,6 +331,11 @@ pnpm dev
 The production API is served by the Next.js application at `/api/*`. Dynamic
 route segments are shown in brackets. The health endpoint reports web-service
 liveness only; it does not check the database or scheduled sync pipeline.
+
+Open **`/api/docs`** for Swagger UI or fetch **`/api/openapi`** for the OpenAPI 3.1
+document. It covers the web API and the self-hosted Fastify and realtime HTTP
+service endpoints. Use the signed-in browser for session-protected reads.
+Swagger's interactive requests are limited to GET.
 
 ### Matches
 
@@ -432,6 +438,18 @@ The current production domain is
 Vercel is connected to the GitHub `main` branch and deploys a new production
 version when changes are pushed to that branch.
 
+After validating locally, commit the code and any new migration on `main`,
+then run this from the repository root.
+
+```bash
+pnpm apply:prod
+```
+
+The command checks that Git can push the release, applies committed migrations
+using `packages/database/.env.production`, and then pushes the release commit
+to `origin/main`. Vercel builds and publishes the pushed commit. A failed
+migration stops the release before the push.
+
 ### Architecture and required setup
 
 - **Web and API routes:** Next.js hosted on Vercel.
@@ -469,8 +487,9 @@ receives them.
 
 ### 2. Supabase schema and live updates
 
-1. Use the intended Supabase project's Prisma connection URL and run
-   `pnpm db:migrate:deploy` to apply the committed migrations. This creates the
+1. Set `DATABASE_URL` in `packages/database/.env.production` to the intended
+   Supabase project's direct or session pooler URL, then run
+   `pnpm apply:prod` to release code and apply its committed migrations. This creates the
    schema, row policies and public Realtime signal, and removes raw match tables
    from the publication. Deploy the web app alongside this database change so its
    subscription uses `live_match_updates`. For a new database, import fixtures with
@@ -574,7 +593,7 @@ After `docker compose up -d postgres`, create a PostgreSQL connection in DBeaver
 | Password | `POSTGRES_PASSWORD` from the root `.env`                   |
 
 Test the connection, then browse `Databases → football → Schemas → public →
-Tables`. Run `pnpm db:migrate:deploy` from the repository root first to apply the
+Tables`. Run `pnpm apply:dev` from the repository root first to apply the
 committed schema and triggers. To view relationships,
 right-click the `public` schema or selected tables and choose **ER Diagram**.
 
@@ -586,14 +605,16 @@ The named Docker volume preserves database data when containers stop. Avoid
 ## 🔧 Useful Scripts
 
 ```bash
-pnpm dev                   # start all apps (web + api + realtime)
+pnpm dev                   # apply local schema changes and start all dev apps
+pnpm apply:dev [name]      # apply local schema changes without starting apps
+pnpm apply:prod            # migrate Supabase and release the committed main branch
 pnpm build                 # build all apps
 pnpm lint                  # lint all packages
 
 pnpm db:generate           # (re)generate Prisma client
 pnpm db:push               # sync schema to DB (no migration file)
 pnpm db:migrate            # create a named migration
-pnpm db:migrate:deploy     # apply committed migrations (production releases)
+pnpm db:migrate:deploy     # standalone migration command using the configured DATABASE_URL
 pnpm db:seed               # seed sample data
 pnpm db:studio             # open Prisma Studio at localhost:5555
 pnpm db:sync-current:dev   # import current fixtures into local Docker DB
@@ -662,7 +683,8 @@ scores are fetched from the network.
 
 To enable goal and final-score push notifications:
 
-1. Apply the committed Prisma migrations with `pnpm db:migrate:deploy`. The score
+1. Apply the Prisma migrations with `pnpm apply:dev` locally or `pnpm apply:prod`
+   for a production release. The score
    trigger creates queued notifications for browsers subscribed by users who follow
    either club.
 2. Run `pnpm --filter @app/database exec web-push generate-vapid-keys`. Set
@@ -682,6 +704,57 @@ Keep the same VAPID key pair across releases to preserve browser subscriptions.
 Legacy analytics without recorded provenance display an unverified source label.
 New imports may use `PlayerStats.dataSource` and `MatchEvent.analyticsSource` to
 record `REAL` or `GENERATED` when the source is known.
+
+---
+
+## Match comments, AI insights, xG, and club colors
+
+Apply the database migration with `pnpm apply:dev` locally or `pnpm apply:prod`
+for a production release. Match
+comments are public to read. Signed-in users can post and delete their own
+comments. Administrators can also remove comments. Use **Copy prediction link**
+on the match page or dashboard to share a pick without including your account
+details. On a team page with recognized club colors, choose **Use club colors**.
+The accent is saved for the browser and can be cleared from the header's
+Appearance menu.
+
+For optional AI previews and reviews, set `MATCH_INSIGHTS_HF_TOKEN` to a token
+with Inference Providers access and set `MATCH_INSIGHTS_MODEL` to a chat model
+available to that account. Opening an eligible match page while signed in
+automatically requests a missing insight in the selected language. Existing
+insights are public to read. The service uses fixture results and recorded
+statistics, caches completed generations, and admits at most 50 generation
+requests per UTC day across the deployment.
+See [Hugging Face Chat Completion](https://huggingface.co/docs/inference-providers/tasks/chat-completion).
+
+The shot map estimates xG with a logistic model using shot distance, goal angle,
+body part, shot context, and pre-match form for both teams. Form uses up to five
+recorded matches in the same competition season over the previous 60 days.
+Recent results carry more weight, and only fixtures dated before the match
+contribute to the averages for points, goals scored, and goals conceded.
+
+The model trained on 16,302 shots from 635 matches across 18 competitions and
+55 seasons. The sample covers all domestic competitions and World Cups in the
+pinned StatsBomb Open Data snapshot, with up to 20 matches per competition
+season. Coverage is historical and varies by competition. On 4,132 shots held
+out chronologically within each competition, Brier score was 0.08907 with form,
+0.08925 using shot features alone, and 0.10508 for a constant goal rate.
+[`xg-model.json`](apps/web/src/models/xg-model.json) records the source revision,
+coverage by competition, and validation metrics.
+
+Download the pinned [StatsBomb Open Data](https://github.com/hudl/open-data)
+sample and retrain, or use a local checkout.
+
+```bash
+node tools/train-xg.mjs --download /tmp/football-xg
+node tools/train-xg.mjs /path/to/open-data/data
+```
+
+`GET /api/matches/{id}/shots` reports the prior match count for each team through
+`form` and indicates which shots use it via `usesForm`. The model uses shot
+features alone when neither team has recorded form. The API preserves provider
+xG separately. Shootouts are excluded, and modeled xG requires valid StatsBomb
+coordinates.
 
 ---
 
