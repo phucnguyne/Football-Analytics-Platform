@@ -108,6 +108,7 @@ export async function GET(
     return NextResponse.json({
       ...toTeamResponse(team),
       coach: externalData?.coach ?? null,
+      clubColors: externalData?.clubColors ?? null,
       squad: externalSquadWithPhotos.length > 0 ? externalSquadWithPhotos : dbSquad,
     })
   } catch (error) {

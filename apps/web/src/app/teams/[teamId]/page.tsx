@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Container } from '@/components/ui/grid'
 import { useQuery } from '@tanstack/react-query'
 import { getTeam, getTeamAllMatches } from '@/lib/api'
+import { TeamThemeButton } from '@/components/teams/TeamThemeButton'
 import { FollowTeamButton } from '@/components/dashboard/FollowTeamButton'
 import { PageSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
@@ -51,7 +52,7 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
       </Link>
 
       {/* Header */}
-      <div className="flex items-center gap-6 mb-10">
+      <div className="mb-10 flex flex-wrap items-center gap-6">
         {team.crest && (
           <Image src={team.crest} alt={team.name} width={100} height={100} className="object-contain" />
         )}
@@ -59,6 +60,7 @@ export default function TeamDetailsPage({ params }: { params: Promise<{ teamId: 
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-4xl font-bold">{team.name}</h1>
             <FollowTeamButton teamId={Number(teamId)} />
+            <TeamThemeButton name={team.name} colors={team.clubColors} />
           </div>
           <p className="text-xl text-muted-foreground">{team.shortName}</p>
         </div>
