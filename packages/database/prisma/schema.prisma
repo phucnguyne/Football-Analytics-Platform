@@ -26,6 +26,7 @@ model User {
   favorites   Favorite[]
   predictions Prediction[]
   pushSubscriptions PushSubscription[]
+  matchComments MatchComment[]
 
   @@map("users")
 }
@@ -215,6 +216,8 @@ model Match {
   season   Season? @relation(fields: [seasonId], references: [id])
 
   liveUpdate  LiveMatchUpdate?
+  comments    MatchComment[]
+  insights    MatchInsight[]
   score       MatchScore?
   statistics  MatchStatistic[]
   events      MatchEvent[]
@@ -553,4 +556,40 @@ model LiveMatchUpdate {
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
 
   @@map("live_match_updates")
+}
+
+model MatchComment {
+  id        Int      @id @default(autoincrement())
+  matchId   Int
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String   @db.VarChar(1000)
+  createdAt DateTime @default(now())
+
+  @@index([matchId, id])
+  @@index([userId, createdAt])
+  @@map("match_comments")
+}
+
+model MatchInsight {
+  matchId     Int
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  kind        String
+  locale      String
+  fingerprint String
+  text        String?
+  model       String?
+  generatedAt DateTime?
+  retryAt     DateTime
+
+  @@id([matchId, kind, locale])
+  @@map("match_insights")
+}
+
+model InsightBudget {
+  day      DateTime @id @db.Date
+  attempts Int
+
+  @@map("insight_budget")
 }

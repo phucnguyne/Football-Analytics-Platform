@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from 'next-intl'
-import { use, useEffect } from "react";
+import { Suspense, use, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,7 +14,9 @@ import { formatDate, formatTime } from "@/lib/utils";
 import { useMatchLive } from "@/hooks/useMatchLive";
 import { LiveStatsBars } from "@/components/matches/LiveStatsBars";
 import { LivePredictionGame } from "@/components/matches/LivePredictionGame";
-import { MatchChat } from "@/components/matches/MatchChat";
+import { MatchComments } from "@/components/matches/MatchComments";
+import { MatchInsight } from "@/components/matches/MatchInsight";
+import { SharedPrediction } from "@/components/matches/SharePrediction";
 import { MatchPredictionForm } from "@/components/dashboard/MatchPredictionForm";
 import { AlgorithmicPrediction } from "@/components/matches/AlgorithmicPrediction";
 import { TacticalInsights } from "@/components/tactics/TacticalInsights";
@@ -252,6 +254,7 @@ export default function MatchDetailsPage({
         </div>
       </div>
 
+      <Suspense><SharedPrediction /></Suspense>
       {(currentStatus === "SCHEDULED" || currentStatus === "TIMED") &&
         new Date(match.utcDate).getTime() > Date.now() && (
           <MatchPredictionForm matchId={Number(id)} />
@@ -372,6 +375,7 @@ export default function MatchDetailsPage({
             events={allEvents}
           />
 
+          <MatchInsight matchId={id} status={currentStatus} />
           <TacticalInsights matchId={id} />
 
           <div className="bg-card p-6 rounded-2xl border">
@@ -469,9 +473,7 @@ export default function MatchDetailsPage({
             homeTeam={match.homeTeam}
             awayTeam={match.awayTeam}
           />
-          <MatchChat
-            isLive={currentStatus === "IN_PLAY" || currentStatus === "PAUSED"}
-          />
+          <MatchComments matchId={id} />
 
           {/* Standings Impact (Live) */}
           {(currentStatus === "IN_PLAY" || currentStatus === "PAUSED") &&

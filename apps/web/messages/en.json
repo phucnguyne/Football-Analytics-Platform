@@ -13,7 +13,8 @@
     "compare": "Compare",
     "predictions": "Predictions",
     "dashboard": "Dashboard",
-    "install": "Install app"
+    "install": "Install app",
+    "apiDocs": "API documentation"
   },
   "Search": {
     "title": "Search football data",
@@ -260,7 +261,8 @@
     "touches": "Players with touches",
     "sub": "Substitute",
     "chatDemo": "Demo mode",
-    "chatInput": "Say something..."
+    "chatInput": "Say something...",
+    "xgFormCoverage": "Pre-match form · {home} home-team and {away} away-team results"
   },
   "Live": {
     "title": "Live Match Center",
@@ -362,5 +364,37 @@
     "pdf": "Export PDF",
     "home": "Home",
     "away": "Away"
+  },
+  "Social": {
+    "comments": "Match comments",
+    "write": "Write a comment…",
+    "post": "Post comment",
+    "signInToComment": "Sign in to comment",
+    "rate": "Too many comments. Try again in a minute.",
+    "empty": "No comments yet.",
+    "fan": "Fan",
+    "remove": "Delete",
+    "more": "Load earlier comments",
+    "share": "Copy prediction link",
+    "copied": "Link copied.",
+    "shareLink": "Prediction link",
+    "sharedChoice": "Shared fan prediction · {choice}"
+  },
+  "Insights": {
+    "preview": "AI match preview",
+    "review": "AI match review",
+    "pending": "Generating the match analysis…",
+    "missing": "Sign in to generate the match analysis.",
+    "unavailable": "Match analysis is currently unavailable."
+  },
+  "Appearance": {
+    "title": "Appearance",
+    "description": "Choose your display mode. Club colors are available on team pages.",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "selected": "Club colors · {team}",
+    "reset": "Use default colors",
+    "useClub": "Use club colors"
   }
 }

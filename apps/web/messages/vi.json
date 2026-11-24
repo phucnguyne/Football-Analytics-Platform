@@ -13,7 +13,8 @@
     "compare": "So sánh",
     "predictions": "Dự đoán",
     "dashboard": "Tổng quan",
-    "install": "Cài ứng dụng"
+    "install": "Cài ứng dụng",
+    "apiDocs": "Tài liệu API"
   },
   "Search": {
     "title": "Tìm kiếm dữ liệu bóng đá",
@@ -260,7 +261,8 @@
     "touches": "Cầu thủ chạm bóng",
     "sub": "Dự bị",
     "chatDemo": "Chế độ minh họa",
-    "chatInput": "Nhập bình luận…"
+    "chatInput": "Nhập bình luận…",
+    "xgFormCoverage": "Phong độ trước trận · {home} trận của chủ nhà và {away} trận của đội khách"
   },
   "Live": {
     "title": "Trực tiếp bóng đá",
@@ -362,5 +364,37 @@
     "pdf": "Xuất PDF",
     "home": "Sân nhà",
     "away": "Sân khách"
+  },
+  "Social": {
+    "comments": "Bình luận trận đấu",
+    "write": "Viết bình luận…",
+    "post": "Đăng bình luận",
+    "signInToComment": "Đăng nhập để bình luận",
+    "rate": "Bạn đã bình luận quá nhanh. Hãy thử lại sau một phút.",
+    "empty": "Chưa có bình luận.",
+    "fan": "Cổ động viên",
+    "remove": "Xóa",
+    "more": "Tải bình luận trước đó",
+    "share": "Sao chép liên kết dự đoán",
+    "copied": "Đã sao chép liên kết.",
+    "shareLink": "Liên kết dự đoán",
+    "sharedChoice": "Dự đoán được chia sẻ · {choice}"
+  },
+  "Insights": {
+    "preview": "AI nhận định trước trận",
+    "review": "AI tổng kết trận đấu",
+    "pending": "Đang tạo phân tích trận đấu…",
+    "missing": "Đăng nhập để tạo phân tích trận đấu.",
+    "unavailable": "Phân tích trận đấu hiện chưa có."
+  },
+  "Appearance": {
+    "title": "Giao diện",
+    "description": "Chọn chế độ hiển thị. Bạn có thể chọn màu áo trên trang của đội bóng.",
+    "system": "Theo hệ thống",
+    "light": "Sáng",
+    "dark": "Tối",
+    "selected": "Màu đội bóng · {team}",
+    "reset": "Dùng màu mặc định",
+    "useClub": "Dùng màu đội bóng"
   }
 }

@@ -9,6 +9,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Container } from '@/components/ui/grid'
 import { PageSkeleton } from '@/components/ui/Skeleton'
 import { PushSettings } from '@/components/dashboard/PushSettings'
+import { SharePrediction } from '@/components/matches/SharePrediction'
 import { predictionLabels, type DashboardData } from '@/lib/dashboard'
 import { loginLink } from '@/lib/login-link'
 
@@ -97,6 +98,7 @@ export default function DashboardPage() {
                   <span className="text-muted-foreground">
                     {t(predictionLabels[prediction])} · {t(correct === null ? 'pending' : correct ? 'correct' : 'incorrect')}
                   </span>
+                  <SharePrediction matchId={match.id} prediction={prediction} />
                 </li>
               ))}
             </ul>

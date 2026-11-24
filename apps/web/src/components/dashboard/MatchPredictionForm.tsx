@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { SharePrediction } from '@/components/matches/SharePrediction'
 import { Button } from '@/components/ui/button'
 import { predictionChoices, predictionLabels, type PredictionChoice } from '@/lib/dashboard'
 import { loginLink } from '@/lib/login-link'
@@ -58,6 +59,7 @@ export function MatchPredictionForm({ matchId }: { matchId: number }) {
               </Button>
             ))}
           </div>
+          {saved.data?.prediction && <SharePrediction key={saved.data.prediction} matchId={matchId} prediction={saved.data.prediction} />}
           {saved.isError && <Button onClick={() => saved.refetch()} variant="outline">{common('retry')}</Button>}
           {save.isSuccess && <p role="status" className="text-sm text-muted-foreground">{t('saved')}</p>}
           {save.isError && <p role="alert" className="text-sm text-destructive">
