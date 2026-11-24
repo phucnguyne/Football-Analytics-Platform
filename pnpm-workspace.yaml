@@ -5,6 +5,7 @@ allowBuilds:
   '@parcel/watcher': false
   '@prisma/client': false
   '@prisma/engines': false
+  '@scarf/scarf': false
   '@swc/core': false
   esbuild: true
   prisma: false

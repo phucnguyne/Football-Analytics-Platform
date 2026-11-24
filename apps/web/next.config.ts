@@ -10,6 +10,16 @@ if (supabaseKey && !isSupabasePublicKey(supabaseKey.trim())) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/api/**": [
+      "../../node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/libquery_engine-*",
+    ],
+    "/api/docs/*": [
+      "./node_modules/swagger-ui-dist/package.json",
+      "./node_modules/swagger-ui-dist/swagger-ui.css",
+      "./node_modules/swagger-ui-dist/swagger-ui-bundle.js",
+    ],
+  },
   poweredByHeader: false,
   async headers() {
     return [

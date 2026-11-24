@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
-import { getLocale } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { Inter } from 'next/font/google'
 import '@/styles/app.css'
 import { Providers } from './providers'
@@ -25,7 +25,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const locale = await getLocale()
+  const [locale, t] = await Promise.all([getLocale(), getTranslations('Navigation')])
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -41,6 +41,9 @@ export default async function RootLayout({
               <div className="relative flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1">{children}</main>
+                <footer className="border-t px-4 py-4 text-center text-sm text-muted-foreground">
+                  <a className="hover:text-primary hover:underline" href="/api/docs">{t('apiDocs')}</a>
+                </footer>
               </div>
             </Providers>
           </QueryProvider>
