@@ -248,9 +248,6 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('Error comparing players:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'internal error' },
-      { status: 502 },
-    )
+    return NextResponse.json({ error: 'Unable to compare players' }, { status: 502 })
   }
 }

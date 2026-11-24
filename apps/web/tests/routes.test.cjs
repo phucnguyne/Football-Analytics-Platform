@@ -3,6 +3,7 @@ const { NextRequest } = require('next/server')
 jest.mock('@app/database/src/client', () => ({
   __esModule: true,
   default: {
+    player: { findUnique: jest.fn() },
     team: { findMany: jest.fn() },
     match: { findMany: jest.fn() },
     favorite: { findMany: jest.fn() },
@@ -11,12 +12,15 @@ jest.mock('@app/database/src/client', () => ({
 
 jest.mock('@/services/player.service', () => ({ searchPlayers: jest.fn() }))
 jest.mock('@/lib/auth', () => ({ getUserId: jest.fn() }))
+jest.mock('@/lib/env', () => ({ env: {} }))
+jest.mock('@/lib/api-football', () => ({ getPlayerSeasonMetricsForTeam: jest.fn() }))
 
 const prisma = require('@app/database/src/client').default
 const { searchPlayers } = require('@/services/player.service')
 const { getUserId } = require('@/lib/auth')
 const search = require('@/app/api/search/route')
 const persons = require('@/app/api/persons/route')
+const compare = require('@/app/api/persons/compare/route')
 const matches = require('@/app/api/matches/route')
 const dashboard = require('@/app/api/dashboard/route')
 const matchPrediction = require('@/app/api/predictions/matches/[matchId]/route')
@@ -58,6 +62,20 @@ test('persons route trims input, limits result counts, and retains its cache pol
   expect(response.status).toBe(200)
   expect(response.headers.get('Cache-Control')).toContain('s-maxage=60')
   expect(searchPlayers).toHaveBeenCalledWith({ query: 'Son', limit: 50, teamId: undefined })
+})
+
+test('player comparison keeps database errors in the server log', async () => {
+  const error = new Error('The column player_stats.dataSource does not exist')
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {})
+  prisma.player.findUnique.mockRejectedValue(error)
+  try {
+    const response = await compare.GET(request('/api/persons/compare?p1=1&p2=2'))
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: 'Unable to compare players' })
+    expect(log).toHaveBeenCalledWith('Error comparing players:', error)
+  } finally {
+    log.mockRestore()
+  }
 })
 
 test('matches route rejects an invalid status and serves live results without caching', async () => {
