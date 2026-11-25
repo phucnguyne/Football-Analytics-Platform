@@ -213,7 +213,8 @@ export async function getMatchDetail(matchId: number) {
   const detailsAlreadyFetched = Boolean(rawData?.[DETAILS_FETCHED_AT]);
 
   if (detailsAlreadyFetched && rawData) {
-    const { [DETAILS_FETCHED_AT]: _fetchedAt, ...providerData } = rawData;
+    const providerData = { ...rawData };
+    delete providerData[DETAILS_FETCHED_AT];
     // For SCHEDULED/TIMED only: attach Poisson prediction if stored
     const predictionField =
       (match.status === "SCHEDULED" || match.status === "TIMED") &&

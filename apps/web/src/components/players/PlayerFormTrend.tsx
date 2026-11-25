@@ -18,7 +18,6 @@ import type { FormMatch, FormSummary } from '@/lib/player-analytics'
 
 interface PlayerFormTrendProps {
   playerId: number
-  playerName: string
 }
 
 // Defined outside the component so Recharts gets a stable reference and
@@ -54,7 +53,7 @@ function FormCustomTooltip({ active, payload }: {
           <span className="text-muted-foreground">{t('ratingLabel')}</span>
           <span className="font-bold text-primary">{d.rating} / 10</span>
           <span className="text-muted-foreground">{t('minutesLabel')}</span>
-          <span className="font-semibold">{d.minutes}'</span>
+          <span className="font-semibold">{d.minutes}&apos;</span>
           <span className="text-muted-foreground">xG / xA:</span>
           <span className="font-semibold text-foreground">
             {d.xG} / {d.xA}
@@ -70,7 +69,7 @@ function FormCustomTooltip({ active, payload }: {
   return null
 }
 
-export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) {
+export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
   const t = useTranslations('Player')
   const [metric, setMetric] = useState<'rating' | 'xg_xa' | 'goals_assists'>('rating')
 
@@ -88,22 +87,12 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
     staleTime: 60 * 1000,
   })
 
-  if (isLoading) return <ChartSkeleton className="h-72" />
-
-  if (isError || !data || data.matches.length === 0) {
-    return (
-      <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground text-sm">
-        Match-by-match form data is unavailable. Add an API-Football player mapping to enable it.
-      </div>
-    )
-  }
-
-  const { matches, summary } = data
+  const matches = data?.matches
 
   // Memoized so switching the metric toggle doesn't re-derive the array.
   const chartData = useMemo(
     () =>
-      matches.map((m, idx) => ({
+      (matches ?? []).map((m, idx) => ({
         matchLabel: `GW${idx + 1}`,
         opponent: m.opponent.shortName,
         crest: m.opponent.crest,
@@ -118,6 +107,18 @@ export function PlayerFormTrend({ playerId, playerName }: PlayerFormTrendProps) 
       })),
     [matches]
   )
+
+  if (isLoading) return <ChartSkeleton className="h-72" />
+
+  if (isError || !data || !matches?.length) {
+    return (
+      <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground text-sm">
+        Match-by-match form data is unavailable. Add an API-Football player mapping to enable it.
+      </div>
+    )
+  }
+
+  const { summary } = data
 
   return (
     <div className="bg-card p-6 rounded-2xl border space-y-5 shadow-sm">

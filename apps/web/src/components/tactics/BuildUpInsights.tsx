@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { TacticalTeamCrest } from './TacticalTeamCrest'
 import type { TeamTactics } from '@/lib/tactics-generator'
 
 // ── Shared small helpers ──────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ function StatRow({
 
 // ── Possession half-arc gauge ─────────────────────────────────────────────────
 
-function PossessionGauge({ home, away }: { home: number; away: number }) {
+function PossessionGauge({ home }: { home: number }) {
   const homePct = Math.min(100, Math.max(0, home))
   const awayPct = 100 - homePct
 
@@ -158,12 +159,10 @@ function PressTriggerMap({
   ownHalf,
   middleThird,
   highPress,
-  teamName,
 }: {
   ownHalf: number
   middleThird: number
   highPress: number
-  teamName: string
 }) {
   const zones = [
     { label: 'Own Half',     pct: ownHalf,     color: 'rgba(148,163,184,0.4)', textCol: '#94a3b8' },
@@ -263,11 +262,6 @@ function RingGauge({
 function TeamBuildUpPanel({ team }: { team: TeamTactics }) {
   const b = team.buildUp
 
-  const styleColor =
-    b.buildUpStyle === 'Short-Passing' ? 'text-emerald-400' :
-    b.buildUpStyle === 'Direct'        ? 'text-amber-400'   :
-    b.buildUpStyle === 'Long-Ball'     ? 'text-red-400'     : 'text-blue-400'
-
   return (
     <div className="space-y-6">
       {/* Style badge */}
@@ -304,7 +298,6 @@ function TeamBuildUpPanel({ team }: { team: TeamTactics }) {
           ownHalf={b.pressTriggerZones.ownHalf}
           middleThird={b.pressTriggerZones.middleThird}
           highPress={b.pressTriggerZones.highPress}
-          teamName={team.shortName}
         />
       </div>
 
@@ -335,7 +328,7 @@ export function BuildUpInsights({ homeTeam, awayTeam }: BuildUpInsightsProps) {
       {/* Possession battle — full width */}
       <div>
         <SectionLabel>Possession Battle</SectionLabel>
-        <PossessionGauge home={homeTeam.buildUp.possession} away={awayTeam.buildUp.possession} />
+        <PossessionGauge home={homeTeam.buildUp.possession} />
       </div>
 
       {/* Two-column team panels */}
@@ -344,7 +337,7 @@ export function BuildUpInsights({ homeTeam, awayTeam }: BuildUpInsightsProps) {
         <div>
           <div className="flex items-center gap-2 mb-4">
             {homeTeam.crest && (
-              <img src={homeTeam.crest} alt={homeTeam.shortName} className="w-6 h-6 object-contain" />
+              <TacticalTeamCrest src={homeTeam.crest} name={homeTeam.shortName} />
             )}
             <span className="font-bold text-sm">{homeTeam.shortName}</span>
             <span className="text-xs text-muted-foreground bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">
@@ -361,7 +354,7 @@ export function BuildUpInsights({ homeTeam, awayTeam }: BuildUpInsightsProps) {
         <div>
           <div className="flex items-center gap-2 mb-4">
             {awayTeam.crest && (
-              <img src={awayTeam.crest} alt={awayTeam.shortName} className="w-6 h-6 object-contain" />
+              <TacticalTeamCrest src={awayTeam.crest} name={awayTeam.shortName} />
             )}
             <span className="font-bold text-sm">{awayTeam.shortName}</span>
             <span className="text-xs text-muted-foreground bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">

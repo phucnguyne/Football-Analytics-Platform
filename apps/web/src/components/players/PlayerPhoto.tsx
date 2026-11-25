@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import Image from 'next/image'
+import { useState } from 'react'
 
 interface PlayerPhotoProps {
   playerId: number | string
@@ -19,13 +20,44 @@ export function PlayerPhoto({
 }: PlayerPhotoProps) {
   const fallbackSrc = `/api/persons/${playerId}/photo?name=${encodeURIComponent(name)}`
   const imageSrc = photo || fallbackSrc
+
+  return (
+    <div className={`relative flex items-center justify-center overflow-hidden bg-muted ${className}`}>
+      <PhotoWithFallback
+        key={JSON.stringify([imageSrc, fallbackSrc])}
+        imageSrc={imageSrc}
+        fallbackSrc={fallbackSrc}
+        name={name}
+        fallback={fallback}
+      />
+    </div>
+  )
+}
+
+function PhotoWithFallback({ imageSrc, fallbackSrc, name, fallback }: {
+  imageSrc: string
+  fallbackSrc: string
+  name: string
+  fallback?: string
+}) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
 
-  useEffect(() => {
-    setFailedSrc(null)
-  }, [imageSrc, fallbackSrc])
-
   const currentSrc = failedSrc === imageSrc ? fallbackSrc : imageSrc
+  if (failedSrc !== fallbackSrc) {
+    return (
+      <Image
+        key={currentSrc}
+        src={currentSrc}
+        alt={name}
+        fill
+        // Provider photos can use arbitrary hosts. The fallback route can
+        // redirect to Wikimedia or serve a placeholder SVG.
+        unoptimized
+        className="object-cover"
+        onError={() => setFailedSrc(currentSrc)}
+      />
+    )
+  }
 
   const initials = name
     .split(/\s+/)
@@ -36,20 +68,8 @@ export function PlayerPhoto({
     .toUpperCase()
 
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden bg-muted ${className}`}>
-      {failedSrc !== fallbackSrc ? (
-        <img
-          src={currentSrc}
-          alt={name}
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover"
-          onError={() => setFailedSrc(currentSrc)}
-        />
-      ) : (
-        <span className="text-sm font-bold text-muted-foreground" aria-label={`${name} photo unavailable`}>
-          {fallback || initials}
-        </span>
-      )}
-    </div>
+    <span className="text-sm font-bold text-muted-foreground" aria-label={`${name} photo unavailable`}>
+      {fallback || initials}
+    </span>
   )
 }

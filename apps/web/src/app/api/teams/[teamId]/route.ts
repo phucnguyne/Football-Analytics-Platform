@@ -68,7 +68,7 @@ export async function GET(
         }
       )
       if (res.ok) externalData = await res.json() as FootballDataTeamDetail
-    } catch (e) {
+    } catch {
       console.warn(`[TeamRoute] Could not reach football-data for team ${teamId}`)
     }
 

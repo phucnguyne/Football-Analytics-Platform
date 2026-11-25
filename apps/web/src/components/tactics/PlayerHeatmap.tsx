@@ -15,7 +15,6 @@ interface PlayerHeatmapProps {
   teamPoints: HeatPoint[]
   playersData?: Record<number, { points: HeatPoint[]; zones: ZoneBreakdown }>
   playersList?: PlayerOption[]
-  teamName: string
   singlePlayerMode?: boolean
   selectedPlayerId?: number
 }
@@ -24,7 +23,6 @@ export function PlayerHeatmap({
   teamPoints,
   playersData = {},
   playersList = [],
-  teamName,
   singlePlayerMode = false,
   selectedPlayerId: initialPlayerId,
 }: PlayerHeatmapProps) {
@@ -99,7 +97,8 @@ export function PlayerHeatmap({
       if (alpha > 0) {
         // Map alpha to temperature gradient: cyan -> lime -> yellow -> red
         const normalized = alpha / 255
-        let r = 0, g = 0, b = 0, a = alpha * 0.9
+        let r = 0, g = 0, b = 0
+        const a = alpha * 0.9
 
         if (normalized < 0.25) {
           // Cyan to Green

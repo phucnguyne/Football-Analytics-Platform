@@ -8,7 +8,7 @@
     "prebuild": "pnpm --filter @app/config build",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@app/config": "workspace:*",

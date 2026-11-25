@@ -142,8 +142,6 @@ export async function getSeasonPrediction() {
     ensureTeam(match.awayTeam);
   }
 
-  let totalHomeGoals = 0;
-  let totalAwayGoals = 0;
   let scoredMatchCount = 0;
   let leagueWeight = 0;
   let weightedHomeGoals = 0;
@@ -157,8 +155,6 @@ export async function getSeasonPrediction() {
 
     const home = ensureTeam(match.homeTeam);
     const away = ensureTeam(match.awayTeam);
-    totalHomeGoals += homeGoals;
-    totalAwayGoals += awayGoals;
     scoredMatchCount++;
 
     const ageDays = Math.max(

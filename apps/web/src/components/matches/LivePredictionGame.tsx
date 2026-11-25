@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 type DisplayTeam = { name: string; shortName?: string }
 
-export function LivePredictionGame({ matchId, homeTeam, awayTeam, isLive }: { matchId: string; homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
+export function LivePredictionGame({ homeTeam, awayTeam, isLive }: { homeTeam: DisplayTeam; awayTeam: DisplayTeam; isLive: boolean }) {
   const t = useTranslations('Match')
   const [prediction, setPrediction] = useState<string | null>(null)
   

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
 import { teamAccents, type TeamTheme } from '@/lib/team-theme'
 
 type Theme = 'dark' | 'light' | 'system'
@@ -15,43 +15,73 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+const preferencesChanged = 'football-theme-preferences-change'
+const systemThemeQuery = '(prefers-color-scheme: dark)'
+
+function subscribeToPreferences(onChange: () => void) {
+  window.addEventListener(preferencesChanged, onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    window.removeEventListener(preferencesChanged, onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
+
+function readPreference(key: string) {
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function parseTeamTheme(value: string | null): TeamTheme | null {
+  try {
+    const saved = JSON.parse(value ?? 'null') as Partial<TeamTheme> | null
+    if (typeof saved?.name === 'string' &&
+        typeof saved.accent === 'string' && Object.hasOwn(teamAccents, saved.accent)) {
+      return { name: saved.name, accent: saved.accent }
+    }
+  } catch {
+    // Invalid preferences fall back to the default accent.
+  }
+  return null
+}
+
+function subscribeToSystemTheme(onChange: () => void) {
+  const media = window.matchMedia(systemThemeQuery)
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+const getSystemTheme = (): ResolvedTheme => window.matchMedia(systemThemeQuery).matches ? 'dark' : 'light'
+const getServerPreference = () => null
+const subscribeToNothing = () => () => {}
 
 export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 'theme' }: {
   children: React.ReactNode
   defaultTheme?: Theme
   storageKey?: string
 }) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme)
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light')
-  const [teamTheme, setTeamTheme] = useState<TeamTheme | null>(null)
   const clubStorageKey = `${storageKey}-team`
+  const storedTheme = useSyncExternalStore(subscribeToPreferences, () => readPreference(storageKey), getServerPreference)
+  const storedTeam = useSyncExternalStore(subscribeToPreferences, () => readPreference(clubStorageKey), getServerPreference)
+  const theme = storedTheme === 'system' || storedTheme === 'dark' || storedTheme === 'light'
+    ? storedTheme
+    : defaultTheme
+  const resolvedTheme = useSyncExternalStore<ResolvedTheme>(
+    theme === 'system' ? subscribeToSystemTheme : subscribeToNothing,
+    () => theme === 'system' ? getSystemTheme() : theme,
+    () => theme === 'system' ? 'light' : theme,
+  )
+  const teamTheme = useMemo(() => parseTeamTheme(storedTeam), [storedTeam])
 
   useEffect(() => {
-    const stored = localStorage.getItem(storageKey)
-    if (stored === 'system' || stored === 'dark' || stored === 'light') setTheme(stored)
-    try {
-      const saved = JSON.parse(localStorage.getItem(clubStorageKey) ?? 'null')
-      if (typeof saved?.name === 'string' && Object.hasOwn(teamAccents, saved.accent)) setTeamTheme(saved)
-    } catch {
-      // Invalid preferences fall back to the default theme.
-    }
-  }, [storageKey, clubStorageKey])
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const apply = () => {
-      const resolved = theme === 'system' ? media.matches ? 'dark' : 'light' : theme
-      const root = document.documentElement
-      root.classList.remove('light', 'dark')
-      root.classList.add(resolved)
-      setResolvedTheme(resolved)
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#09090b' : '#ffffff')
-    }
-    apply()
-    if (theme !== 'system') return
-    media.addEventListener('change', apply)
-    return () => media.removeEventListener('change', apply)
-  }, [theme])
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(resolvedTheme)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolvedTheme === 'dark' ? '#09090b' : '#ffffff')
+  }, [resolvedTheme])
 
   useEffect(() => {
     const style = document.documentElement.style
@@ -72,12 +102,12 @@ export function ThemeProvider({ children, defaultTheme = 'system', storageKey = 
       theme, resolvedTheme, teamTheme,
       setTheme: (next) => {
         localStorage.setItem(storageKey, next)
-        setTheme(next)
+        window.dispatchEvent(new Event(preferencesChanged))
       },
       setTeamTheme: (next) => {
         if (next) localStorage.setItem(clubStorageKey, JSON.stringify(next))
         else localStorage.removeItem(clubStorageKey)
-        setTeamTheme(next)
+        window.dispatchEvent(new Event(preferencesChanged))
       },
     }}>
       {children}

@@ -42,6 +42,7 @@ export default async function RootLayout({
                 <Header />
                 <main className="flex-1">{children}</main>
                 <footer className="border-t px-4 py-4 text-center text-sm text-muted-foreground">
+                  {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- The route serves a standalone HTML document. */}
                   <a className="hover:text-primary hover:underline" href="/api/docs">{t('apiDocs')}</a>
                 </footer>
               </div>

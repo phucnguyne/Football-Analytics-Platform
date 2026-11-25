@@ -540,7 +540,7 @@ export function ScoutingReport({ report }: ScoutingReportProps) {
           <div className="border-t pt-4">
             <h3 className="text-xs font-semibold text-muted-foreground mb-1.5">📋 {t('note')}</h3>
             <p className="text-sm italic text-muted-foreground leading-relaxed">
-              "{report.strengthsWeaknesses.analystNote}"
+              &quot;{report.strengthsWeaknesses.analystNote}&quot;
             </p>
           </div>
         </Card>

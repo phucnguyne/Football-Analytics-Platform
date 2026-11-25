@@ -6,7 +6,7 @@ import React, { useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/ui/Skeleton'
 import { useQuery } from '@tanstack/react-query'
-import type { HeatPoint, ZoneBreakdown } from '@/lib/tactics-generator'
+import type { HeatPoint } from '@/lib/tactics-generator'
 
 const PlayerHeatmap = dynamic(
   () => import('@/components/tactics/PlayerHeatmap').then((module) => ({ default: module.PlayerHeatmap })),
@@ -102,7 +102,6 @@ export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
       <PlayerHeatmap
         teamPoints={points}
         playersData={playerData}
-        teamName={player.name}
         singlePlayerMode={true}
         selectedPlayerId={player.id}
       />

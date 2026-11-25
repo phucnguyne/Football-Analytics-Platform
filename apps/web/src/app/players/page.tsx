@@ -1,6 +1,6 @@
 'use client'
 import { useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Container, Grid } from '@/components/ui/grid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils'
 import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useEffect } from 'react'
 import Link from 'next/link'
 
 // Premier League competition code on football-data.org
@@ -37,14 +36,15 @@ function PlayersContent() {
   const searchParams = useSearchParams()
   const urlTeamId = searchParams.get('teamId')
   
-  const [selectedTeamId, setSelectedTeamId] = useState('')
+  const [selection, setSelection] = useState({ urlTeamId, teamId: urlTeamId ?? '' })
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    if (urlTeamId) {
-      setSelectedTeamId(urlTeamId)
-    }
-  }, [urlTeamId])
+  const selectedTeamId = selection.urlTeamId !== urlTeamId && urlTeamId
+    ? urlTeamId
+    : selection.teamId
+  if (selection.urlTeamId !== urlTeamId) {
+    setSelection({ urlTeamId, teamId: selectedTeamId })
+  }
 
   const { data: teams } = useTeams(DEFAULT_LEAGUE)
   const activeTeam = selectedTeamId || teams?.[0]?.id || ''
@@ -65,8 +65,8 @@ function PlayersContent() {
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <select
           className="flex h-10 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={selectedTeamId}
-          onChange={(e) => setSelectedTeamId(e.target.value)}
+          value={activeTeam}
+          onChange={(e) => setSelection({ urlTeamId, teamId: e.target.value })}
         >
           {teams?.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>

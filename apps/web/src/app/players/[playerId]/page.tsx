@@ -180,7 +180,7 @@ export default function PlayerDetailsPage({
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
-                    {stats.minutesPlayed}'
+                    {stats.minutesPlayed}&apos;
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
                     {metric('minutes')}
@@ -200,7 +200,7 @@ export default function PlayerDetailsPage({
             position={player.position?.replace("_", " ") || t('unknown')}
           />
 
-          <PlayerFormTrend playerId={player.id} playerName={player.name} />
+          <PlayerFormTrend playerId={player.id} />
 
           <PlayerCareerTimeline playerId={player.id} playerName={player.name} />
 
@@ -208,7 +208,6 @@ export default function PlayerDetailsPage({
 
           <SimilarPlayersCard
             playerId={player.id}
-            playerName={player.name}
             playerTeamId={currentTeam?.id ?? player.currentTeam?.id}
           />
 

@@ -116,11 +116,7 @@ function pickIdx(len: number, seed: number, offset: number): number {
 
 // ── Milestone templates ───────────────────────────────────────────────────────
 
-function buildMilestones(
-  seasons: CareerSeason[],
-  playerId: number,
-  position: string
-): CareerMilestone[] {
+function buildMilestones(seasons: CareerSeason[]): CareerMilestone[] {
   const milestones: CareerMilestone[] = []
 
   // Career debut (first season)
@@ -280,7 +276,6 @@ export function generateCareerStats(input: CareerInput): CareerStats {
   const isFwd = position === 'FORWARD'
   const isMid = position === 'MIDFIELDER'
   const isDef = position === 'DEFENDER'
-  const isGk  = position === 'GOALKEEPER'
 
   const goalMulti   = isFwd ? 1.0 : isMid ? 0.45 : isDef ? 0.12 : 0.01
   const assistMulti = isFwd ? 0.5 : isMid ? 1.0  : isDef ? 0.25 : 0.05
@@ -392,7 +387,7 @@ export function generateCareerStats(input: CareerInput): CareerStats {
   // Peak season by goals (non-current preferred for storytelling)
   const peakSeason = [...allSeasons].sort((a, b) => b.goals - a.goals)[0] ?? null
 
-  const milestones  = buildMilestones(allSeasons, playerId, position)
+  const milestones  = buildMilestones(allSeasons)
   const clubHistory = buildClubHistory(allSeasons)
 
   return {

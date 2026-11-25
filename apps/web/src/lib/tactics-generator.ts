@@ -120,7 +120,7 @@ export interface MatchTacticsResponse {
 
 // Pseudo-random deterministic generator based on seed string/number
 function seededRandom(seed: number) {
-  let s = Math.sin(seed++) * 10000
+  const s = Math.sin(seed) * 10000
   return s - Math.floor(s)
 }
 

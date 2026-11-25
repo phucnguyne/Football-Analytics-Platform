@@ -38,7 +38,7 @@ export function PPDAMeter({ homeTeam, awayTeam, summary }: PPDAMeterProps) {
             <h4 className="font-bold text-sm">PPDA (Passes Allowed Per Defensive Action)</h4>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Measures pressing intensity outside the defending team's third. <strong className="text-foreground">Lower = more aggressive pressing</strong>.
+            Measures pressing intensity outside the defending team&apos;s third. <strong className="text-foreground">Lower = more aggressive pressing</strong>.
           </p>
         </div>
         <div className="text-[10px] bg-muted px-2.5 py-1 rounded-md text-muted-foreground font-mono">

@@ -12,14 +12,12 @@ import { PlayerPhoto } from '@/components/players/PlayerPhoto'
 
 interface SimilarPlayersCardProps {
   playerId: number
-  playerName: string
   playerTeamId?: number
   onSelectForCompare?: (player: SimilarPlayerResult) => void
 }
 
 export function SimilarPlayersCard({
   playerId,
-  playerName,
   playerTeamId,
   onSelectForCompare,
 }: SimilarPlayersCardProps) {

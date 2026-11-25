@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { PitchCanvas } from './PitchCanvas'
+import { TacticalTeamCrest } from './TacticalTeamCrest'
 import type { PassingNode, PassingLink } from '@/lib/tactics-generator'
 
 interface PassingNetworkProps {
@@ -36,7 +37,7 @@ export function PassingNetwork({
       <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-xl border">
         <div className="flex items-center gap-3">
           {teamCrest && (
-            <img src={teamCrest} alt={teamName} className="w-6 h-6 object-contain" />
+            <TacticalTeamCrest src={teamCrest} name={teamName} />
           )}
           <div>
             <h4 className="font-bold text-sm tracking-tight">{teamName} Passing Network</h4>

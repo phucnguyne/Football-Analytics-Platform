@@ -16,63 +16,73 @@ async function updateSubscription(method: 'POST' | 'PUT' | 'DELETE', body: objec
   return res.json() as Promise<{ enabled: boolean }>
 }
 
+type PushProblem = 'pushDenied' | 'pushError' | null
+type PushState = {
+  publicKey: string
+  available: boolean
+  registration: ServiceWorkerRegistration | null
+  enabled: boolean
+  problem: PushProblem
+}
+
+async function readPushState(publicKey: string): Promise<PushState> {
+  const state: PushState = { publicKey, available: false, registration: null, enabled: false, problem: null }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    return state
+  }
+
+  state.available = true
+  try {
+    const worker = await navigator.serviceWorker.register('/sw.js')
+    state.registration = worker.active ? worker : await navigator.serviceWorker.ready
+    const subscription = await state.registration.pushManager.getSubscription()
+    if (subscription) {
+      const current = await updateSubscription('POST', { endpoint: subscription.endpoint })
+      state.enabled = current.enabled
+    }
+    if (Notification.permission === 'denied') state.problem = 'pushDenied'
+  } catch {
+    state.problem = 'pushError'
+  }
+  return state
+}
+
 export function PushSettings({ publicKey }: { publicKey: string | null }) {
   const t = useTranslations('Dashboard')
   const locale = useLocale()
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
-  const [available, setAvailable] = useState(false)
-  const [enabled, setEnabled] = useState(false)
-  const [busy, setBusy] = useState(true)
-  const [problem, setProblem] = useState<'pushDenied' | 'pushError' | null>(null)
+  const [state, setState] = useState<PushState | null>(null)
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const current = state?.publicKey === publicKey ? state : null
 
   useEffect(() => {
-    if (!publicKey || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-      setAvailable(false)
-      setBusy(false)
-      return
-    }
-
+    if (!publicKey) return
     let active = true
-    setAvailable(true)
-    async function readSubscription() {
-      try {
-        const worker = await navigator.serviceWorker.register('/sw.js')
-        const ready = worker.active ? worker : await navigator.serviceWorker.ready
-        if (active) setRegistration(ready)
-        const subscription = await ready.pushManager.getSubscription()
-        const current = subscription
-          ? await updateSubscription('POST', { endpoint: subscription.endpoint })
-          : { enabled: false }
-        if (active) {
-          setEnabled(current.enabled)
-          if (Notification.permission === 'denied') setProblem('pushDenied')
-        }
-      } catch {
-        if (active) setProblem('pushError')
-      } finally {
-        if (active) setBusy(false)
-      }
-    }
-    void readSubscription()
+    void readPushState(publicKey).then((result) => {
+      if (active) setState(result)
+    })
     return () => { active = false }
   }, [publicKey])
 
   async function toggle() {
+    const registration = current?.registration
     if (!registration || !publicKey) return
-    setBusy(true)
-    setProblem(null)
+    const update = (changes: Partial<Pick<PushState, 'enabled' | 'problem'>>) => {
+      setState((previous) => previous?.publicKey === publicKey ? { ...previous, ...changes } : previous)
+    }
+    setBusyKey(publicKey)
+    update({ problem: null })
     try {
-      if (enabled) {
+      if (current.enabled) {
         const subscription = await registration.pushManager.getSubscription()
         if (subscription) {
           await updateSubscription('DELETE', { endpoint: subscription.endpoint })
           await subscription.unsubscribe()
         }
-        setEnabled(false)
+        update({ enabled: false })
       } else {
         const permission = await Notification.requestPermission()
         if (permission !== 'granted') {
-          if (permission === 'denied') setProblem('pushDenied')
+          if (permission === 'denied') update({ problem: 'pushDenied' })
           return
         }
         const existing = await registration.pushManager.getSubscription()
@@ -80,24 +90,24 @@ export function PushSettings({ publicKey }: { publicKey: string | null }) {
           userVisibleOnly: true, applicationServerKey: publicKey,
         })
         await updateSubscription('PUT', { ...subscription.toJSON(), locale })
-        setEnabled(true)
+        update({ enabled: true })
       }
     } catch {
-      setProblem('pushError')
+      update({ problem: 'pushError' })
     } finally {
-      setBusy(false)
+      setBusyKey((key) => key === publicKey ? null : key)
     }
   }
 
   return (
     <div className="space-y-2 border-t pt-3">
       <p className="text-sm text-muted-foreground">{t('pushDescription')}</p>
-      {available ? (
-        <Button size="sm" type="button" variant="outline" disabled={busy || !registration} onClick={toggle}>
-          {t(enabled ? 'disablePush' : 'enablePush')}
+      {current?.available ? (
+        <Button size="sm" type="button" variant="outline" disabled={busyKey === publicKey || !current.registration} onClick={toggle}>
+          {t(current.enabled ? 'disablePush' : 'enablePush')}
         </Button>
-      ) : !busy && <p className="text-xs text-muted-foreground">{t('pushUnavailable')}</p>}
-      {problem && <p role="status" className="text-xs text-muted-foreground">{t(problem)}</p>}
+      ) : (!publicKey || current?.available === false) && <p className="text-xs text-muted-foreground">{t('pushUnavailable')}</p>}
+      {current?.problem && <p role="status" className="text-xs text-muted-foreground">{t(current.problem)}</p>}
     </div>
   )
 }

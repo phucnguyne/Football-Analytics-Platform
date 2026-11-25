@@ -63,11 +63,9 @@ async function fetchSeasonPrediction(): Promise<SeasonPrediction> {
 function ProbBar({
   value,
   color,
-  label,
 }: {
   value: number;
   color: string;
-  label: string;
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -340,21 +338,18 @@ export default function PredictionsPage() {
                     <ProbBar
                       value={team.titleProb}
                       color="bg-yellow-500"
-                      label="Title"
                     />
                   </td>
                   <td className="p-4">
                     <ProbBar
                       value={team.topFourProb}
                       color="bg-blue-500"
-                      label="Top 4"
                     />
                   </td>
                   <td className="p-4">
                     <ProbBar
                       value={team.relegationProb}
                       color="bg-red-500"
-                      label="Relegation"
                     />
                   </td>
                 </tr>

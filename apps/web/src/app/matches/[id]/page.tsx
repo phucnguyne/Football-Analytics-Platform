@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from 'next-intl'
+import { useNow, useTranslations } from 'next-intl'
 import { Suspense, use, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -41,6 +41,13 @@ const ShotMap = dynamic(
   { loading: () => <ChartSkeleton className="h-96" />, ssr: false },
 );
 
+function ScheduledMatchPrediction({ matchId, kickoff }: { matchId: number; kickoff: string }) {
+  const now = useNow({ updateInterval: 30_000 });
+  return new Date(kickoff).getTime() > now.getTime()
+    ? <MatchPredictionForm matchId={matchId} />
+    : null;
+}
+
 export default function MatchDetailsPage({
   params,
 }: {
@@ -75,16 +82,17 @@ export default function MatchDetailsPage({
 
   const { liveMatches } = useMatchLive();
   const liveUpdate = liveMatches[Number(id)];
+  const liveStatus = liveUpdate?.status;
 
   // Re-fetch match details if score or status changes to get new events
   useEffect(() => {
-    if (liveUpdate) {
+    if (liveStatus) {
       queryClient.invalidateQueries({ queryKey: ["match", id] });
     }
   }, [
     liveUpdate?.homeGoals,
     liveUpdate?.awayGoals,
-    liveUpdate?.status,
+    liveStatus,
     queryClient,
     id,
   ]);
@@ -181,7 +189,7 @@ export default function MatchDetailsPage({
             {(currentStatus === "IN_PLAY" || currentStatus === "PAUSED") &&
               currentMinute && (
                 <span className="text-green-500 font-bold animate-pulse">
-                  {currentMinute}'
+                  {currentMinute}&apos;
                 </span>
               )}
             {match.matchday && <span>Matchday {match.matchday}</span>}
@@ -255,10 +263,9 @@ export default function MatchDetailsPage({
       </div>
 
       <Suspense><SharedPrediction /></Suspense>
-      {(currentStatus === "SCHEDULED" || currentStatus === "TIMED") &&
-        new Date(match.utcDate).getTime() > Date.now() && (
-          <MatchPredictionForm matchId={Number(id)} />
-        )}
+      {(currentStatus === "SCHEDULED" || currentStatus === "TIMED") && (
+        <ScheduledMatchPrediction matchId={Number(id)} kickoff={match.utcDate} />
+      )}
       {match.prediction && (
         <AlgorithmicPrediction
           prediction={match.prediction}
@@ -286,7 +293,7 @@ export default function MatchDetailsPage({
                     <li key={i} className="text-sm flex items-center gap-2">
                       <span className="font-bold">{g.scorer?.name}</span>
                       <span className="text-muted-foreground">
-                        {g.minute}'{g.injuryTime ? `+${g.injuryTime}` : ""}
+                        {g.minute}&apos;{g.injuryTime ? `+${g.injuryTime}` : ""}
                       </span>
                       {g.type === "PENALTY" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-600 font-bold uppercase">
@@ -323,7 +330,7 @@ export default function MatchDetailsPage({
                     <li key={i} className="text-sm flex items-center gap-2">
                       <span className="font-bold">{g.scorer?.name}</span>
                       <span className="text-muted-foreground">
-                        {g.minute}'{g.injuryTime ? `+${g.injuryTime}` : ""}
+                        {g.minute}&apos;{g.injuryTime ? `+${g.injuryTime}` : ""}
                       </span>
                       {g.type === "PENALTY" && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-600 font-bold uppercase">
@@ -394,7 +401,7 @@ export default function MatchDetailsPage({
                       className="flex items-center gap-4 px-4 py-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
                     >
                       <div className="w-12 h-8 flex items-center justify-center rounded-lg bg-muted font-bold text-xs tabular-nums flex-shrink-0">
-                        {ev.minute}'{ev.injuryTime ? `+${ev.injuryTime}` : ""}
+                        {ev.minute}&apos;{ev.injuryTime ? `+${ev.injuryTime}` : ""}
                       </div>
 
                       <div className="flex-1 text-sm">
@@ -468,7 +475,6 @@ export default function MatchDetailsPage({
         {/* Lineups and Standings Impact */}
         <div className="space-y-6">
           <LivePredictionGame
-            matchId={id}
             isLive={currentStatus === "IN_PLAY" || currentStatus === "PAUSED"}
             homeTeam={match.homeTeam}
             awayTeam={match.awayTeam}
