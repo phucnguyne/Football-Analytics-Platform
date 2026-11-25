@@ -28,7 +28,8 @@ docker/.env
 
 
 .github/.secrets
-.github/
+.github/*
+!.github/workflows/
 
 scripts/*.local.sh
 
@@ -84,6 +85,7 @@ packages/database/scripts/*
 .npmrc
 
 apps/api/dist/
+apps/realtime/dist/
 packages/config/dist/
 
 # Prisma generated client

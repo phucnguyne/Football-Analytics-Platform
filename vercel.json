@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @app/database run generate && pnpm --filter @app/web build",
+  "buildCommand": "pnpm -w db:generate && pnpm -w check && pnpm --filter @app/web build",
   "outputDirectory": ".next",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --frozen-lockfile",
   "framework": "nextjs"
 }

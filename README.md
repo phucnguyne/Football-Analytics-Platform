@@ -329,8 +329,8 @@ pnpm dev
 ## 📡 API Reference
 
 The production API is served by the Next.js application at `/api/*`. Dynamic
-route segments are shown in brackets. The health endpoint reports web-service
-liveness only; it does not check the database or scheduled sync pipeline.
+route segments are shown in brackets. Use `/api/health` for liveness and
+`/api/health/ready` for database connectivity.
 
 Open **`/api/docs`** for Swagger UI or fetch **`/api/openapi`** for the OpenAPI 3.1
 document. It covers the web API and the self-hosted Fastify and realtime HTTP
@@ -348,6 +348,7 @@ Swagger's interactive requests are limited to GET.
 | GET    | `/api/matches/[id]/shots`          | Match shot data                |
 | GET    | `/api/matches/[id]/provider-events`| Provider match events          |
 | GET    | `/api/health`                      | Web service liveness check     |
+| GET    | `/api/health/ready`                | Database readiness (200 or 503) |
 
 Use the comma-separated `status` query parameter to filter `/api/matches`, for
 example `?status=IN_PLAY,PAUSED`.
@@ -566,8 +567,8 @@ docker compose up -d postgres redis
 # Stop infrastructure
 docker compose down
 
-# Build and run the web container with PostgreSQL and Redis
-docker compose --profile prod up -d --build
+# Build and run the local web container with PostgreSQL and Redis
+docker compose --env-file .env --env-file apps/web/.env --profile prod up -d --build
 
 # View logs
 docker compose logs -f postgres
@@ -579,6 +580,8 @@ docker compose logs -f postgres
 For local development, the application processes run on your computer, so
 `DATABASE_URL` must use `localhost:5433`. Containers on the Compose network use
 the hostname `postgres` and container port `5432` instead.
+The Docker build receives the Supabase URL and publishable key for the browser
+bundle. Server credentials are injected at runtime through the web env file.
 
 ### View the Docker PostgreSQL database in DBeaver
 
@@ -609,7 +612,8 @@ pnpm dev                   # apply local schema changes and start all dev apps
 pnpm apply:dev [name]      # apply local schema changes without starting apps
 pnpm apply:prod            # migrate Supabase and release the committed main branch
 pnpm build                 # build all apps
-pnpm lint                  # lint all packages
+pnpm lint                  # lint the web workspace
+pnpm check                 # lint, type-check, and run tests
 
 pnpm db:generate           # (re)generate Prisma client
 pnpm db:push               # sync schema to DB (no migration file)
@@ -763,14 +767,27 @@ coordinates.
 Run these checks from the repository root before submitting changes:
 
 ```bash
-pnpm type-check
+pnpm db:generate
+pnpm check
 pnpm build
-pnpm test
 ```
 
 `pnpm test` runs Jest unit tests, App Router handler tests with mocked data
 dependencies, and React component tests. The tests do not require a database or
 provider credentials. Use `pnpm test:coverage` to generate a coverage report.
+
+The [GitHub CI workflow](.github/workflows/ci.yml) runs lint, type checks, tests
+and builds on pull requests and pushes to `main` with build-only placeholders.
+Vercel runs `pnpm check` before building the web app. The current
+`pnpm apply:prod` command applies migrations and pushes directly to `main`.
+If you switch to PR-only releases, require the CI check named
+**Lint, type-check, test, and build** in the GitHub ruleset and update the release
+workflow to preserve the migration-before-deploy order.
+
+Use `GET /api/health` to check that the web process responds, and
+`GET /api/health/ready` to check database connectivity. Readiness returns 503
+if the database probe fails or exceeds two seconds. Web request errors and
+failed readiness probes emit JSON events in the deployment logs.
 
 ---
 
@@ -780,12 +797,10 @@ provider credentials. Use `pnpm test:coverage` to generate a coverage report.
   discover or import new fixtures automatically.
 - Live-score freshness depends on the scheduled job and the availability and
   rate limits of football-data.org, Supabase Edge Functions, and Realtime.
-- The Vercel health endpoint reports web-service liveness; it does not verify
-  database connectivity or the status of the scheduled sync pipeline.
+- Readiness checks PostgreSQL. Scheduled sync and upstream provider health
+  have separate logs.
 - The Fastify API and standalone Socket.IO server are retained for local or
   self-hosted use and are not part of the current Vercel production deployment.
-- The web lint script uses `next lint`, which is unsupported by the current
-  Next.js CLI and needs to be migrated to the ESLint CLI.
 - Supabase Free projects may pause after a period of inactivity.
 
 ---

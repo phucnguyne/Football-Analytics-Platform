@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, type-check, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Build placeholders. CI neither connects to production nor needs secrets.
+      DATABASE_URL: 'postgresql://ci:ci@127.0.0.1:5432/ci?connect_timeout=2'
+      NEXTAUTH_SECRET: 'ci-placeholder-not-for-production-000000'
+      NEXTAUTH_URL: 'http://localhost:3000'
+      FOOTBALL_DATA_API_KEY: 'ci-placeholder'
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321'
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_ci_placeholder'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm test --ci --runInBand
+      - run: pnpm build
