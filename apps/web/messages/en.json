@@ -180,6 +180,8 @@
     "back": "Back to Teams"
   },
   "Player": {
+    "careerUnavailable": "No verified club history is available for this player.",
+    "verifiedSeasonStats": "Verified season statistics",
     "title": "Players",
     "browse": "Browse squads across the Premier League",
     "search": "Search players…",
@@ -198,7 +200,7 @@
     "teamB": "Player B Team",
     "formTrend": "Player Form Trend",
     "formUnavailable": "No real match-by-match form data is available for this player.",
-    "heatmap": "Season Heatmap & Operating Area",
+    "heatmap": "Player Heatmap & Operating Area",
     "heatmapUnavailable": "Player heatmap is unavailable because StatsBomb open data has no matching event file for this player.",
     "similar": "Similar Players (Scouting Radar)",
     "similarEmpty": "No similar players identified.",
@@ -213,12 +215,16 @@
     "ratingLabel": "Match Rating:",
     "minutesLabel": "Minutes Played:",
     "goalsAssists": "Goals / Assists:",
-    "heatmapDescription": "Spatial touch distribution and corridor bias across all matches",
+    "heatmapDescription": "Event locations in matches covered by StatsBomb",
     "cosine": "Cosine Similarity",
     "similarity": "Match",
     "compare": "Compare"
   },
   "Match": {
+    "passingNetwork": "{team} passing network",
+    "passingNetworkDescription": "Average locations of completed passes and receptions.",
+    "minimumPasses": "Minimum passes",
+    "networkInvolvements": "Pass involvements",
     "schedule": "Match Schedule",
     "chooseLeague": "Select competition",
     "noMatches": "No matches found for this competition.",
@@ -347,6 +353,11 @@
     "chartUnavailable": "A spider chart needs at least one real shared metric."
   },
   "Scout": {
+    "standingUpdated": "Snapshot updated {date}",
+    "player": "Player",
+    "standing": "League Standing",
+    "standingSummary": "{points} pts from {played} matches · {wins}W {draws}D {losses}L · {goalsFor} scored, {goalsAgainst} conceded",
+    "playerStatsUnavailable": "No verified player statistics are available for this club and season.",
     "formation": "Formation & Tactics",
     "attack": "Attacking Patterns",
     "defense": "Defensive Profile",

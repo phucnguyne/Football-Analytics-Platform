@@ -45,7 +45,7 @@ async function request<T>(
     redirect: "error",
     headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
     next: { revalidate },
-    signal,
+    signal: signal ?? AbortSignal.timeout(5000),
   })
   if (!response.ok) return []
   const body = await response.json() as ApiFootballResponse<T>
@@ -77,12 +77,36 @@ export function getFixtureEvents(fixtureId: number): Promise<ApiFootballEvent[]>
   return request<ApiFootballEvent>('fixtures/events', { fixture: fixtureId })
 }
 
+export async function getFixtureStatistics(fixtureId: number, homeName: string, awayName: string) {
+  const teams = await request<{
+    team?: { name?: string }
+    statistics?: { type?: string; value?: number | string | null }[]
+  }>('fixtures/statistics', { fixture: fixtureId })
+  function statsFor(name: string) {
+    const row = teams.find((entry) => normalizeTeamName(entry.team?.name ?? '') === normalizeTeamName(name))
+    if (!row?.statistics?.length) return null
+    const values = new Map(row.statistics.map(({ type, value }) => [type, value]))
+    const stat = (key: string) => {
+      const value = values.get(key)
+      return numericValue(typeof value === 'string' ? value.replace(/%$/, '') : value)
+    }
+    return {
+      possession: stat('Ball Possession'),
+      shots: stat('Total Shots'),
+      shotsOnTarget: stat('Shots on Goal'),
+      corners: stat('Corner Kicks'),
+      fouls: stat('Fouls'),
+    }
+  }
+  return { home: statsFor(homeName), away: statsFor(awayName) }
+}
+
 function normalizeTeamName(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\b(fc|cf|afc|women|w)\b/g, '')
+    .replace(/\b(fc|cf|afc)\b/g, '')
     .replace(/[^a-z0-9]/g, '')
 }
 
@@ -101,29 +125,53 @@ export async function resolveApiFootballFixtureId(input: {
   }, 86400)
   const home = normalizeTeamName(input.homeTeamName)
   const away = normalizeTeamName(input.awayTeamName)
-  const match = fixtures.find((fixture) =>
+  const matches = fixtures.filter((fixture) =>
     normalizeTeamName(fixture.teams?.home?.name ?? '') === home &&
     normalizeTeamName(fixture.teams?.away?.name ?? '') === away
   )
-  return match?.fixture?.id ?? null
+  return matches.length === 1 ? matches[0].fixture?.id ?? null : null
 }
 
-export interface ApiFootballPlayerMatch {
-  fixture?: { id?: number; date?: string }
-  teams?: {
-    home?: { id?: number; name?: string; winner?: boolean | null }
-    away?: { id?: number; name?: string; winner?: boolean | null }
+interface ApiFootballFixturePlayer {
+  player?: { id?: number }
+  statistics?: {
+    games?: { minutes?: number | null; rating?: string | null }
+    goals?: { total?: number | null; assists?: number | null }
+    passes?: { key?: number | null }
+    tackles?: { total?: number | null }
+  }[]
+}
+
+export async function getFixturePlayerPerformance(
+  fixtureId: number,
+  playerId: number,
+  homeName: string,
+  awayName: string,
+) {
+  const teams = await request<{ team?: { name?: string }; players?: ApiFootballFixturePlayer[] }>(
+    'fixtures/players', { fixture: fixtureId }, 3600,
+  )
+  for (const team of teams) {
+    const teamName = normalizeTeamName(team.team?.name ?? '')
+    if (!teamName) continue
+    const isHome = teamName === normalizeTeamName(homeName)
+    if (!isHome && teamName !== normalizeTeamName(awayName)) continue
+    const stats = team.players?.find((entry) => entry.player?.id === playerId)?.statistics?.[0]
+    if (!stats) continue
+    const minutes = numericValue(stats.games?.minutes)
+    if (minutes === null || minutes <= 0) continue
+    return {
+      isHome, minutes, rating: numericValue(stats.games?.rating),
+      goals: numericValue(stats.goals?.total), assists: numericValue(stats.goals?.assists),
+      keyPasses: numericValue(stats.passes?.key), tackles: numericValue(stats.tackles?.total),
+    }
   }
-  goals?: { total?: number | null; assists?: number | null }
-  shots?: { total?: number | null; on?: number | null }
-  passes?: { key?: number | null }
-  tackles?: { total?: number | null }
-  minutes?: number | null
-  rating?: string | null
+  return null
 }
 
 interface ApiFootballPlayerSeason {
   league?: { id?: number; name?: string; type?: string }
+  team?: { id?: number }
   games?: {
     appearances?: number | null
     appearences?: number | null
@@ -237,9 +285,8 @@ export async function getApiFootballTeamSquad(
 ): Promise<ApiFootballSquadPlayer[] | null> {
   if (!isApiFootballConfigured()) return null
 
-  const configuredSeason = Number(env.API_FOOTBALL_SEASON)
-  const seasons = [...new Set([2024, configuredSeason, 2023, 2022])]
-    .filter((season) => Number.isInteger(season) && season >= 2000)
+  const seasonYear = apiFootballSeasonYear()
+  const seasons = [seasonYear, seasonYear - 1]
   for (const season of seasons) {
     const apiTeamId = await getApiFootballTeamId(teamName, season, signal)
     if (!apiTeamId) continue
@@ -358,13 +405,9 @@ export async function getPlayerSeasonMetricsForTeam(
     season,
   }, 86400)
   const record = playerRecords.find((entry) => entry.player?.id === apiPlayerId)
-  const selectedStats = [...(record?.statistics ?? [])].sort((a, b) => {
-    const aMinutes = numericValue(a.games?.minutes) ?? 0
-    const bMinutes = numericValue(b.games?.minutes) ?? 0
-    const aLeague = a.league?.type === 'League' ? 1 : 0
-    const bLeague = b.league?.type === 'League' ? 1 : 0
-    return bLeague - aLeague || bMinutes - aMinutes
-  })[0]
+  const selectedStats = record?.statistics?.find((entry) =>
+    entry.team?.id === apiTeamId && entry.league?.id === env.API_FOOTBALL_LEAGUE_ID,
+  )
 
   return selectedStats ? toSeasonMetrics(selectedStats, season) : null
 }
@@ -377,7 +420,7 @@ export async function getPlayerSeasonMetrics(
   const apiPlayerId = await resolveApiFootballPlayerId(localPlayerId, playerName)
   if (!apiPlayerId) return null
 
-  const season = env.API_FOOTBALL_SEASON ?? new Date().getFullYear()
+  const season = apiFootballSeasonYear()
   const playerRecords = await request<ApiFootballPlayerRecord>('players', {
     id: apiPlayerId,
     season,
@@ -387,17 +430,25 @@ export async function getPlayerSeasonMetrics(
   const stats = record?.statistics?.find((entry) =>
     env.API_FOOTBALL_LEAGUE_ID === undefined ||
     entry.league?.id === env.API_FOOTBALL_LEAGUE_ID,
-  ) ?? record?.statistics?.[0]
+  )
   if (!stats) return null
   return toSeasonMetrics(stats, season)
 }
 
-export async function getPlayerMatches(playerId: number): Promise<ApiFootballPlayerMatch[]> {
-  return request<ApiFootballPlayerMatch>('players/matches', {
-    player: playerId,
-    season: env.API_FOOTBALL_SEASON ?? new Date().getFullYear(),
-    league: env.API_FOOTBALL_LEAGUE_ID,
-  })
+export function apiFootballSeasonYear(now = new Date()): number {
+  return env.API_FOOTBALL_SEASON ?? (now.getUTCFullYear() - (now.getUTCMonth() < 6 ? 1 : 0))
+}
+
+export async function getPlayerCareerTeams(playerId: number) {
+  const clubs = await request<{ team?: { id?: number; name?: string }; seasons?: number[] }>(
+    'players/teams', { player: playerId }, 86400,
+  )
+  return clubs.flatMap(({ team, seasons }) =>
+    team?.id && team.name ? [{
+      team: { id: team.id, name: team.name },
+      seasons: [...new Set(seasons?.filter(Number.isInteger))].sort((a, b) => b - a),
+    }] : [],
+  ).sort((a, b) => (b.seasons[0] ?? 0) - (a.seasons[0] ?? 0))
 }
 
 export function getApiFootballPlayerId(localPlayerId: number): number | null {
@@ -409,10 +460,12 @@ export async function resolveApiFootballPlayerId(localPlayerId: number, playerNa
   if (mapped || !isApiFootballConfigured()) return mapped
   const players = await request<{ player?: { id?: number; name?: string } }>('players', {
     search: playerName,
-    season: env.API_FOOTBALL_SEASON ?? new Date().getFullYear(),
+    season: apiFootballSeasonYear(),
     league: env.API_FOOTBALL_LEAGUE_ID,
   }, 86400)
-  const normalizedName = normalizeTeamName(playerName)
-  const exact = players.find((entry) => normalizeTeamName(entry.player?.name ?? '') === normalizedName)
-  return exact?.player?.id ?? null
+  const normalizedName = normalizePlayerName(playerName).join('')
+  const ids = [...new Set(players.flatMap(({ player }) =>
+    player?.id && normalizePlayerName(player.name ?? '').join('') === normalizedName ? [player.id] : [],
+  ))]
+  return ids.length === 1 ? ids[0] : null
 }

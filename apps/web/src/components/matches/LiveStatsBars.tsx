@@ -35,7 +35,7 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
       <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
         <span className="w-2 h-6 bg-primary rounded-full" />
         {t('statistics')}
-        <DataSourceLabel kind="real" />
+        <DataSourceLabel kind="real" detail={stats.source === 'api-football' ? 'API-Football' : undefined} />
       </h3>
 
       <div className="flex justify-between items-center mb-4 px-2">
@@ -56,10 +56,10 @@ export function LiveStatsBars({ matchId, homeTeam, awayTeam, isLive }: { matchId
                 <span className="text-muted-foreground uppercase">{row.label}</span>
                 <span>{row.away ?? '—'}</span>
               </div>
-              <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+              {row.home != null && row.away != null && total > 0 && <div className="flex h-2 rounded-full overflow-hidden bg-muted">
                 <div className="bg-blue-500 transition-all duration-1000 ease-out" style={{ width: `${homePct}%` }} />
                 <div className="bg-orange-500 transition-all duration-1000 ease-out" style={{ width: `${awayPct}%` }} />
-              </div>
+              </div>}
             </div>
           )
         })}

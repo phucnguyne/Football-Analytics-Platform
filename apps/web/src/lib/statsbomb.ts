@@ -54,10 +54,12 @@ export interface StatsBombEvent {
     body_part?: { name?: string };
     outcome?: { name?: string };
     goal_assist?: boolean;
+    shot_assist?: boolean;
   };
   carry?: { end_location?: number[] };
   duel?: { type?: { name?: string }; outcome?: { name?: string } };
   foul_committed?: { card?: { name?: string } };
+  tactics?: { formation?: number; lineup?: { player?: { id?: number; name?: string }; position?: { name?: string }; jersey_number?: number }[] };
   substitution?: { replacement?: { id?: number; name?: string } };
   related_events?: string[];
   under_pressure?: boolean;
@@ -165,7 +167,7 @@ export interface StatsBombTeamTacticalMetrics {
   passesInOpponentHalf: number;
   carries: number;
   shots: number;
-  xG: number;
+  xG: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +223,7 @@ async function hfFetchJson<T>(path: string): Promise<T | null> {
     const url = `${HF_DATASET_URL}/${path}`;
     const res = await fetch(url, {
       headers: hfHeaders(),
+      signal: AbortSignal.timeout(5000),
       // Next.js: cache for 1 hour, revalidate in background
       next: { revalidate: 3600 },
     });
@@ -246,6 +249,7 @@ async function hfListDir(
     const url = `${HF_API_URL}/${subpath}`;
     const res = await fetch(url, {
       headers: hfHeaders(),
+      signal: AbortSignal.timeout(5000),
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
@@ -290,7 +294,7 @@ export async function readStatsBombEvents(
 export async function readStatsBombEventsForMatches(
   matchIds: number[],
 ): Promise<StatsBombEvent[]> {
-  if (matchIds.length === 0 || !HF_TOKEN) return [];
+  if (matchIds.length === 0) return [];
   const CONCURRENCY = 5;
   const results: StatsBombEvent[] = [];
 
@@ -396,33 +400,27 @@ export function buildStatsBombPassingNetwork(events: StatsBombEvent[]) {
     { source: number; target: number; count: number }
   >();
 
-  for (const event of events) {
-    const playerId = event.player?.id;
-    if (!playerId) continue;
-    const location = event.location ?? [60, 40];
-    const node = nodes.get(playerId) ?? {
-      id: playerId,
-      name: event.player?.name ?? "Unknown",
-      touches: 0,
-      x: 0,
-      y: 0,
-    };
+  const addPosition = (id: number, name: string, location?: number[]) => {
+    const [x, y] = location ?? [];
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 120 || y < 0 || y > 80) return;
+    const node = nodes.get(id) ?? { id, name, touches: 0, x: 0, y: 0 };
     node.touches += 1;
-    node.x += location[0] ?? 60;
-    node.y += location[1] ?? 40;
-    nodes.set(playerId, node);
+    node.x += x;
+    node.y += y;
+    nodes.set(id, node);
+  };
 
-    const recipientId = event.pass?.recipient?.id;
-    if (event.type?.name === "Pass" && recipientId) {
-      const key = `${playerId}:${recipientId}`;
-      const link = links.get(key) ?? {
-        source: playerId,
-        target: recipientId,
-        count: 0,
-      };
-      link.count += 1;
-      links.set(key, link);
-    }
+  for (const event of events) {
+    const player = event.player;
+    const recipient = event.pass?.recipient;
+    if (event.type?.name !== "Pass" || event.pass?.outcome || !player?.id || !recipient?.id || player.id === recipient.id) continue;
+    if (player.name) addPosition(player.id, player.name, event.location);
+    if (recipient.name) addPosition(recipient.id, recipient.name, event.pass?.end_location);
+
+    const key = `${player.id}:${recipient.id}`;
+    const link = links.get(key) ?? { source: player.id, target: recipient.id, count: 0 };
+    link.count += 1;
+    links.set(key, link);
   }
 
   return {
@@ -431,7 +429,7 @@ export function buildStatsBombPassingNetwork(events: StatsBombEvent[]) {
       x: +(n.x / n.touches).toFixed(1),
       y: +(n.y / n.touches).toFixed(1),
     })),
-    links: [...links.values()],
+    links: [...links.values()].filter(({ source, target }) => nodes.has(source) && nodes.has(target)),
   };
 }
 
@@ -445,11 +443,12 @@ export function buildStatsBombHeatmap(
       (e) =>
         e.player?.id === playerId &&
         Array.isArray(e.location) &&
-        e.location.length >= 2,
+        Number.isFinite(e.location[0]) && Number.isFinite(e.location[1]) &&
+        e.location[0] >= 0 && e.location[0] <= 120 && e.location[1] >= 0 && e.location[1] <= 80,
     )
     .map((e) => ({
-      x: Math.round(((e.location![0] ?? 60) / 120) * 100),
-      y: Math.round(((e.location![1] ?? 40) / 80) * 100),
+      x: Math.round((e.location![0] / 120) * 100),
+      y: Math.round((e.location![1] / 80) * 100),
       intensity: 1,
     }));
 }
@@ -485,18 +484,23 @@ export function buildStatsBombShotMap(events: StatsBombEvent[], matchId: number)
 export function buildStatsBombTeamTacticalMetrics(
   events: StatsBombEvent[],
   teamId: number,
+  opponentId: number,
 ): StatsBombTeamTacticalMetrics {
   const teamEvents = events.filter((event) => event.team?.id === teamId);
   const passes = teamEvents.filter((event) => event.type?.name === "Pass");
   const completedPasses = passes.filter((event) => !event.pass?.outcome);
+  const pressingZoneStart = 48;
+  const locatedOppositionPasses = events.filter((event) =>
+    event.team?.id === opponentId && event.type?.name === "Pass" &&
+    typeof event.location?.[0] === "number"
+  );
+  const oppositionPasses = locatedOppositionPasses.filter((event) => event.location![0] <= 120 - pressingZoneStart).length;
   const defensiveActions = teamEvents.filter((event) =>
-    ["Pressure", "Tackle", "Interception", "Block", "Clearance"].includes(
-      event.type?.name ?? "",
-    ),
+    typeof event.location?.[0] === "number" && event.location[0] >= pressingZoneStart &&
+    (["Interception", "Foul Committed"].includes(event.type?.name ?? "") ||
+      event.type?.name === "Duel" && event.duel?.type?.name === "Tackle")
   ).length;
-  const passesInOpponentHalf = passes.filter(
-    (event) => (event.location?.[0] ?? 0) >= 60,
-  ).length;
+  const passesInOpponentHalf = passes.filter((event) => (event.location?.[0] ?? 0) >= 60).length;
   const shots = teamEvents.filter((event) => event.type?.name === "Shot");
 
   return {
@@ -510,15 +514,15 @@ export function buildStatsBombTeamTacticalMetrics(
       .length,
     defensiveActions,
     ppda:
-      defensiveActions > 0
-        ? +(passesInOpponentHalf / defensiveActions).toFixed(1)
+      defensiveActions > 0 && locatedOppositionPasses.length > 0
+        ? +(oppositionPasses / defensiveActions).toFixed(1)
         : null,
     passesInOpponentHalf,
     carries: teamEvents.filter((event) => event.type?.name === "Carry").length,
     shots: shots.length,
-    xG: +shots
-      .reduce((sum, event) => sum + (event.shot?.statsbomb_xg ?? 0), 0)
-      .toFixed(2),
+    xG: shots.every((event) => typeof event.shot?.statsbomb_xg === "number")
+      ? +shots.reduce((sum, event) => sum + (event.shot?.statsbomb_xg ?? 0), 0).toFixed(2)
+      : null,
   };
 }
 

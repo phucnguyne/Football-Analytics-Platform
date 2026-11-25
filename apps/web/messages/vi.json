@@ -180,6 +180,8 @@
     "back": "Quay lại danh sách đội"
   },
   "Player": {
+    "careerUnavailable": "Chưa có lịch sử CLB được xác minh cho cầu thủ này.",
+    "verifiedSeasonStats": "Thống kê mùa giải đã xác minh",
     "title": "Cầu thủ",
     "browse": "Khám phá đội hình các đội tại Ngoại hạng Anh",
     "search": "Tìm cầu thủ…",
@@ -198,7 +200,7 @@
     "teamB": "Đội của cầu thủ B",
     "formTrend": "Biểu đồ phong độ",
     "formUnavailable": "Chưa có dữ liệu phong độ theo trận của cầu thủ này.",
-    "heatmap": "Bản đồ nhiệt và khu vực hoạt động",
+    "heatmap": "Bản đồ nhiệt cầu thủ",
     "heatmapUnavailable": "StatsBomb Open Data chưa có dữ liệu sự kiện để vẽ bản đồ nhiệt cho cầu thủ này.",
     "similar": "Cầu thủ có phong cách tương đồng",
     "similarEmpty": "Chưa tìm thấy cầu thủ tương đồng.",
@@ -213,12 +215,16 @@
     "ratingLabel": "Điểm trận đấu:",
     "minutesLabel": "Số phút thi đấu:",
     "goalsAssists": "Bàn thắng / Kiến tạo:",
-    "heatmapDescription": "Mật độ chạm bóng và khu vực hoạt động qua các trận",
+    "heatmapDescription": "Vị trí các tình huống trong những trận có dữ liệu StatsBomb",
     "cosine": "Độ tương đồng cosine",
     "similarity": "Tương đồng",
     "compare": "So sánh"
   },
   "Match": {
+    "passingNetwork": "Mạng chuyền bóng của {team}",
+    "passingNetworkDescription": "Vị trí trung bình của các đường chuyền thành công và các pha nhận bóng.",
+    "minimumPasses": "Số đường chuyền tối thiểu",
+    "networkInvolvements": "Lượt chuyền và nhận",
     "schedule": "Lịch thi đấu",
     "chooseLeague": "Chọn giải đấu",
     "noMatches": "Không tìm thấy trận đấu cho giải này.",
@@ -347,6 +353,11 @@
     "chartUnavailable": "Biểu đồ radar cần ít nhất một chỉ số có dữ liệu của cả hai cầu thủ."
   },
   "Scout": {
+    "standingUpdated": "Cập nhật bảng xếp hạng ngày {date}",
+    "player": "Cầu thủ",
+    "standing": "Vị trí trên bảng xếp hạng",
+    "standingSummary": "{points} điểm sau {played} trận · {wins} thắng, {draws} hòa, {losses} thua · ghi {goalsFor} bàn, thủng lưới {goalsAgainst} bàn",
+    "playerStatsUnavailable": "Chưa có thống kê cầu thủ được xác minh cho CLB và mùa này.",
     "formation": "Đội hình và chiến thuật",
     "attack": "Cách triển khai tấn công",
     "defense": "Hồ sơ phòng ngự",

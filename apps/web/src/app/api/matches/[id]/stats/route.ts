@@ -1,6 +1,6 @@
-import { dataSourceFor } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
+import { getFixtureStatistics, resolveApiFootballFixtureId } from '@/lib/api-football'
 
 /** Weight of each event type when building the momentum curve */
 const EVENT_WEIGHT: Record<string, number> = {
@@ -64,7 +64,10 @@ export async function GET(
 
     const match = await prisma.match.findUnique({
       where: { id: matchId },
-      include: {
+      select: {
+        status: true, utcDate: true, minute: true, rawData: true,
+        homeTeam: { select: { name: true } },
+        awayTeam: { select: { name: true } },
         statistics: true,
         events: {
           select: { minute: true, type: true, team: true, analyticsSource: true },
@@ -77,20 +80,31 @@ export async function GET(
       return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     }
 
-    const home = match.statistics.find((stat) => stat.team === 'HOME') ?? null
-    const away = match.statistics.find((stat) => stat.team === 'AWAY') ?? null
+    const storedHome = match.statistics.find((stat) => stat.team === 'HOME')
+    const storedAway = match.statistics.find((stat) => stat.team === 'AWAY')
+    const playing = match.status === 'IN_PLAY' || match.status === 'PAUSED'
+    const hasStarted = playing || match.status === 'FINISHED'
+    const providerStats = hasStarted && (playing || !storedHome || !storedAway)
+      ? await resolveApiFootballFixtureId({
+        localMatchId: matchId, rawData: match.rawData, utcDate: match.utcDate,
+        homeTeamName: match.homeTeam.name, awayTeamName: match.awayTeam.name,
+      }).then((fixtureId) => fixtureId
+        ? getFixtureStatistics(fixtureId, match.homeTeam.name, match.awayTeam.name)
+        : null,
+      ).catch(() => null)
+      : null
+    const home = providerStats?.home ?? storedHome ?? null
+    const away = providerStats?.away ?? storedAway ?? null
 
     // Determine the last event minute to know how far the match ran
-    const lastEventMinute =
-      match.events.length > 0
-        ? match.events[match.events.length - 1].minute
-        : match.status === 'FINISHED'
-        ? 90
-        : 0
-
-    // Build momentum only if we have events to work with
-    const momentumEvents = match.events.filter((e) =>
-      Object.prototype.hasOwnProperty.call(EVENT_WEIGHT, e.type)
+    const verifiedEvents = match.events.filter((event) => event.analyticsSource === 'REAL')
+    const momentumEvents = (verifiedEvents.length ? verifiedEvents : match.events.filter((event) =>
+      event.analyticsSource === null && event.type !== 'SHOT',
+    )).filter((event) => Object.prototype.hasOwnProperty.call(EVENT_WEIGHT, event.type))
+    const lastEventMinute = Math.max(
+      match.minute ?? 0,
+      momentumEvents.at(-1)?.minute ?? 0,
+      match.status === 'FINISHED' ? 90 : 0,
     )
 
     const momentum =
@@ -100,6 +114,7 @@ export async function GET(
 
     return NextResponse.json({
       available: home !== null || away !== null,
+      source: providerStats?.home || providerStats?.away ? 'api-football' : home || away ? 'database' : 'unavailable',
       possession: { home: home?.possession ?? null, away: away?.possession ?? null },
       shots: { home: home?.shots ?? null, away: away?.shots ?? null },
       shotsOnTarget: {
@@ -109,7 +124,7 @@ export async function GET(
       corners: { home: home?.corners ?? null, away: away?.corners ?? null },
       fouls: { home: home?.fouls ?? null, away: away?.fouls ?? null },
       momentum,
-      momentumProvenance: dataSourceFor(momentumEvents.map((event) => event.type === 'SHOT' ? event.analyticsSource : 'REAL')),
+      momentumProvenance: momentumEvents.length ? 'real' : 'unavailable',
     })
   } catch (error) {
     console.error('Error fetching match statistics:', error)

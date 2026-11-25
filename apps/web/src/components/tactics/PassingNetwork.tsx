@@ -3,13 +3,12 @@
 import React, { useState, useMemo } from 'react'
 import { PitchCanvas } from './PitchCanvas'
 import { TacticalTeamCrest } from './TacticalTeamCrest'
+import { useTranslations } from 'next-intl'
 import type { PassingNode, PassingLink } from '@/lib/tactics-generator'
 
 interface PassingNetworkProps {
-  nodes: PassingNode[]
-  links: PassingLink[]
-  topCombinations?: { from: string; to: string; count: number }[]
-  centralPlayer?: string
+  nodes: (Omit<PassingNode, 'shirtNumber'> & { shirtNumber: number | null })[]
+  links: Omit<PassingLink, 'direction'>[]
   teamName: string
   teamCrest?: string
 }
@@ -17,13 +16,12 @@ interface PassingNetworkProps {
 export function PassingNetwork({
   nodes,
   links,
-  topCombinations = [],
-  centralPlayer,
   teamName,
   teamCrest,
 }: PassingNetworkProps) {
+  const t = useTranslations('Match')
   const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null)
-  const [filterMinPasses, setFilterMinPasses] = useState<number>(5)
+  const [filterMinPasses, setFilterMinPasses] = useState<number>(1)
 
   const activeLinks = links.filter((l) => l.count >= filterMinPasses)
 
@@ -40,17 +38,17 @@ export function PassingNetwork({
             <TacticalTeamCrest src={teamCrest} name={teamName} />
           )}
           <div>
-            <h4 className="font-bold text-sm tracking-tight">{teamName} Passing Network</h4>
+            <h4 className="font-bold text-sm tracking-tight">{t('passingNetwork', { team: teamName })}</h4>
             <p className="text-xs text-muted-foreground">
-              Average player touch positions & passing link volume
+              {t('passingNetworkDescription')}
             </p>
           </div>
         </div>
 
         {/* Minimum passes filter */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Min. passes:</span>
-          {[5, 10, 15].map((threshold) => (
+          <span className="text-muted-foreground">{t('minimumPasses')}</span>
+          {[1, 5, 10, 15].map((threshold) => (
             <button
               key={threshold}
               onClick={() => setFilterMinPasses(threshold)}
@@ -168,7 +166,7 @@ export function PassingNetwork({
                     pointerEvents="none"
                     opacity={isConnected ? 1 : 0.3}
                   >
-                    {node.shirtNumber}
+                    {node.shirtNumber ?? '·'}
                   </text>
 
                   {/* Player Name Label */}
@@ -202,7 +200,7 @@ export function PassingNetwork({
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
               <span className="text-slate-400">Position:</span>
               <span className="font-semibold">{hoveredNode.position}</span>
-              <span className="text-slate-400">Total Touches:</span>
+              <span className="text-slate-400">{t('networkInvolvements')}</span>
               <span className="font-semibold text-sky-400">{hoveredNode.touches}</span>
               <span className="text-slate-400">Key Links:</span>
               <span className="font-semibold">
@@ -213,44 +211,6 @@ export function PassingNetwork({
         )}
       </div>
 
-      {/* Network Insights & Key Combinations */}
-      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-        {/* Most Central Hub */}
-        <div className="bg-card p-4 rounded-xl border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-xl">
-            🎯
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-              Central Playmaker
-            </p>
-            <p className="font-bold text-sm text-foreground">{centralPlayer || 'Key Midfielder'}</p>
-          </div>
-        </div>
-
-        {/* Top Combinations */}
-        <div className="bg-card p-4 rounded-xl border sm:col-span-2">
-          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">
-            Top Passing Combinations
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {topCombinations.slice(0, 3).map((comb, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 bg-muted/60 px-2.5 py-1 rounded-lg text-xs font-medium border"
-              >
-                <span className="font-bold">{comb.from}</span>
-                <span className="text-sky-500 text-sm">⇄</span>
-                <span className="font-bold">{comb.to}</span>
-                <span className="ml-1 text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded">
-                  {comb.count}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
-

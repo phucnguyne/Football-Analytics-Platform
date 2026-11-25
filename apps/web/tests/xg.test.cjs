@@ -1,7 +1,36 @@
+jest.mock('server-only', () => ({}), { virtual: true })
+
 const { shotFeatures, probability, teamFormFeatures } = require('../src/models/xg-features.cjs')
 const { estimateShotXg, matchFormHistory } = require('../src/lib/xg-model')
 const { buildFormContexts, splitCompetition } = require('../../../tools/xg-form.cjs')
 const model = require('../src/models/xg-model.json')
+const { buildStatsBombPassingNetwork, buildStatsBombTeamTacticalMetrics } = require('@/lib/statsbomb')
+
+test('PPDA uses opposition passes and defensive actions within the same pressing zone', () => {
+  const event = (name, teamId, x, detail) => ({ type: { name }, team: { id: teamId }, location: [x, 40], ...detail })
+  const events = [
+    event('Pass', 1, 80), event('Pass', 1, 90), event('Pass', 2, 55),
+    event('Pass', 2, 72), event('Pass', 2, 95),
+    event('Duel', 1, 60, { duel: { type: { name: 'Tackle' } } }),
+    event('Interception', 1, 30),
+  ]
+  expect(buildStatsBombTeamTacticalMetrics(events, 1, 2).ppda).toBe(2)
+  expect(buildStatsBombTeamTacticalMetrics(events, 1, 3).ppda).toBeNull()
+})
+
+test('the passing network uses recorded locations and successful passes', () => {
+  const player = { id: 1, name: 'Passer' }
+  const recipient = { id: 2, name: 'Receiver' }
+  const pass = { type: { name: 'Pass' }, player, location: [20, 30], pass: { recipient, end_location: [50, 70] } }
+  expect(buildStatsBombPassingNetwork([pass, { ...pass, pass: { ...pass.pass, outcome: { name: 'Incomplete' } } }])).toEqual({
+    nodes: [
+      { id: 1, name: 'Passer', x: 20, y: 30, touches: 1 },
+      { id: 2, name: 'Receiver', x: 50, y: 70, touches: 1 },
+    ],
+    links: [{ source: 1, target: 2, count: 1 }],
+  })
+  expect(buildStatsBombPassingNetwork([{ ...pass, location: undefined }]).links).toEqual([])
+})
 
 test('the dataset includes Premier League, La Liga and senior men’s and women’s World Cups', () => {
   for (const id of [2, 11, 43, 72]) {

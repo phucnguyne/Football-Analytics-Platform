@@ -13,9 +13,10 @@ interface ShotPoint {
   x: number;
   y: number;
   xG: number | null;
-  outcome: string;
-  player: string;
-  playerId: number;
+  providerXg?: number | null;
+  outcome: string | null;
+  player: string | null;
+  playerId: number | null;
   minute: number;
   technique?: string;
   bodyPart?: string;
@@ -122,7 +123,7 @@ export const ShotMap = memo(function ShotMap({
             <h3 className="text-lg font-bold">{t('shotMap')}</h3>
             <DataSourceLabel
               kind="real"
-              detail={sbData?.available ? 'StatsBomb Open Data' : undefined}
+              detail={sbData?.source === 'statsbomb-open-data' ? 'StatsBomb Open Data' : undefined}
             />
           </div>
           {sbData?.xgModel && (
@@ -139,7 +140,7 @@ export const ShotMap = memo(function ShotMap({
             </p>
           )}
           <p className="text-xs text-muted-foreground mt-0.5">
-            {sbData?.available
+            {sbData?.source === 'statsbomb-open-data'
               ? `StatsBomb open data · ${shots.length} shots`
               : `${shots.length} shots from match events`}
           </p>
@@ -212,7 +213,7 @@ export const ShotMap = memo(function ShotMap({
           return (
             <div
               key={i}
-              title={`${shot.minute}' – ${shot.player} · ${shot.outcome} · xG: ${shot.xG?.toFixed(3) ?? '—'}${shot.technique ? ` · ${shot.technique}` : ""}`}
+              title={`${shot.minute}' · ${shot.player ?? '—'} · ${shot.outcome ?? '—'} · xG: ${shot.xG?.toFixed(3) ?? '—'}${shot.providerXg != null ? ` · StatsBomb xG: ${shot.providerXg.toFixed(3)}` : ''}${shot.technique ? ` · ${shot.technique}` : ''}`}
               className={`absolute rounded-full transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-crosshair
                 ${isHome ? "bg-blue-500" : isAway ? "bg-red-500" : "bg-neutral-400"}
                 ${shot.isGoal ? "border-[3px] border-white z-10 shadow-lg" : "opacity-70 border border-black/20"}
