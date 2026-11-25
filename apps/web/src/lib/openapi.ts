@@ -91,9 +91,17 @@ function add(path: string, method: Method, summary: string, options: {
 
 const listMatches = object({ matches: list(ref('Match')) })
 const playerList = object({ players: list(ref('Player')) })
-const teamList = object({ teams: list(ref('Team')) })
 
 add('/api/health', 'get', 'Web service liveness', { schema: object({ status: text, service: text, timestamp: dateTime }) })
+const readiness = object({
+  status: { type: 'string', enum: ['ok', 'unavailable'] },
+  service: text,
+  checks: object({ database: { type: 'string', enum: ['ok', 'unavailable'] } }),
+})
+add('/api/health/ready', 'get', 'Web service readiness with database connectivity', {
+  schema: readiness,
+  extraResponses: { 503: { description: 'Database unavailable', content: json(readiness) } },
+})
 add('/api/search', 'get', 'Search players, clubs and fixtures', {
   params: [query('query', { ...text, minLength: 2, maxLength: 80 }, 'Search term', true)], failures: [400, 500],
   schema: object({ players: list(ref('Player')), teams: list(ref('Team')), matches: list(generic) }),
