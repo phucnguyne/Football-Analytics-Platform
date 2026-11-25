@@ -73,7 +73,7 @@ export function LiveScoreboard() {
                 </div>
 
                 <span className="shrink-0 rounded-lg bg-muted px-3 py-2 text-lg font-black tabular-nums">
-                  {match.homeGoals ?? 0} - {match.awayGoals ?? 0}
+                  {match.homeGoals ?? '—'} - {match.awayGoals ?? '—'}
                 </span>
 
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-2">

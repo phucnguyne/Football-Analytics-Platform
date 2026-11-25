@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const parsedStatuses = z.array(matchStatusSchema).safeParse(
     statusParam.split(',').map((status) => status.trim())
   )
+  const includeRecentResults = req.nextUrl.searchParams.get('recentResults') === 'true'
 
   if (!parsedStatuses.success) {
     return NextResponse.json(
@@ -31,9 +32,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const matches = await prisma.match.findMany({
-      where: {
-        status: { in: parsedStatuses.data },
-      },
+      where: includeRecentResults ? {
+        OR: [
+          { status: { in: parsedStatuses.data } },
+          {
+            status: 'FINISHED',
+            utcDate: { gte: new Date(Date.now() - 12 * 60 * 60_000) },
+            score: { isNot: null },
+          },
+        ],
+      } : { status: { in: parsedStatuses.data } },
       include: {
         homeTeam: true,
         awayTeam: true,

@@ -43,7 +43,7 @@ const FALLBACK_POLL_INTERVAL_MS = 30_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
 async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
-  const response = await fetch("/api/matches?status=IN_PLAY,PAUSED");
+  const response = await fetch("/api/matches?status=IN_PLAY,PAUSED&recentResults=true");
   if (!response.ok)
     throw new Error(`Failed to load live matches (${response.status})`);
 
@@ -74,26 +74,34 @@ async function fetchLiveMatches(): Promise<Record<number, LiveMatchUpdate>> {
 }
 
 export const useLiveStore = create<LiveStoreState>((set, get) => {
+  let refreshing = false;
+  let refreshQueued = false;
   const refreshLiveMatches = async () => {
+    if (refreshing) {
+      refreshQueued = true;
+      return;
+    }
+    refreshing = true;
     try {
       const nextMatches = await fetchLiveMatches();
+      if (liveConsumers === 0) return;
       const previousMatches = get().liveMatches;
       for (const [key, next] of Object.entries(nextMatches)) {
         const previous = previousMatches[Number(key)];
         if (!previous) continue;
-        if (
-          (next.homeGoals ?? 0) > (previous.homeGoals ?? 0) ||
-          (next.awayGoals ?? 0) > (previous.awayGoals ?? 0)
-        ) {
-          toast.success(
-            `⚽ GOAL! ${next.homeTeamName} ${next.homeGoals}-${next.awayGoals} ${next.awayTeamName}`,
-            { duration: 5000, position: "top-right" },
-          );
-        }
         if (previous.status !== "FINISHED" && next.status === "FINISHED") {
           toast(
             `${next.homeTeamName} ${next.homeGoals}-${next.awayGoals} ${next.awayTeamName}\nMatch Finished`,
             { icon: "🏁", duration: 5000, position: "top-right" },
+          );
+        } else if (
+          (next.status === "IN_PLAY" || next.status === "PAUSED") &&
+          ((next.homeGoals ?? 0) + (next.awayGoals ?? 0)) >
+            ((previous.homeGoals ?? 0) + (previous.awayGoals ?? 0))
+        ) {
+          toast.success(
+            `⚽ GOAL! ${next.homeTeamName} ${next.homeGoals}-${next.awayGoals} ${next.awayTeamName}`,
+            { duration: 5000, position: "top-right" },
           );
         }
       }
@@ -101,7 +109,13 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
     } catch (error) {
       console.error("Failed to load live matches", error);
     } finally {
-      set({ isInitializing: false });
+      refreshing = false;
+      const shouldRefreshAgain = refreshQueued;
+      refreshQueued = false;
+      if (liveConsumers > 0) {
+        set({ isInitializing: false });
+        if (shouldRefreshAgain) void refreshLiveMatches();
+      }
     }
   };
 
@@ -214,7 +228,7 @@ export const useLiveStore = create<LiveStoreState>((set, get) => {
       fallbackPollTimer = null;
       reconnectTimer = null;
       reconnectAttempts = 0;
-      set({ isConnected: false, isInitializing: true });
+      set({ liveMatches: {}, isConnected: false, isInitializing: true });
     },
   };
 });

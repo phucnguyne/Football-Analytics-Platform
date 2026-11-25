@@ -13,7 +13,6 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useMatchLive } from "@/hooks/useMatchLive";
 import { LiveStatsBars } from "@/components/matches/LiveStatsBars";
-import { LivePredictionGame } from "@/components/matches/LivePredictionGame";
 import { MatchComments } from "@/components/matches/MatchComments";
 import { MatchInsight } from "@/components/matches/MatchInsight";
 import { SharedPrediction } from "@/components/matches/SharePrediction";
@@ -88,6 +87,12 @@ export default function MatchDetailsPage({
   useEffect(() => {
     if (liveStatus) {
       queryClient.invalidateQueries({ queryKey: ["match", id] });
+      queryClient.invalidateQueries({ queryKey: ["provider-events", id] });
+      queryClient.invalidateQueries({ queryKey: ["match-stats", id] });
+      if (liveStatus === "FINISHED") {
+        queryClient.invalidateQueries({ queryKey: ["tactics", id] });
+        queryClient.invalidateQueries({ queryKey: ["match-shots", id] });
+      }
     }
   }, [
     liveUpdate?.homeGoals,
@@ -474,11 +479,6 @@ export default function MatchDetailsPage({
 
         {/* Lineups and Standings Impact */}
         <div className="space-y-6">
-          <LivePredictionGame
-            isLive={currentStatus === "IN_PLAY" || currentStatus === "PAUSED"}
-            homeTeam={match.homeTeam}
-            awayTeam={match.awayTeam}
-          />
           <MatchComments matchId={id} />
 
           {/* Standings Impact (Live) */}
