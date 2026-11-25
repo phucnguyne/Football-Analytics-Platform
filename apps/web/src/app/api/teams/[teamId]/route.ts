@@ -3,22 +3,12 @@ import prisma from '@app/database/src/client'
 import type { Position } from '@app/database'
 import { toTeamResponse } from '@/lib/db-helpers'
 import { env } from '@/lib/env'
+import { isPlaceholderPlayerName } from '@/lib/data-source'
 import {
   apiFootballPlayerNameMatches,
   getApiFootballTeamSquad,
 } from '@/lib/api-football'
 import type { FootballDataPerson, FootballDataTeamDetail } from '@/types/TypesBarrel'
-
-/**
- * Heuristic: detect placeholder/seeded player names like "Chelsea Goalkeeper 0"
- * or "Brentford Defender 3". Real names don't match this pattern.
- */
-function hasPlaceholderNames(players: { name: string }[]): boolean {
-  if (players.length === 0) return true
-  const genericPattern = /\b(Goalkeeper|Defender|Midfielder|Forward)\s+\d+$/i
-  const genericCount = players.filter(p => genericPattern.test(p.name)).length
-  return genericCount > players.length * 0.4 // >40% generic = treat as placeholder
-}
 
 export async function GET(
   _req: NextRequest,
@@ -54,8 +44,9 @@ export async function GET(
       return NextResponse.json(await res.json())
     }
 
-    const dbPlayers = team.players.map(pt => pt.player)
-    const needsLiveSquad = hasPlaceholderNames(dbPlayers)
+    const knownPlayers = team.players.filter(({ player }) => !isPlaceholderPlayerName(player.name))
+    const dbPlayers = knownPlayers.map(({ player }) => player)
+    const needsLiveSquad = !knownPlayers.length || knownPlayers.length !== team.players.length
 
     // Always fetch from football-data.org for coach + fresh squad
     let externalData: FootballDataTeamDetail | null = null
@@ -74,7 +65,7 @@ export async function GET(
 
     const externalSquad: FootballDataPerson[] = externalData?.squad ?? externalData?.players ?? []
     const playerPhotos = new Map(dbPlayers.map((player) => [player.id, player.photo]))
-    const apiSquad = await getApiFootballTeamSquad(team.name)
+    const apiSquad = await getApiFootballTeamSquad(team.name).catch(() => null)
     const externalSquadWithPhotos = externalSquad.map((player) => {
       const apiPlayer = apiSquad?.find((candidate) =>
         apiFootballPlayerNameMatches(candidate.name, player.name),
@@ -93,7 +84,7 @@ export async function GET(
       )
     }
 
-    const dbSquad = team.players.map(pt => ({
+    const dbSquad = knownPlayers.map(pt => ({
       id: pt.player.id,
       name: pt.player.name,
       position: pt.player.position,

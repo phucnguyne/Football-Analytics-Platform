@@ -65,6 +65,7 @@ export default function PlayerDetailsPage({
     queryKey: ["player", playerId],
     queryFn: () => getPlayer(playerId),
     enabled: !!playerId,
+    placeholderData: undefined,
   });
 
   if (isLoading) return <PageSkeleton variant="detail" />;
@@ -149,14 +150,14 @@ export default function PlayerDetailsPage({
           </div>
 
           {/* Basic Stats Summary */}
-          {stats && (
+          {stats ? (
             <div className="bg-card p-6 rounded-2xl border">
-              <h3 className="text-lg font-bold mb-2">{t('seasonSummary')}</h3>
-              <DataSourceLabel kind={dataSourceFor([stats.dataSource])} className="mb-4" />
+              <h3 className="text-lg font-bold mb-2">{t('seasonSummary')}{player.statsSeason ? ` · ${player.statsSeason}` : ''}</h3>
+              <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={player.statsSource === 'api-football' ? 'API-Football' : undefined} className="mb-4" />
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
-                    {stats.matchesPlayed}
+                    {stats.matchesPlayed ?? '—'}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
                     {metric('matches')}
@@ -164,7 +165,7 @@ export default function PlayerDetailsPage({
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
-                    {stats.goals}
+                    {stats.goals ?? '—'}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
                     {metric('goals')}
@@ -172,7 +173,7 @@ export default function PlayerDetailsPage({
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
-                    {stats.assists}
+                    {stats.assists ?? '—'}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
                     {metric('assists')}
@@ -180,13 +181,18 @@ export default function PlayerDetailsPage({
                 </div>
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
-                    {stats.minutesPlayed}&apos;
+                    {stats.minutesPlayed == null ? '—' : `${stats.minutesPlayed}′`}
                   </p>
                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">
                     {metric('minutes')}
                   </p>
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-2xl border bg-card p-6">
+              <h3 className="text-lg font-bold">{t('seasonSummary')}</h3>
+              <DataSourceLabel kind="unavailable" />
             </div>
           )}
         </div>
@@ -217,7 +223,7 @@ export default function PlayerDetailsPage({
                 <span className="text-xl">📊</span> {t('detailed')}
               </h3>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <DataSourceLabel kind={dataSourceFor([stats.dataSource])} />
+                <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={player.statsSource === 'api-football' ? 'API-Football' : undefined} />
                 <DataExport
                   filename={`player-${player.id}-statistics`}
                   title={metric("playerStats", { name: player.name })}
@@ -243,19 +249,19 @@ export default function PlayerDetailsPage({
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('xg')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.xG?.toFixed(2) || "0.00"}
+                        {stats.xG?.toFixed(2) ?? '—'}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('xa')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.xA?.toFixed(2) || "0.00"}
+                        {stats.xA?.toFixed(2) ?? '—'}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('shotsPer90')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.shotsPer90?.toFixed(2) || "0.00"}
+                        {stats.shotsPer90?.toFixed(2) ?? '—'}
                       </span>
                     </li>
                   </ul>
@@ -269,19 +275,19 @@ export default function PlayerDetailsPage({
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('passAccuracy')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.passCompletion?.toFixed(1) || "0.0"}%
+                        {stats.passCompletion == null ? '—' : `${stats.passCompletion.toFixed(1)}%`}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('progressivePasses')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.progressivePasses?.toFixed(1) || "0.0"}
+                        {stats.progressivePasses?.toFixed(1) ?? '—'}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('dribblesSuccess')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.dribblesSuccess?.toFixed(1) || "0.0"}%
+                        {stats.dribblesSuccess == null ? '—' : `${stats.dribblesSuccess.toFixed(1)}%`}
                       </span>
                     </li>
                   </ul>
@@ -295,19 +301,19 @@ export default function PlayerDetailsPage({
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('tackles')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.tacklesPer90?.toFixed(2) || "0.00"}
+                        {stats.tacklesPer90?.toFixed(2) ?? '—'}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm">
                       <span>{metric('interceptions')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.interceptions?.toFixed(2) || "0.00"}
+                        {stats.interceptions?.toFixed(2) ?? '—'}
                       </span>
                     </li>
                     <li className="flex justify-between items-center text-sm text-red-500">
                       <span>{t('cards')}</span>
                       <span className="font-bold tabular-nums">
-                        {stats.yellowCards} / {stats.redCards}
+                        {stats.yellowCards ?? '—'} / {stats.redCards ?? '—'}
                       </span>
                     </li>
                   </ul>

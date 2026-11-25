@@ -1,3 +1,6 @@
+// Deployment checks can inherit NODE_ENV=production, which disables React's act().
+process.env.NODE_ENV = 'test'
+
 module.exports = {
   roots: ['<rootDir>/apps/web/tests'],
   testEnvironment: 'node',

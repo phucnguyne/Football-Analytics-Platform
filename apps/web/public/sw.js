@@ -1,4 +1,4 @@
-const cacheName = 'fa-pro-offline-v2'
+const cacheName = 'fa-pro-offline-v3'
 const offlinePage = '/offline.html'
 const publicPage = /^\/(?:matches(?:\/\d+)?|teams(?:\/\d+(?:\/scouting)?)?|players(?:\/(?:\d+|compare))?|standings)?\/?$/
 const publicApi = /^\/api\/(?:competitions\/[A-Z0-9]+\/(?:standings|teams|matches|seasons)|teams\/\d+(?:\/scouting|\/matches)?|persons(?:\/\d+(?:\/(?:career|form|heatmap|similar))?|\/compare)?|matches\/\d+(?:\/(?:shots|tactics|stats))?)$/

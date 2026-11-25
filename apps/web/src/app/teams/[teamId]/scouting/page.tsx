@@ -8,9 +8,9 @@ import { Container } from '@/components/ui/grid'
 import { PageSkeleton } from '@/components/ui/Skeleton'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { ScoutingReport } from '@/components/teams/ScoutingReport'
-import type { ScoutingReport as ScoutingReportType } from '@/lib/scouting-generator'
+import type { ScoutingReportData } from '@/lib/scouting-report'
 
-async function fetchScoutingReport(teamId: string): Promise<ScoutingReportType> {
+async function fetchScoutingReport(teamId: string): Promise<ScoutingReportData> {
   const res = await fetch(`/api/teams/${teamId}/scouting`)
   if (!res.ok) throw new Error('Failed to fetch scouting report')
   return res.json()
@@ -27,6 +27,7 @@ export default function ScoutingReportPage({
   const { data: report, isLoading, isError } = useQuery({
     queryKey: ['scouting', teamId],
     queryFn: () => fetchScoutingReport(teamId),
+    placeholderData: undefined,
     enabled: !!teamId,
     staleTime: 5 * 60 * 1000, // 5 min
   })

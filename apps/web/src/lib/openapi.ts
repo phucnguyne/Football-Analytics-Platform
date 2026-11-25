@@ -118,10 +118,14 @@ add('/api/openapi', 'get', 'OpenAPI document')
 add('/api/docs', 'get', 'Swagger UI', { media: 'text/html', schema: text })
 add('/api/docs/{asset}', 'get', 'Swagger UI static assets', { media: 'application/octet-stream', schema: text, failures: [404] })
 
-add('/api/matches', 'get', 'Live matches and matches by status', { tag: 'Matches', params: [status], schema: listMatches, failures: [400, 500] })
+add('/api/matches', 'get', 'Live matches and matches by status', {
+  tag: 'Matches',
+  params: [status, query('recentResults', { type: 'boolean' }, 'Include finished matches from the past 12 hours')],
+  schema: listMatches, failures: [400, 500],
+})
 add('/api/matches/{id}', 'get', 'Match details', { tag: 'Matches', schema: ref('Match'), failures: [400, 404, 500] })
 add('/api/matches/{id}/stats', 'get', 'Match statistics and momentum', { tag: 'Matches', failures: [400, 404, 500] })
-add('/api/matches/{id}/tactics', 'get', 'Tactical metrics and confirmed lineups', { tag: 'Matches', failures: [400, 404, 500] })
+add('/api/matches/{id}/tactics', 'get', 'Tactical metrics and confirmed lineups', { tag: 'Matches', failures: [400, 404, 503] })
 add('/api/matches/{id}/provider-events', 'get', 'Events from API-Football when available', {
   tag: 'Matches', schema: object({ available: { type: 'boolean' }, events: list(generic) }, ['available', 'events']), failures: [400, 404],
 })
@@ -167,7 +171,7 @@ add('/api/teams/{teamId}', 'get', 'Team profile including squad and club colors'
 add('/api/teams/{teamId}/matches', 'get', 'Team match history', {
   tag: 'Teams', params: [status, query('limit', integer, 'Maximum number of matches')], schema: listMatches, failures: [400, 500],
 })
-add('/api/teams/{teamId}/scouting', 'get', 'Team scouting report with source labels', { tag: 'Teams', failures: [400, 404] })
+add('/api/teams/{teamId}/scouting', 'get', 'Team scouting report with source labels', { tag: 'Teams', failures: [400, 404, 503] })
 for (const [method, summary] of [['get', 'Check followed-team status'], ['put', 'Follow a team'], ['delete', 'Unfollow a team']] as const) {
   add('/api/favorites/{teamId}', method, summary, {
     tag: 'Teams', access: 'session', schema: object({ favorite: { type: 'boolean' } }), failures: [400, 404],
@@ -182,7 +186,7 @@ add('/api/persons/{playerId}', 'get', 'Player profile and statistics', { tag: 'P
 for (const [subpath, summary] of [
   ['career', 'Career timeline and source labels'], ['form', 'Recent player form'], ['heatmap', 'Player heatmap'],
   ['similar', 'Similar player profiles'],
-]) add(`/api/persons/{playerId}/${subpath}`, 'get', summary, { tag: 'Players', failures: [400, 404, 500] })
+]) add(`/api/persons/{playerId}/${subpath}`, 'get', summary, { tag: 'Players', failures: [400, 404, 500, 502, 503] })
 add('/api/persons/{playerId}/photo', 'get', 'Redirect to a player photo or return a placeholder', {
   tag: 'Players', media: 'image/svg+xml', schema: text, params: [query('name', text, 'Player name', true)], failures: [400],
   extraResponses: { 307: { description: 'Redirect to a Wikimedia photo' } },

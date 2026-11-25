@@ -45,22 +45,22 @@ function FormCustomTooltip({ active, payload }: {
                 : 'bg-rose-500/20 text-rose-400'
             }`}
           >
-            {d.result} ({d.score})
+            {d.result ?? '—'} ({d.score ?? '—'})
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
           <span className="text-muted-foreground">{t('ratingLabel')}</span>
-          <span className="font-bold text-primary">{d.rating} / 10</span>
+          <span className="font-bold text-primary">{d.rating === null ? '—' : `${d.rating} / 10`}</span>
           <span className="text-muted-foreground">{t('minutesLabel')}</span>
-          <span className="font-semibold">{d.minutes}&apos;</span>
+          <span className="font-semibold">{d.minutes === null ? '—' : `${d.minutes}′`}</span>
           <span className="text-muted-foreground">xG / xA:</span>
           <span className="font-semibold text-foreground">
-            {d.xG} / {d.xA}
+            {d.xG ?? '—'} / {d.xA ?? '—'}
           </span>
           <span className="text-muted-foreground">{t('goalsAssists')}</span>
           <span className="font-semibold text-emerald-400">
-            {d.goals}G, {d.assists}A
+            {d.goals ?? '—'}G, {d.assists ?? '—'}A
           </span>
         </div>
       </div>
@@ -79,6 +79,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
     source: string
   }>({
     queryKey: ['player-form', playerId],
+    placeholderData: undefined,
     queryFn: async () => {
       const res = await fetch(`/api/persons/${playerId}/form`)
       if (!res.ok) throw new Error('Failed to fetch player form')
@@ -92,19 +93,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
   // Memoized so switching the metric toggle doesn't re-derive the array.
   const chartData = useMemo(
     () =>
-      (matches ?? []).map((m, idx) => ({
-        matchLabel: `GW${idx + 1}`,
-        opponent: m.opponent.shortName,
-        crest: m.opponent.crest,
-        result: m.result,
-        score: m.score,
-        rating: m.rating,
-        xG: m.xG,
-        xA: m.xA,
-        goals: m.goals,
-        assists: m.assists,
-        minutes: m.minutes,
-      })),
+      (matches ?? []).map((match) => ({ ...match, matchLabel: match.date })),
     [matches]
   )
 
@@ -113,12 +102,18 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
   if (isError || !data || !matches?.length) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground text-sm">
-        Match-by-match form data is unavailable. Add an API-Football player mapping to enable it.
+        {t('formUnavailable')}
       </div>
     )
   }
 
   const { summary } = data
+  const metrics = {
+    rating: matches.some((match) => match.rating !== null),
+    xg_xa: matches.some((match) => match.xG !== null || match.xA !== null),
+    goals_assists: matches.some((match) => match.goals !== null || match.assists !== null),
+  }
+  const activeMetric = metrics[metric] ? metric : (Object.keys(metrics) as (keyof typeof metrics)[]).find((key) => metrics[key])
 
   return (
     <div className="bg-card p-6 rounded-2xl border space-y-5 shadow-sm">
@@ -129,7 +124,6 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
             <span className="w-2.5 h-6 bg-primary rounded-full" />
             <h3 className="text-lg font-bold">{t('formTrend')}</h3>
             <DataSourceLabel kind="real" detail={data.source === 'api-football' ? 'API-Football' : 'StatsBomb Open Data'} />
-            {metric === 'rating' && data.source === 'statsbomb-open-data' && <DataSourceLabel kind="model" />}
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               Last {matches.length} Matches
             </span>
@@ -143,8 +137,9 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
         <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border">
           <button
             onClick={() => setMetric('rating')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              metric === 'rating'
+            disabled={!metrics.rating}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 ${
+              activeMetric === 'rating'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -153,8 +148,9 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
           </button>
           <button
             onClick={() => setMetric('xg_xa')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              metric === 'xg_xa'
+            disabled={!metrics.xg_xa}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 ${
+              activeMetric === 'xg_xa'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -163,8 +159,9 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
           </button>
           <button
             onClick={() => setMetric('goals_assists')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              metric === 'goals_assists'
+            disabled={!metrics.goals_assists}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 ${
+              activeMetric === 'goals_assists'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -179,9 +176,9 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
         <div className="flex items-center gap-3">
           <div className="text-2xl">📈</div>
           <div>
-            <span className="text-xs font-bold text-foreground block">{summary.formBadge}</span>
+            <span className="text-xs font-bold text-foreground block">{t('ratingHistory')}</span>
             <span className="text-[11px] text-muted-foreground">
-              Last 5 matches avg rating: <strong className="text-primary">{summary.last5Rating}</strong>
+              Last 5 matches avg rating: <strong className="text-primary">{summary.last5Rating ?? '—'}</strong>
             </span>
           </div>
         </div>
@@ -189,11 +186,11 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
         <div className="flex items-center gap-4 text-xs">
           <div className="text-right">
             <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('goalsL5')}</span>
-            <span className="font-bold text-emerald-400">{summary.totalGoalsLast5}</span>
+            <span className="font-bold text-emerald-400">{summary.totalGoalsLast5 ?? '—'}</span>
           </div>
           <div className="text-right border-l pl-4">
             <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('assistsL5')}</span>
-            <span className="font-bold text-sky-400">{summary.totalAssistsLast5}</span>
+            <span className="font-bold text-sky-400">{summary.totalAssistsLast5 ?? '—'}</span>
           </div>
           <div className="text-right border-l pl-4">
             <span className="text-[10px] text-muted-foreground block uppercase font-bold">{t('trend')}</span>
@@ -206,14 +203,14 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
                   : 'text-muted-foreground'
               }`}
             >
-              {summary.trend === 'UP' ? '▲ Rising' : summary.trend === 'DOWN' ? '▼ Cooling' : '▶ Stable'}
+              {summary.trend === 'UP' ? '▲ Rising' : summary.trend === 'DOWN' ? '▼ Cooling' : summary.trend === 'STABLE' ? '▶ Stable' : '—'}
             </span>
           </div>
         </div>
       </div>
 
       {/* Main Form Trend Chart */}
-      <div className="h-64 w-full">
+      {activeMetric && <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
@@ -240,14 +237,14 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
             />
 
             <YAxis
-              domain={metric === 'rating' ? [5, 10] : [0, 'auto']}
+              domain={activeMetric === 'rating' ? [0, 10] : [0, 'auto']}
               tick={{ fill: 'currentColor', fontSize: 11 }}
               className="text-muted-foreground font-medium"
             />
 
             <Tooltip content={<FormCustomTooltip />} />
 
-            {metric === 'rating' && (
+            {activeMetric === 'rating' && (
               <Area
                 type="monotone"
                 dataKey="rating"
@@ -260,7 +257,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
               />
             )}
 
-            {metric === 'xg_xa' && (
+            {activeMetric === 'xg_xa' && (
               <>
                 <Area
                   type="monotone"
@@ -283,7 +280,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
               </>
             )}
 
-            {metric === 'goals_assists' && (
+            {activeMetric === 'goals_assists' && (
               <>
                 <Area
                   type="monotone"
@@ -309,7 +306,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
             )}
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </div>}
 
       {/* Match-by-Match Strip */}
       <div className="border-t pt-4">
@@ -317,11 +314,11 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
           {t('ratingHistory')}
         </span>
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-          {matches.map((m, idx) => (
+          {matches.map((m) => (
             <div
-              key={idx}
+              key={m.matchId}
               className="bg-muted/40 hover:bg-muted/80 p-2 rounded-xl text-center border transition-all cursor-default"
-              title={`${m.isHome ? 'vs' : '@'} ${m.opponent.name} (${m.score}) - Rating: ${m.rating}`}
+              title={`${m.isHome ? 'vs' : '@'} ${m.opponent.name} (${m.score ?? '—'}) - Rating: ${m.rating ?? '—'}`}
             >
               <div className="text-[10px] text-muted-foreground font-semibold truncate mb-1">
                 {m.opponent.shortName}
@@ -335,9 +332,9 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
                     : 'bg-rose-500 text-white'
                 }`}
               >
-                {m.result}
+                {m.result ?? '—'}
               </div>
-              <div className="text-[11px] font-bold text-foreground mt-1 tabular-nums">{m.rating}</div>
+              <div className="text-[11px] font-bold text-foreground mt-1 tabular-nums">{m.rating ?? '—'}</div>
             </div>
           ))}
         </div>

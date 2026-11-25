@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { Container } from '@/components/ui/grid'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-react'
-import { RequestDemoDialog } from '@/components/request-demo-dialog'
 import { PlatformOverview } from '@/components/home/PlatformOverview'
 
 export default function Home() {
@@ -31,7 +30,6 @@ export default function Home() {
                 {t('start')} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <RequestDemoDialog />
           </div>
         </Container>
       </section>

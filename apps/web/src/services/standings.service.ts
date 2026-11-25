@@ -164,37 +164,35 @@ export async function getCompetitionStandings(
     },
   })
 
-  if (season) {
-    const standings = await prisma.standing.findMany({
-      where: { seasonId: season.id, type: 'TOTAL' },
-      include: { team: true },
-      orderBy: { position: 'asc' },
-    })
+  const standings = season ? await prisma.standing.findMany({
+    where: { seasonId: season.id, type: 'TOTAL' },
+    include: { team: true },
+    orderBy: { position: 'asc' },
+  }) : []
 
-    if (standings.length > 0) {
-      return {
-        data: {
-          standings: [
-            {
-              type: 'TOTAL',
-              table: standings.map((standing) => ({
-                position: standing.position,
-                team: toTeamResponse(standing.team),
-                playedGames: standing.playedGames,
-                won: standing.wins,
-                draw: standing.draws,
-                lost: standing.losses,
-                points: standing.points,
-                goalsFor: standing.goalsFor,
-                goalsAgainst: standing.goalsAgainst,
-                goalDifference: standing.goalDifference,
-              })),
-            },
-          ],
-        },
-        cache: 'standard' as const,
-      }
-    }
+  const stored = standings.length ? {
+    data: {
+      source: 'database',
+      standings: [{
+        type: 'TOTAL',
+        table: standings.map((standing) => ({
+          position: standing.position,
+          team: toTeamResponse(standing.team),
+          playedGames: standing.playedGames,
+          won: standing.wins,
+          draw: standing.draws,
+          lost: standing.losses,
+          points: standing.points,
+          goalsFor: standing.goalsFor,
+          goalsAgainst: standing.goalsAgainst,
+          goalDifference: standing.goalDifference,
+        })),
+      }],
+    },
+    cache: 'standard' as const,
+  } : null
+  if (stored && (!season?.isCurrent || standings.every((row) => Date.now() - row.updatedAt.getTime() < 5 * 60_000))) {
+    return stored
   }
 
   const seasonYear =
@@ -205,9 +203,12 @@ export async function getCompetitionStandings(
     {
       redirect: "error",      headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(5000),
     },
-  )
-  if (!res.ok) {
+  ).catch(() => null)
+  if (!res?.ok) {
+    if (stored) return stored
+    if (!res) return { data: { error: 'Standings provider unavailable' }, status: 502 }
     if (competition.toUpperCase() === 'PL' && seasonYear) {
       try {
         const knownTeams = await prisma.team.findMany({

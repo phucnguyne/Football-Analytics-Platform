@@ -1,4 +1,4 @@
-import { dataSourceFor } from '@/lib/data-source'
+import { isPlaceholderPlayerName } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { calculateCosineSimilarity, getPlayerStyleTags } from '@/lib/player-analytics'
@@ -21,55 +21,59 @@ export async function GET(
       },
     })
 
-    if (!target || !target.stats) {
-      return NextResponse.json({ error: 'player or stats not found' }, { status: 404 })
+    if (!target || isPlaceholderPlayerName(target.name)) {
+      return NextResponse.json({ error: 'player not found' }, { status: 404 })
+    }
+    if (target.stats?.dataSource !== 'REAL' || !target.stats.seasonId) {
+      return NextResponse.json({ similarPlayers: [], statsProvenance: 'unavailable' })
     }
 
-    // Query players with stats in the same position group (or across position)
+    // Compare players in the same position group and season.
     const candidates = await prisma.player.findMany({
       where: {
         id: { not: id },
         position: target.position,
-        stats: { isNot: null },
+        stats: { is: { seasonId: target.stats.seasonId, dataSource: 'REAL', matchesPlayed: { gt: 0 } } },
       },
       include: {
         stats: true,
         teams: { include: { team: true } },
       },
+      orderBy: [{ stats: { matchesPlayed: 'desc' } }, { id: 'asc' }],
       take: 40,
     })
 
     const scored = candidates
-      .filter((c) => c.stats)
-      .map((c) => {
+      .filter((c) => c.stats && !isPlaceholderPlayerName(c.name))
+      .flatMap((c) => {
         const similarity = calculateCosineSimilarity(target.stats, c.stats)
-        const team = c.teams[0]?.team || { id: 0, name: 'Free Agent', shortName: 'FA' }
+        if (similarity === null) return []
+        const team = c.teams.find(({ to }) => to === null)?.team ?? c.teams[0]?.team
 
-        return {
+        return [{
           id: c.id,
           name: c.name,
           position: c.position,
           nationality: c.nationality,
           shirtNumber: c.shirtNumber,
-          team: {
+          team: team ? {
             id: team.id,
             name: team.name,
             shortName: team.shortName,
             crest: team.crest ?? undefined,
-          },
+          } : null,
           similarityScore: similarity,
-          dataSource: c.stats?.dataSource,
           styleTags: getPlayerStyleTags(c.stats),
           stats: {
-            goals: c.stats?.goals ?? 0,
-            assists: c.stats?.assists ?? 0,
-            xG: c.stats?.xG ?? 0,
-            xA: c.stats?.xA ?? 0,
-            passCompletion: c.stats?.passCompletion ?? 0,
-            progressivePasses: c.stats?.progressivePasses ?? 0,
-            tacklesPer90: c.stats?.tacklesPer90 ?? 0,
+            goals: c.stats?.goals ?? null,
+            assists: c.stats?.assists ?? null,
+            xG: c.stats?.xG ?? null,
+            xA: c.stats?.xA ?? null,
+            passCompletion: c.stats?.passCompletion ?? null,
+            progressivePasses: c.stats?.progressivePasses ?? null,
+            tacklesPer90: c.stats?.tacklesPer90 ?? null,
           },
-        }
+        }]
       })
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, 5)
@@ -81,7 +85,7 @@ export async function GET(
         position: target.position,
       },
       similarPlayers: scored,
-      statsProvenance: dataSourceFor([target.stats.dataSource, ...scored.map((player) => player.dataSource)]),
+      statsProvenance: scored.length ? 'real' : 'unavailable',
     })
   } catch (error) {
     console.error('Error fetching similar players:', error)

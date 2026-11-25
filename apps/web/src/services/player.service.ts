@@ -1,6 +1,7 @@
 import "server-only";
 import prisma from "@app/database/src/client";
 import { escapeSearchTerm } from "@/lib/search";
+import { isPlaceholderPlayerName } from "@/lib/data-source";
 import { env } from "@/lib/env";
 import {
   apiFootballPlayerNameMatches,
@@ -58,7 +59,7 @@ async function searchTeamPlayers(teamId: number, query: string, limit: number): 
   const officialRoster = (Array.isArray(squad) && squad.length ? squad : Array.isArray(players) ? players : [])
     .filter((player) => Number.isInteger(player.id) && player.id > 0 && player.name?.trim());
   // Seeded placeholder names should not be shown as a real roster.
-  const knownPlayers = localRoster.filter((player) => !/\b(Goalkeeper|Defender|Midfielder|Forward)\s+\d+$/i.test(player.name));
+  const knownPlayers = localRoster.filter((player) => !isPlaceholderPlayerName(player.name));
   const roster = officialRoster.length ? officialRoster : knownPlayers;
   const team = official.team ?? localTeam;
 
@@ -146,7 +147,7 @@ export async function searchPlayers({
     },
   });
 
-  const formatted = players.map((p) => ({
+  const formatted = players.filter((player) => !isPlaceholderPlayerName(player.name)).map((p) => ({
     id: p.id,
     name: p.name,
     position: p.position,

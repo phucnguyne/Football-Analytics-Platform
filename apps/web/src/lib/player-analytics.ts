@@ -8,25 +8,24 @@ export interface FormMatch {
     crest?: string;
   };
   isHome: boolean;
-  result: "W" | "D" | "L";
-  score: string; // e.g. "2 - 1"
-  minutes: number;
-  rating: number; // e.g. 7.6
-  goals: number;
-  assists: number;
-  xG: number;
-  xA: number;
-  keyPasses: number;
-  tackles: number;
+  result: "W" | "D" | "L" | null;
+  score: string | null;
+  minutes: number | null;
+  rating: number | null;
+  goals: number | null;
+  assists: number | null;
+  xG: number | null;
+  xA: number | null;
+  keyPasses: number | null;
+  tackles: number | null;
 }
 
 export interface FormSummary {
-  avgRating: number;
-  trend: "UP" | "DOWN" | "STABLE";
-  formBadge: string;
-  last5Rating: number;
-  totalGoalsLast5: number;
-  totalAssistsLast5: number;
+  avgRating: number | null;
+  trend: "UP" | "DOWN" | "STABLE" | null;
+  last5Rating: number | null;
+  totalGoalsLast5: number | null;
+  totalAssistsLast5: number | null;
 }
 
 export interface SimilarPlayerResult {
@@ -40,17 +39,17 @@ export interface SimilarPlayerResult {
     name: string;
     shortName: string;
     crest?: string;
-  };
+  } | null;
   similarityScore: number; // 0 to 100 (%)
   styleTags: string[];
   stats: {
-    goals: number;
-    assists: number;
-    xG: number;
-    xA: number;
-    passCompletion: number;
-    progressivePasses: number;
-    tacklesPer90: number;
+    goals: number | null;
+    assists: number | null;
+    xG: number | null;
+    xA: number | null;
+    passCompletion: number | null;
+    progressivePasses: number | null;
+    tacklesPer90: number | null;
   };
 }
 
@@ -88,36 +87,39 @@ const STAT_WEIGHTS: Record<keyof PlayerPerformanceStats, { max: number; weight: 
 export function calculateCosineSimilarity(
   statsA?: PlayerPerformanceStats | null,
   statsB?: PlayerPerformanceStats | null,
-): number {
-  if (!statsA || !statsB) return 50;
+): number | null {
+  if (!statsA || !statsB) return null;
 
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
+  let sharedMetrics = 0;
 
   for (const key of Object.keys(STAT_WEIGHTS) as Array<keyof PlayerPerformanceStats>) {
     const config = STAT_WEIGHTS[key]
-    const valA = ((statsA[key] ?? 0) / config.max) * config.weight;
-    const valB = ((statsB[key] ?? 0) / config.max) * config.weight;
+    const a = statsA[key];
+    const b = statsB[key];
+    if (a == null || b == null) continue;
+    const valA = (a / config.max) * config.weight;
+    const valB = (b / config.max) * config.weight;
+    sharedMetrics++;
 
     dotProduct += valA * valB;
     normA += valA * valA;
     normB += valB * valB;
   }
 
-  if (normA === 0 || normB === 0) return 50;
+  if (sharedMetrics < 2 || normA === 0 || normB === 0) return null;
 
   const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  // Rescale similarity to 60-99% range for natural UI presentation
-  const percentage = Math.min(99, Math.max(55, Math.round(similarity * 100)));
-  return percentage;
+  return Math.round(Math.max(0, Math.min(1, similarity)) * 100);
 }
 
 /**
  * Assign tactical playing style tags based on player metrics
  */
 export function getPlayerStyleTags(stats?: PlayerPerformanceStats | null): string[] {
-  if (!stats) return ["Versatile"];
+  if (!stats) return [];
   const tags: string[] = [];
 
   if ((stats.xG ?? 0) > 0.35) tags.push("Goal Threat");
@@ -128,7 +130,6 @@ export function getPlayerStyleTags(stats?: PlayerPerformanceStats | null): strin
   if ((stats.interceptions ?? 0) > 1.8) tags.push("Ball Winner");
   if ((stats.passCompletion ?? 0) > 85) tags.push("Possession Anchor");
 
-  if (tags.length === 0) tags.push("Box-to-Box Engine", "Team Player");
   return tags.slice(0, 3);
 }
 
@@ -147,31 +148,31 @@ export function generateComparisonVerdict(
 
   const insights: string[] = [];
 
-  if ((sA.xG ?? 0) > (sB.xG ?? 0) + 0.1) {
+  if (sA.xG != null && sB.xG != null && sA.xG > sB.xG + 0.1) {
     insights.push(
       `${playerA.name} carries higher expected goal threat (${sA.xG?.toFixed(2)} vs ${sB.xG?.toFixed(2)} xG).`,
     );
-  } else if ((sB.xG ?? 0) > (sA.xG ?? 0) + 0.1) {
+  } else if (sB.xG != null && sA.xG != null && sB.xG > sA.xG + 0.1) {
     insights.push(
       `${playerB.name} provides superior direct goal threat (${sB.xG?.toFixed(2)} vs ${sA.xG?.toFixed(2)} xG).`,
     );
   }
 
-  if ((sA.progressivePasses ?? 0) > (sB.progressivePasses ?? 0) + 1.2) {
+  if (sA.progressivePasses != null && sB.progressivePasses != null && sA.progressivePasses > sB.progressivePasses + 1.2) {
     insights.push(
       `${playerA.name} is significantly more progressive in passing build-up (${sA.progressivePasses?.toFixed(1)} vs ${sB.progressivePasses?.toFixed(1)}/90).`,
     );
-  } else if ((sB.progressivePasses ?? 0) > (sA.progressivePasses ?? 0) + 1.2) {
+  } else if (sB.progressivePasses != null && sA.progressivePasses != null && sB.progressivePasses > sA.progressivePasses + 1.2) {
     insights.push(
       `${playerB.name} excels at advancing play with progressive passes (${sB.progressivePasses?.toFixed(1)} vs ${sA.progressivePasses?.toFixed(1)}/90).`,
     );
   }
 
-  if ((sA.tacklesPer90 ?? 0) > (sB.tacklesPer90 ?? 0) + 0.8) {
+  if (sA.tacklesPer90 != null && sB.tacklesPer90 != null && sA.tacklesPer90 > sB.tacklesPer90 + 0.8) {
     insights.push(
       `${playerA.name} offers greater defensive engagement with ${sA.tacklesPer90?.toFixed(1)} tackles/90.`,
     );
-  } else if ((sB.tacklesPer90 ?? 0) > (sA.tacklesPer90 ?? 0) + 0.8) {
+  } else if (sB.tacklesPer90 != null && sA.tacklesPer90 != null && sB.tacklesPer90 > sA.tacklesPer90 + 0.8) {
     insights.push(
       `${playerB.name} provides stronger defensive disruption (${sB.tacklesPer90?.toFixed(1)} tackles/90).`,
     );
@@ -179,7 +180,7 @@ export function generateComparisonVerdict(
 
   if (insights.length === 0) {
     insights.push(
-      `Both players exhibit closely matched statistical profiles with complementary tactical roles.`,
+      `The shared statistics do not show a clear difference on these metrics.`,
     );
   }
 

@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { env } from '@/lib/env'
+import { getPlayerSeasonMetricsForTeam, apiFootballSeasonYear } from '@/lib/api-football'
+import { isPlaceholderPlayerName } from '@/lib/data-source'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ playerId: string }> }
 ) {
   const { playerId } = await params
-  const id = parseInt(playerId)
+  const id = Number(playerId)
 
-  if (isNaN(id)) return NextResponse.json({ error: 'invalid id' }, { status: 400 })
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: 'invalid id' }, { status: 400 })
 
   try {
     const player = await prisma.player.findUnique({
       where: { id },
       include: {
-        teams: { include: { team: true } },
+        teams: {
+          include: { team: true },
+          orderBy: [{ to: { sort: 'desc', nulls: 'first' } }, { from: { sort: 'desc', nulls: 'last' } }],
+        },
         stats: true,
       }
     })
@@ -29,10 +34,20 @@ export async function GET(
       if (!res.ok) return NextResponse.json({ error: 'not found' }, { status: res.status })
       return NextResponse.json(await res.json())
     }
+    if (isPlaceholderPlayerName(player.name)) {
+      return NextResponse.json({ error: 'not found' }, { status: 404 })
+    }
 
-    // Get positional averages for comparison
-    const positionalStats = await prisma.playerStats.aggregate({
-      where: { player: { position: player.position }, dataSource: player.stats?.dataSource ?? null, matchesPlayed: { gt: 5 } },
+    const trustedStats = player.stats?.dataSource === 'REAL' ? player.stats : null
+    const currentTeam = player.teams.find(({ to }) => to === null)?.team
+    const providerStats = !trustedStats && currentTeam
+      ? await getPlayerSeasonMetricsForTeam(player.name, currentTeam.name, apiFootballSeasonYear()).catch(() => null)
+      : null
+    const positionalStats = trustedStats?.seasonId ? await prisma.playerStats.aggregate({
+      where: {
+        player: { position: player.position }, dataSource: 'REAL',
+        seasonId: trustedStats.seasonId, matchesPlayed: { gt: 5 },
+      },
       _avg: {
         xG: true,
         xA: true,
@@ -43,7 +58,10 @@ export async function GET(
         interceptions: true,
         dribblesSuccess: true,
       }
-    })
+    }) : null
+    const databaseSeason = trustedStats?.seasonId
+      ? await prisma.season.findUnique({ where: { id: trustedStats.seasonId }, select: { year: true } })
+      : null
 
     const response = {
       id: player.id,
@@ -59,8 +77,10 @@ export async function GET(
         shortName: t.team.shortName,
         crest: t.team.crest,
       })),
-      stats: player.stats,
-      positionalAverages: positionalStats._avg
+      stats: trustedStats ?? (providerStats ? { ...providerStats, dataSource: 'REAL', yellowCards: null, redCards: null } : null),
+      statsSource: trustedStats ? 'database' : providerStats ? 'api-football' : 'unavailable',
+      statsSeason: databaseSeason?.year ?? providerStats?.season ?? null,
+      positionalAverages: positionalStats?._avg ?? null,
     }
 
     return NextResponse.json(response, {

@@ -89,8 +89,7 @@ export function SimilarPlayersCard({
                   <span>{player.name}</span>
                 </Link>
                 <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                  <span>{player.team.shortName}</span>
-                  <span>•</span>
+                  {player.team && <><span>{player.team.shortName}</span><span>•</span></>}
                   <span>{player.position?.replace('_', ' ')}</span>
                   {player.shirtNumber && <span>#{player.shirtNumber}</span>}
                 </div>
@@ -135,7 +134,7 @@ export function SimilarPlayersCard({
                 </button>
               ) : (
                 <Link
-                  href={`/players/compare?p1=${playerId}&p2=${player.id}${playerTeamId ? `&p1TeamId=${playerTeamId}` : ''}&p2TeamId=${player.team.id}`}
+                  href={`/players/compare?p1=${playerId}&p2=${player.id}${playerTeamId ? `&p1TeamId=${playerTeamId}` : ''}${player.team ? `&p2TeamId=${player.team.id}` : ''}`}
                   className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold text-xs transition-colors border border-primary/20"
                 >
                   {t('compare')}

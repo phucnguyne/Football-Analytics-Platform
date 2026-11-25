@@ -15,14 +15,14 @@ import {
 } from "recharts";
 
 interface PlayerStats {
-  xG: number;
-  xA: number;
-  shotsPer90: number;
-  passCompletion: number;
-  progressivePasses: number;
-  tacklesPer90: number;
-  interceptions: number;
-  dribblesSuccess: number;
+  xG: number | null;
+  xA: number | null;
+  shotsPer90: number | null;
+  passCompletion: number | null;
+  progressivePasses: number | null;
+  tacklesPer90: number | null;
+  interceptions: number | null;
+  dribblesSuccess: number | null;
 }
 
 interface PlayerRadarProps {
@@ -65,21 +65,22 @@ function normalizeStats(player: PlayerStats, avg: PlayerStats) {
 
   const keys = Object.keys(maxValues) as Array<keyof PlayerStats>;
 
-  return keys.map((key) => {
+  return keys.flatMap((key) => {
     const label = LABEL_MAP[key] || key;
 
-    const pValue = player[key] || 0;
-    const aValue = avg[key] || 0;
+    const pValue = player[key];
+    const aValue = avg[key];
+    if (pValue == null || aValue == null) return [];
     const max = maxValues[key] || 1;
 
-    return {
+    return [{
       subject: label,
       Player: Math.min((pValue / max) * 100, 100), // scale to 0-100
       Average: Math.min((aValue / max) * 100, 100),
       // Keep original values for tooltip
       originalPlayer: Number(pValue.toFixed(2)),
       originalAvg: Number(aValue.toFixed(2)),
-    };
+    }];
   });
 }
 
@@ -89,15 +90,14 @@ export const PlayerRadarChart = memo(function PlayerRadarChart({
   playerName,
   position,
 }: PlayerRadarProps) {
-  if (!playerStats || !positionalAverages) {
+  const data = playerStats && positionalAverages ? normalizeStats(playerStats, positionalAverages) : [];
+  if (data.length < 3) {
     return (
       <div className="bg-card p-6 rounded-2xl border text-center text-muted-foreground">
         Advanced stats not available for {playerName}.
       </div>
     );
   }
-
-  const data = normalizeStats(playerStats, positionalAverages);
 
   const CustomTooltip = ({
     active,

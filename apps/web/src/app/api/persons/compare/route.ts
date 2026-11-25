@@ -1,9 +1,9 @@
-import { dataSourceFor } from '@/lib/data-source'
+import { isPlaceholderPlayerName } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { generateComparisonVerdict, getPlayerStyleTags } from '@/lib/player-analytics'
 import { env } from '@/lib/env'
-import { getPlayerSeasonMetricsForTeam, type PlayerSeasonMetrics } from '@/lib/api-football'
+import { apiFootballSeasonYear, getPlayerSeasonMetricsForTeam, type PlayerSeasonMetrics } from '@/lib/api-football'
 
 interface ProviderPerson {
   id: number
@@ -27,7 +27,7 @@ async function getPlayer(id: number) {
     where: { id },
     include: {
       stats: true,
-      teams: { include: { team: true } },
+      teams: { include: { team: true }, orderBy: [{ to: { sort: 'desc', nulls: 'first' } }, { from: { sort: 'desc', nulls: 'last' } }] },
     },
   })
 
@@ -88,10 +88,10 @@ async function getTeamForComparison(
     redirect: "error",    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
     next: { revalidate: 3600 },
   })
-  if (!response.ok) return fallback
+  if (!response.ok) return undefined
 
   const data = await response.json() as ComparisonTeam
-  return data.name ? data : fallback
+  return data.id === teamId && data.name ? data : undefined
 }
 
 export async function GET(req: NextRequest) {
@@ -99,8 +99,8 @@ export async function GET(req: NextRequest) {
   const p1Str = searchParams.get('p1')
   const p2Str = searchParams.get('p2')
 
-  const p1Id = p1Str ? parseInt(p1Str) : NaN
-  const p2Id = p2Str ? parseInt(p2Str) : NaN
+  const p1Id = Number(p1Str)
+  const p2Id = Number(p2Str)
   const p1TeamId = Number(searchParams.get('p1TeamId'))
   const p2TeamId = Number(searchParams.get('p2TeamId'))
 
@@ -114,51 +114,35 @@ export async function GET(req: NextRequest) {
       getPlayer(p2Id),
     ])
 
-    if (!p1 || !p2) {
+    if (!p1 || !p2 || isPlaceholderPlayerName(p1.name) || isPlaceholderPlayerName(p2.name)) {
       return NextResponse.json({ error: 'one or both players not found' }, { status: 404 })
     }
 
     type DatabaseComparisonStats = NonNullable<typeof p1.stats> &
       Pick<PlayerSeasonMetrics, 'savesPer90' | 'savePercentage'>
     type ComparisonStats = PlayerSeasonMetrics | DatabaseComparisonStats | null
-    const withDatabaseMetrics = (stats: typeof p1.stats): ComparisonStats =>
-      stats ? { ...stats, savesPer90: null, savePercentage: null } : null
-    let player1Stats: ComparisonStats = withDatabaseMetrics(p1.stats)
-    let player2Stats: ComparisonStats = withDatabaseMetrics(p2.stats)
+    let player1Stats: ComparisonStats = null
+    let player2Stats: ComparisonStats = null
     let statsSource: 'API-Football' | 'database' | null = null
     let statsSeason: number | null = null
 
-    const requestedTeamIds = [p1TeamId, p2TeamId].filter((id) =>
-      Number.isInteger(id) && id > 0,
-    )
-    const selectedTeams = requestedTeamIds.length
-      ? await prisma.team.findMany({
-          where: { id: { in: requestedTeamIds } },
-          select: { id: true, name: true },
-        })
-      : []
-    const team1 = await getTeamForComparison(
-      p1TeamId,
-      selectedTeams.find((team) => team.id === p1TeamId) ??
-        p1.teams[0]?.team,
-    )
-    const team2 = await getTeamForComparison(
-      p2TeamId,
-      selectedTeams.find((team) => team.id === p2TeamId) ??
-        p2.teams[0]?.team,
-    )
+    const [team1, team2] = await Promise.all([
+      getTeamForComparison(p1TeamId, p1.teams[0]?.team),
+      getTeamForComparison(p2TeamId, p2.teams[0]?.team),
+    ])
+    if ((p1TeamId && !team1) || (p2TeamId && !team2)) {
+      return NextResponse.json({ error: 'selected team not found' }, { status: 404 })
+    }
     const team1Name = team1?.name
     const team2Name = team2?.name
-    const configuredSeason = env.API_FOOTBALL_SEASON ?? new Date().getFullYear()
-    const availableSeasons = configuredSeason >= 2022 && configuredSeason <= 2024
-      ? [...new Set([configuredSeason, 2024, 2023, 2022])]
-      : [2024, 2023, 2022]
+    const season = apiFootballSeasonYear()
+    const availableSeasons = env.API_FOOTBALL_SEASON ? [season] : [season, season - 1]
 
     if (team1Name && team2Name) {
       for (const season of availableSeasons) {
         const [apiFootballStats1, apiFootballStats2] = await Promise.all([
-          getPlayerSeasonMetricsForTeam(p1.name, team1Name, season),
-          getPlayerSeasonMetricsForTeam(p2.name, team2Name, season),
+          getPlayerSeasonMetricsForTeam(p1.name, team1Name, season).catch(() => null),
+          getPlayerSeasonMetricsForTeam(p2.name, team2Name, season).catch(() => null),
         ])
         if (apiFootballStats1 && apiFootballStats2) {
           player1Stats = apiFootballStats1
@@ -170,11 +154,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (!statsSource && p1.stats && p2.stats) {
+    if (!statsSource && p1.stats?.dataSource === 'REAL' && p2.stats?.dataSource === 'REAL' &&
+      p1.stats.seasonId && p1.stats.seasonId === p2.stats.seasonId &&
+      team1 && p1.teams.length > 0 && p1.teams.every(({ team }) => team.id === team1.id) &&
+      team2 && p2.teams.length > 0 && p2.teams.every(({ team }) => team.id === team2.id)) {
       statsSource = 'database'
-    } else if (!statsSource) {
-      player1Stats = null
-      player2Stats = null
+      player1Stats = { ...p1.stats, savesPer90: null, savePercentage: null }
+      player2Stats = { ...p2.stats, savesPer90: null, savePercentage: null }
+      const dbSeason = await prisma.season.findUnique({ where: { id: p1.stats.seasonId }, select: { year: true } })
+      statsSeason = dbSeason?.year ?? null
     }
 
     const formatPlayer = (
@@ -241,7 +229,7 @@ export async function GET(req: NextRequest) {
       verdict,
       metricsAvailable,
       statsSource,
-      statsProvenance: statsSource === 'API-Football' ? 'real' : dataSourceFor([p1.stats?.dataSource, p2.stats?.dataSource]),
+      statsProvenance: statsSource ? 'real' : 'unavailable',
       statsSeason,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },

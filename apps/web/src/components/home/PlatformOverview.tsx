@@ -78,7 +78,7 @@ export function PlatformOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Poisson</div>
-            <p className="mt-1 text-xs text-muted-foreground">xG · Monte Carlo · Dixon-Coles</p>
+            <p className="mt-1 text-xs text-muted-foreground">xG · Monte Carlo</p>
           </CardContent>
         </Card>
 

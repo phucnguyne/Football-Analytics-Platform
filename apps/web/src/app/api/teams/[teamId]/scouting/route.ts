@@ -1,145 +1,87 @@
-import { dataSourceFor } from '@/lib/data-source'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
-import { generateScoutingReport, type ScoutingInput } from '@/lib/scouting-generator'
+import { isPlaceholderPlayerName } from '@/lib/data-source'
+import type { ScoutingReportData } from '@/lib/scouting-report'
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ teamId: string }> }
-) {
-  const { teamId } = await params
-  const id = parseInt(teamId)
-
-  if (isNaN(id)) {
+export async function GET(_request: Request, { params }: { params: Promise<{ teamId: string }> }) {
+  const id = Number((await params).teamId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'invalid team id' }, { status: 400 })
   }
 
   try {
-    // ── Fetch team ───────────────────────────────────────────────────────────
-    const team = await prisma.team.findUnique({ where: { id } })
-
-    if (!team) {
-      return NextResponse.json({ error: 'team not found' }, { status: 404 })
-    }
-
-    // ── Fetch standing (current season, TOTAL type) ──────────────────────────
-    const currentSeason = await prisma.season.findFirst({
-      where: { isCurrent: true },
-      orderBy: { year: 'desc' },
+    const team = await prisma.team.findUnique({
+      where: { id }, select: { name: true, crest: true, venue: true, founded: true },
     })
+    if (!team) return NextResponse.json({ error: 'team not found' }, { status: 404 })
 
-    let standing = null
-    if (currentSeason) {
-      standing = await prisma.standing.findFirst({
-        where: { teamId: id, seasonId: currentSeason.id, type: 'TOTAL' },
-      })
-    }
-
-    // ── Fetch top players on this team (by xG, then goals) ──────────────────
-    const playerTeamRows = await prisma.playerTeam.findMany({
-      where: { teamId: id },
-      include: {
-        player: {
-          include: { stats: true },
+    const [standing, matches] = await Promise.all([
+      prisma.standing.findFirst({
+        where: { teamId: id, type: 'TOTAL', season: { isCurrent: true } },
+        orderBy: [{ season: { year: 'desc' } }, { seasonId: 'asc' }, { id: 'asc' }],
+        select: {
+          seasonId: true, season: { select: { year: true, league: { select: { name: true } } } },
+          position: true, points: true, updatedAt: true, playedGames: true, wins: true, draws: true,
+          losses: true, goalsFor: true, goalsAgainst: true,
         },
-      },
-      take: 50, // load up to 50 and filter below
+      }),
+      prisma.match.findMany({
+        where: { status: 'FINISHED', score: { isNot: null }, OR: [{ homeTeamId: id }, { awayTeamId: id }] },
+        select: {
+          id: true, utcDate: true, homeTeamId: true, league: { select: { name: true } },
+          homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } },
+          score: { select: { homeTeamGoals: true, awayTeamGoals: true, winner: true } },
+        },
+        orderBy: [{ utcDate: 'desc' }, { id: 'desc' }],
+        take: 6,
+      }),
+    ])
+    const current = standing ?? await prisma.teamSeason.findFirst({
+      where: { teamId: id, season: { isCurrent: true } },
+      select: { seasonId: true, season: { select: { year: true } } },
+      orderBy: [{ season: { year: 'desc' } }, { seasonId: 'asc' }],
     })
-
-    const topPlayerRows = playerTeamRows
-      .filter(pt => pt.player.stats !== null)
-      .sort((a, b) => {
-        const aXG = a.player.stats?.xG ?? 0
-        const bXG = b.player.stats?.xG ?? 0
-        return bXG - aXG
-      })
-      .slice(0, 5)
-    const topPlayers = topPlayerRows.map(pt => ({
-        id:                pt.player.id,
-        name:              pt.player.name,
-        position:          pt.player.position as string,
-        nationality:       pt.player.nationality,
-        shirtNumber:       pt.shirtNumber ?? pt.player.shirtNumber,
-        goals:             pt.player.stats?.goals ?? 0,
-        assists:           pt.player.stats?.assists ?? 0,
-        xG:                pt.player.stats?.xG ?? 0,
-        xA:                pt.player.stats?.xA ?? 0,
-        passCompletion:    pt.player.stats?.passCompletion ?? 0,
-        tacklesPer90:      pt.player.stats?.tacklesPer90 ?? 0,
-        progressivePasses: pt.player.stats?.progressivePasses ?? 0,
-      }))
-
-    // ── Fetch last 6 finished matches for this team ──────────────────────────
-    const recentMatchRows = await prisma.match.findMany({
+    const seasonId = current?.seasonId
+    const players = seasonId ? await prisma.playerStats.findMany({
       where: {
-        OR: [{ homeTeamId: id }, { awayTeamId: id }],
-        status: 'FINISHED',
-        score: { isNot: null },
+        seasonId, dataSource: 'REAL', matchesPlayed: { gt: 0 },
+        player: { teams: { some: { teamId: id }, none: { teamId: { not: id } } } },
       },
-      include: {
-        homeTeam: { select: { id: true, name: true, crest: true } },
-        awayTeam:  { select: { id: true, name: true, crest: true } },
-        score: true,
-      },
-      orderBy: { utcDate: 'desc' },
-      take: 6,
-    })
+      orderBy: [{ goals: 'desc' }, { assists: 'desc' }, { playerId: 'asc' }],
+      select: { player: { select: { id: true, name: true } }, matchesPlayed: true, goals: true, assists: true },
+    }) : []
 
-    const recentMatches = recentMatchRows.map(m => ({
-      matchday:       m.matchday,
-      utcDate:        m.utcDate.toISOString(),
-      homeTeamId:     m.homeTeamId,
-      homeTeamName:   m.homeTeam.name,
-      homeTeamCrest:  m.homeTeam.crest,
-      awayTeamName:   m.awayTeam.name,
-      awayTeamCrest:  m.awayTeam.crest,
-      homeGoals:      m.score?.homeTeamGoals ?? null,
-      awayGoals:      m.score?.awayTeamGoals ?? null,
-    }))
-
-    // ── Build input and generate report ─────────────────────────────────────
-    const input: ScoutingInput = {
-      teamSource: 'database',
-      team: {
-        id:        team.id,
-        name:      team.name,
-        shortName: team.shortName,
-        crest:     team.crest,
-        venue:     team.venue,
-        founded:   team.founded,
-      },
-      standing: standing
-        ? {
-            position:       standing.position,
-            points:         standing.points,
-            wins:           standing.wins,
-            draws:          standing.draws,
-            losses:         standing.losses,
-            goalsFor:       standing.goalsFor,
-            goalsAgainst:   standing.goalsAgainst,
-            goalDifference: standing.goalDifference,
-            playedGames:    standing.playedGames,
-          }
-        : null,
-      topPlayers,
-      recentMatches,
+    const report: ScoutingReportData = {
+      id, teamName: team.name, crest: team.crest, venue: team.venue, founded: team.founded,
+      standing: standing ? {
+        league: standing.season.league.name, year: standing.season.year, updatedAt: standing.updatedAt.toISOString(),
+        position: standing.position, points: standing.points, playedGames: standing.playedGames,
+        wins: standing.wins, draws: standing.draws, losses: standing.losses,
+        goalsFor: standing.goalsFor, goalsAgainst: standing.goalsAgainst,
+      } : null,
+      recentForm: matches.flatMap((match) => {
+        if (!match.score) return []
+        const isHome = match.homeTeamId === id
+        const goalsFor = isHome ? match.score.homeTeamGoals : match.score.awayTeamGoals
+        const goalsAgainst = isHome ? match.score.awayTeamGoals : match.score.homeTeamGoals
+        const winner = match.score.winner
+        return [{
+          id: match.id, date: match.utcDate.toISOString(), competition: match.league.name, isHome,
+          opponent: isHome ? match.awayTeam.name : match.homeTeam.name,
+          goalsFor, goalsAgainst,
+          result: winner === 'DRAW' ? 'D' : winner ? ((winner === 'HOME') === isHome ? 'W' : 'L') :
+            goalsFor === goalsAgainst ? 'D' : goalsFor > goalsAgainst ? 'W' : 'L',
+        }]
+      }),
+      keyPlayers: players.filter(({ player }) => !isPlaceholderPlayerName(player.name)).slice(0, 5)
+        .map(({ player, goals, assists, matchesPlayed }) => ({ ...player, goals, assists, matchesPlayed })),
+      playerStatsSeason: current?.season.year ?? null,
     }
-
-    const report = generateScoutingReport(input)
-
-    report.keyPlayerStatsProvenance = dataSourceFor(topPlayerRows.map(({ player }) => player.stats?.dataSource))
     return NextResponse.json(report, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     })
   } catch (error) {
     console.error('Scouting API error:', error)
-
-    // Graceful degradation — return mocked report even if DB is down
-    const { generateScoutingReport: gen } = await import('@/lib/scouting-generator')
-    const fallback = gen({
-      team: { id, name: `Team ${id}`, shortName: `T${id}` },
-    })
-    return NextResponse.json(fallback)
+    return NextResponse.json({ error: 'scouting data unavailable' }, { status: 503 })
   }
 }
-

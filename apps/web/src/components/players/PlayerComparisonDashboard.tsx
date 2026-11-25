@@ -73,6 +73,7 @@ export function PlayerComparisonDashboard({
     players: { id: number; name: string; position: string; team?: { name: string; shortName: string } }[]
   }>({
     queryKey: ['players-list-search', activeTeam1Id, debouncedPlayer1],
+    placeholderData: undefined,
     queryFn: async () => {
       const res = await fetch(
         `/api/persons?teamId=${encodeURIComponent(activeTeam1Id)}&query=${encodeURIComponent(debouncedPlayer1)}&limit=25`,
@@ -90,6 +91,7 @@ export function PlayerComparisonDashboard({
     players: { id: number; name: string; position: string; team?: { name: string; shortName: string } }[]
   }>({
     queryKey: ['players-list-search', activeTeam2Id, debouncedPlayer2],
+    placeholderData: undefined,
     queryFn: async () => {
       const res = await fetch(
         `/api/persons?teamId=${encodeURIComponent(activeTeam2Id)}&query=${encodeURIComponent(debouncedPlayer2)}&limit=25`,
@@ -106,6 +108,7 @@ export function PlayerComparisonDashboard({
   // Query comparison data
   const { data: comparisonData, isLoading, isError, error: comparisonError } = useQuery({
     queryKey: ['player-comparison', player1Id, player2Id, activeTeam1Id, activeTeam2Id],
+    placeholderData: undefined,
     queryFn: async () => {
       if (!player1Id || !player2Id) return null
       const params = new URLSearchParams({
