@@ -499,12 +499,13 @@ receives them.
    committed migration history before applying pending migrations.
 2. In **Database → Extensions**, make sure `pg_cron`, `pg_net`, and
    `supabase_vault` are enabled.
-3. In **Edge Functions**, deploy a function named `sync-live` using
+3. After the Prisma migrations are applied, deploy a function named `sync-live` in **Edge Functions** using
    [`supabase/functions/sync-live/index.ts`](supabase/functions/sync-live/index.ts).
    Add these function secrets in its **Secrets** settings:
    `FOOTBALL_DATA_API_KEY` and `SYNC_FUNCTION_SECRET` (a random private value).
    Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edge
-   Functions automatically; never expose the service-role key to the browser.
+   Functions automatically. The function calls the service-only
+   `apply_live_match_updates` database function to commit status and score together.
 4. In **SQL Editor**, run
    [`supabase/schedule-sync-live.sql.example`](supabase/schedule-sync-live.sql.example)
    once after replacing its example values. The script stores `project_url`,
@@ -623,6 +624,8 @@ pnpm db:seed               # seed sample data
 pnpm db:studio             # open Prisma Studio at localhost:5555
 pnpm db:sync-current:dev   # import current fixtures into local Docker DB
 pnpm db:sync-current:production # import current fixtures into Supabase
+pnpm db:audit-analytics development # read-only counts and data provenance in the local database
+pnpm db:audit-analytics production  # read-only counts and migration history in Supabase
 pnpm db:sync-live          # one-time live sync using packages/database/.env
 pnpm db:sync-live:watch    # local repeating sync; not a Vercel worker
 

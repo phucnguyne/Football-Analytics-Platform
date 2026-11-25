@@ -15,7 +15,7 @@
 
 import 'dotenv/config'
 import { env } from '@app/config'
-import { PrismaClient, MatchStatus, Winner } from '@prisma/client'
+import { PrismaClient, MatchStatus, Winner, type EventType } from '@prisma/client'
 
 const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } })
 
@@ -164,7 +164,7 @@ function mapPosition(position?: string): 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER
 }
 
 function mapEventType(event: SBEvent, homeTeamId: number): {
-  type: string
+  type: EventType
   team: 'HOME' | 'AWAY'
   relatedPlayerId?: number
 } | null {
@@ -399,30 +399,40 @@ async function seedStatsBomb() {
       if (SEED_EVENTS && !DRY_RUN) {
         const events = await hfJson<SBEvent[]>(`events/${m.match_id}.json`)
         if (events) {
-          // Clear existing events first to avoid duplicates
-          await prisma.matchEvent.deleteMany({ where: { matchId: m.match_id } })
-
           const relevantEvents = events.filter((e) => {
             const name = e.type?.name
-            return ['Shot', 'Yellow Card', 'Red Card', 'Substitution', 'Bad Behaviour'].includes(name ?? '')
+            return (e.period ?? 1) <= 4 && [m.home_team.home_team_id, m.away_team.away_team_id].some((id) => id === e.team?.id) &&
+              ['Shot', 'Yellow Card', 'Red Card', 'Substitution', 'Bad Behaviour'].includes(name ?? '')
           })
+          const playerIds = [...new Set(relevantEvents.flatMap((event) =>
+            [event.player?.id, event.substitution?.replacement?.id].filter((id): id is number => typeof id === 'number'),
+          ))]
+          const persistedPlayers = new Set((await prisma.player.findMany({
+            where: { id: { in: playerIds } }, select: { id: true },
+          })).map(({ id }) => id))
 
           for (const event of relevantEvents) {
             const mapped = mapEventType(event, m.home_team.home_team_id)
             if (!mapped) continue
 
             try {
-              await prisma.matchEvent.create({
-                data: {
-                  matchId: m.match_id,
-                  type: mapped.type as any,
-                  minute: event.minute ?? 0,
-                  minuteExtra: null,
-                  team: mapped.team,
-                  playerId: event.player?.id ?? null,
-                  relatedPlayerId: mapped.relatedPlayerId ?? null,
-                  detail: event.shot?.outcome?.name ?? null,
-                },
+              const [x, y] = event.location ?? []
+              const data = {
+                type: mapped.type,
+                minute: event.minute ?? 0,
+                team: mapped.team,
+                playerId: event.player?.id && persistedPlayers.has(event.player.id) ? event.player.id : null,
+                relatedPlayerId: mapped.relatedPlayerId && persistedPlayers.has(mapped.relatedPlayerId) ? mapped.relatedPlayerId : null,
+                detail: event.shot?.outcome?.name ?? null,
+                analyticsSource: 'REAL' as const,
+                xG: event.shot?.statsbomb_xg ?? null,
+                x: Number.isFinite(x) ? Number((x / 1.2).toFixed(1)) : null,
+                y: Number.isFinite(y) ? Number((y / 0.8).toFixed(1)) : null,
+              }
+              await prisma.matchEvent.upsert({
+                where: { id: event.id },
+                create: { id: event.id, matchId: m.match_id, ...data },
+                update: data,
               })
               eventCount++
             } catch {

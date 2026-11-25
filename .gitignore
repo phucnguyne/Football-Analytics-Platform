@@ -79,6 +79,9 @@ scripts/
 !packages/database/scripts/
 packages/database/scripts/*
 !packages/database/scripts/sync-live.ts
+!packages/database/scripts/sync-current.ts
+!packages/database/scripts/sync-current-env.ts
+!packages/database/scripts/audit-analytics.ts
 !packages/database/scripts/apply-env.mjs
 !packages/database/scripts/seed-statsbomb.ts
 
