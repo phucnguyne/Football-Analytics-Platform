@@ -9,8 +9,16 @@ FROM base AS builder
 COPY . .
 RUN pnpm install --frozen-lockfile
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm --filter ./packages/database exec prisma generate
-RUN pnpm --filter web build
+RUN pnpm db:generate
+
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+RUN : "${NEXT_PUBLIC_SUPABASE_URL:?Set a Supabase project URL}" \
+      "${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set a Supabase publishable key}" \
+  && DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build?connect_timeout=2 \
+     NEXTAUTH_SECRET=docker-build-placeholder-not-for-runtime \
+     FOOTBALL_DATA_API_KEY=docker-build-placeholder \
+     pnpm --filter @app/web build
 
 # Stage 3: runner (production)
 FROM node:22-alpine AS runner
@@ -29,4 +37,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 USER nextjs
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => { if (!r.ok) process.exitCode = 1 }, () => { process.exitCode = 1 })"]
 CMD ["node", "apps/web/server.js"]
