@@ -8,6 +8,7 @@ import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { BrandLink } from '@/components/navigation/BrandLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,12 +57,8 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-primary font-bold text-2xl">
-            <span className="text-3xl">⚽</span>
-            Football Analytics
-          </Link>
+          <BrandLink fullName />
           <p className="text-muted-foreground text-sm mt-2">{t('access')}</p>
         </div>
 

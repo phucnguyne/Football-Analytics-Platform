@@ -1,44 +1,46 @@
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Container } from '@/components/ui/grid'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-react'
 import { PlatformOverview } from '@/components/home/PlatformOverview'
+import stadium from '@/assets/brand/stadium.webp'
 
 export default function Home() {
   const t = useTranslations('Home')
   return (
-    <div className="flex flex-col gap-16 pb-16">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-24 lg:pt-32">
-        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px] dark:bg-grid-black/[0.02]" />
-        <Container className="relative z-10 flex flex-col items-center text-center">
-          <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-8 animate-fade-in">
-            <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse" />
+    <div className="flex flex-col gap-12 pb-12 lg:pb-16">
+      <section className="pt-10 sm:pt-16 lg:pt-20">
+        <Container className="flex flex-col items-center text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary sm:mb-7">
+            <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary motion-safe:animate-pulse" />
             {t('live')}
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl mb-6 max-w-4xl animate-slide-in">
+          <h1 className="mb-4 max-w-4xl text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
             {t('hero')} <br className="hidden sm:block" />
-            <span className="text-gradient">{t('heroBrand')}</span>
+            <span className="text-primary">{t('heroBrand')}</span>
           </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground sm:text-xl mb-10 animate-slide-in [animation-delay:150ms]">
+          <p className="mb-7 max-w-2xl text-base text-muted-foreground sm:text-xl">
             {t('description')}
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 animate-slide-in [animation-delay:300ms]">
+          <Button asChild size="lg" className="h-12 gap-2 px-8 text-base">
             <Link href="/matches">
-              <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-                {t('start')} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              {t('start')} <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
+          </Button>
+          <div className="relative mt-8 aspect-[16/10] w-full max-w-6xl overflow-hidden rounded-xl border bg-muted sm:mt-10 sm:aspect-[3/1]">
+            <Image
+              src={stadium}
+              alt=""
+              fill
+              preload
+              unoptimized
+              className="object-cover object-[center_64%]"
+            />
           </div>
         </Container>
       </section>
-
-      {/* Decorative line */}
-      <div className="w-full flex justify-center overflow-hidden">
-        <div className="w-full max-w-7xl h-px line-t opacity-50" />
-      </div>
-
       <PlatformOverview />
     </div>
   )

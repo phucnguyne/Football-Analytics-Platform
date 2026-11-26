@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { BrandLink } from './BrandLink'
 import { GlobalSearch } from './GlobalSearch'
 import { PwaInstall } from './PwaInstall'
 import { LanguageSwitch } from './LanguageSwitch'
@@ -29,7 +30,7 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
   const active = [...links].reverse().find(({ href }) => pathname === href || pathname.startsWith(`${href}/`))
 
   return (
-    <nav aria-label={t('primary')} className={mobile ? 'grid gap-1' : 'hidden items-center gap-4 lg:flex'}>
+    <nav aria-label={t('primary')} className={mobile ? 'grid gap-1' : 'hidden items-center gap-4 xl:flex'}>
       {links.map(({ href, label }) => {
         const link = (
           <Link
@@ -56,7 +57,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur">
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="shrink-0 whitespace-nowrap text-xl font-bold tracking-tighter">FA Pro</Link>
+        <BrandLink />
         <Navigation />
         <div className="flex shrink-0 items-center gap-1">
           <PwaInstall />
@@ -65,7 +66,7 @@ export function Header() {
           <ThemeToggle />
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="lg:hidden" variant="ghost" size="icon" aria-label={t('menu')}>
+              <Button className="xl:hidden" variant="ghost" size="icon" aria-label={t('menu')}>
                 <Menu className="size-5" aria-hidden="true" />
               </Button>
             </DialogTrigger>

@@ -14,10 +14,23 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
+const title = 'Football Analytics Pro'
+const description = 'Follow live football scores, explore match insights, and compare player statistics.'
+const socialPreview = {
+  url: '/social-preview.jpg',
+  width: 1200,
+  height: 630,
+  alt: 'Football Analytics Pro — live scores, match insights, and player stats',
+}
+const deploymentHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+
 export const metadata: Metadata = {
-  title: 'Football Analytics Pro',
-  description:
-    'Premium football analytics and data insights platform.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (deploymentHost ? `https://${deploymentHost}` : 'http://localhost:3000')),
+  title,
+  description,
+  openGraph: { type: 'website', siteName: title, title, description, images: [socialPreview] },
+  twitter: { card: 'summary_large_image', title, description, images: [socialPreview] },
 }
 
 export default async function RootLayout({
