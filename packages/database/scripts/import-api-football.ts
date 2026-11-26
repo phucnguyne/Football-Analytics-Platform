@@ -11,6 +11,8 @@ const leagueId = Number(process.env.API_FOOTBALL_LEAGUE_ID || web.API_FOOTBALL_L
 const argument = (name: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.split('=')[1]
 const year = Number(argument('season'))
 const firstPage = Number(argument('page') ?? 1)
+const requestedTeam = Number(argument('team') ?? 0)
+const startTeam = Number(argument('from-team') ?? 0)
 const pageLimit = Number(argument('pages') ?? 57)
 const write = process.argv.includes('--write')
 const db = new PrismaClient()
@@ -118,8 +120,10 @@ type Link = { local_id: number; provider_id: number }
 type Snapshot = { player_id: number; team_id: number; season_id: number; metrics: ReturnType<typeof readMetrics> }
 
 async function main() {
-  if (!Number.isInteger(year) || year < 1992 || !Number.isInteger(firstPage) || firstPage < 1 || !Number.isInteger(pageLimit) || pageLimit < 1) {
-    throw new Error('Specify --season=YYYY and optional positive --page and --pages; add --write to persist')
+  if (!Number.isInteger(year) || year < 1992 || !Number.isInteger(firstPage) || firstPage < 1 ||
+    !Number.isInteger(pageLimit) || pageLimit < 1 || !Number.isInteger(requestedTeam) || requestedTeam < 0 ||
+    !Number.isInteger(startTeam) || startTeam < 0 || requestedTeam && startTeam) {
+    throw new Error('Specify --season=YYYY and optional --team or --from-team, --page and --pages; add --write to persist')
   }
   if (leagueId !== 39) throw new Error('This import is configured for API-Football Premier League (39)')
   const season = await db.season.findUnique({ where: { leagueId_year: { leagueId: 2021, year } },
@@ -136,8 +140,10 @@ async function main() {
     const matches = season.teams.filter(({ team: local }) => [local.name, local.shortName].some((name) => teamKey(name) === teamKey(team.name)))
     return matches.length === 1 ? [[team.id, matches[0].team.id] as const] : []
   }))
+  if (requestedTeam && !mappedTeams.has(requestedTeam)) throw new Error('API-Football team is outside the verified league mapping')
+  if (startTeam && !mappedTeams.has(startTeam)) throw new Error('Resume team is outside the verified league mapping')
   const links: Link[] = []
-  if (firstPage === 1) {
+  if (firstPage === 1 && !requestedTeam && !startTeam) {
     const fixtures = await request<FixtureRecord>('fixtures')
     const localById = new Map(localMatches.filter((match) => match.apiFootballId).map((match) => [match.apiFootballId, match.id]))
     for (const record of fixtures.response) {
@@ -163,53 +169,69 @@ async function main() {
   const playersByProviderId = new Map(localPlayers.filter((player) => player.apiFootballId).map((player) => [player.apiFootballId, player]))
   let playerCount = 0
   let seasonRows = 0
-  let page = firstPage
-  for (; page < firstPage + pageLimit; page++) {
-    const result = await request<PlayerRecord>('players', { page: String(page) })
-    const playerLinks: Link[] = []
-    const metrics = new Map<string, Snapshot>()
-    for (const row of result.response) {
-      const candidates = localPlayers.filter((player) => player.apiFootballId === null && row.player.birth?.date &&
-        player.dateOfBirth?.toISOString().slice(0, 10) === row.player.birth.date && matchesName(player.name, row.player))
-      const local = playersByProviderId.get(row.player.id) ?? (candidates.length === 1 ? candidates[0] : undefined)
-      if (!local || (local.apiFootballId ?? row.player.id) !== row.player.id) continue
-      if (local.apiFootballId === null) {
-        local.apiFootballId = row.player.id
-        playersByProviderId.set(row.player.id, local)
-        playerLinks.push({ local_id: local.id, provider_id: row.player.id })
+  const teamIds = requestedTeam ? [requestedTeam] : [...mappedTeams.keys()].sort((a, b) => a - b).filter((id) => id >= startTeam)
+  let visitedTeams = 0
+  const limitedTeams: number[] = []
+  for (const team of teamIds) {
+    const startPage = team === teamIds[0] ? firstPage : 1
+    for (let page = startPage; page < startPage + pageLimit; page++) {
+      let result: ProviderResponse<PlayerRecord>
+      try {
+        result = await request<PlayerRecord>('players', { team: String(team), page: String(page) })
+      } catch (error) {
+        if (error instanceof Error && /\(plan\)$/.test(error.message) && page > 1) {
+          limitedTeams.push(team)
+          console.warn(`Team ${team}: provider plan refused page ${page}`)
+          break
+        }
+        throw new Error(`Team ${team}, page ${page}: ${error instanceof Error ? error.message : error}`)
       }
-      for (const entry of row.statistics) {
-        const teamId = mappedTeams.get(entry.team?.id ?? 0)
-        if (!teamId || entry.league?.id !== leagueId || entry.league.season !== year) continue
-        const snapshot = { player_id: local.id, team_id: teamId, season_id: season.id, metrics: readMetrics(entry) }
-        if (snapshot.metrics.matchesPlayed === null && snapshot.metrics.minutesPlayed === null) continue
-        metrics.set(`${local.id}:${teamId}`, snapshot)
+      const playerLinks: Link[] = []
+      const metrics = new Map<string, Snapshot>()
+      for (const row of result.response) {
+        const candidates = localPlayers.filter((player) => player.apiFootballId === null && row.player.birth?.date &&
+          player.dateOfBirth?.toISOString().slice(0, 10) === row.player.birth.date && matchesName(player.name, row.player))
+        const local = playersByProviderId.get(row.player.id) ?? (candidates.length === 1 ? candidates[0] : undefined)
+        if (!local || (local.apiFootballId ?? row.player.id) !== row.player.id) continue
+        if (local.apiFootballId === null) {
+          local.apiFootballId = row.player.id
+          playersByProviderId.set(row.player.id, local)
+          playerLinks.push({ local_id: local.id, provider_id: row.player.id })
+        }
+        for (const entry of row.statistics) {
+          const teamId = mappedTeams.get(entry.team?.id ?? 0)
+          if (!teamId || entry.league?.id !== leagueId || entry.league.season !== year) continue
+          const snapshot = { player_id: local.id, team_id: teamId, season_id: season.id, metrics: readMetrics(entry) }
+          if (snapshot.metrics.matchesPlayed === null && snapshot.metrics.minutesPlayed === null) continue
+          metrics.set(`${local.id}:${teamId}`, snapshot)
+        }
       }
+      if (write && (playerLinks.length || metrics.size)) {
+        await db.$transaction(async (tx) => {
+          if (playerLinks.length) await tx.$executeRaw`
+            UPDATE "players" AS p SET "apiFootballId" = data.provider_id
+            FROM jsonb_to_recordset(${JSON.stringify(playerLinks)}::jsonb) AS data(local_id integer, provider_id integer)
+            WHERE p.id = data.local_id AND p."apiFootballId" IS NULL
+          `
+          if (metrics.size) await tx.$executeRaw`
+            INSERT INTO "api_football_player_seasons" ("playerId", "teamId", "seasonId", metrics, "updatedAt")
+            SELECT player_id, team_id, season_id, metrics, now()
+            FROM jsonb_to_recordset(${JSON.stringify([...metrics.values()])}::jsonb)
+              AS data(player_id integer, team_id integer, season_id integer, metrics jsonb)
+            ON CONFLICT ("playerId", "teamId", "seasonId") DO UPDATE
+            SET metrics = EXCLUDED.metrics, "updatedAt" = EXCLUDED."updatedAt"
+          `
+        }, { maxWait: 10000, timeout: 30000 })
+      }
+      playerCount += playerLinks.length
+      seasonRows += metrics.size
+      console.log(`Team ${team}, page ${page}: ${metrics.size} verified player-season rows`)
+      if (page >= (result.paging?.total ?? page)) break
     }
-    if (write && (playerLinks.length || metrics.size)) {
-      await db.$transaction(async (tx) => {
-        if (playerLinks.length) await tx.$executeRaw`
-          UPDATE "players" AS p SET "apiFootballId" = data.provider_id
-          FROM jsonb_to_recordset(${JSON.stringify(playerLinks)}::jsonb) AS data(local_id integer, provider_id integer)
-          WHERE p.id = data.local_id AND p."apiFootballId" IS NULL
-        `
-        if (metrics.size) await tx.$executeRaw`
-          INSERT INTO "api_football_player_seasons" ("playerId", "teamId", "seasonId", metrics, "updatedAt")
-          SELECT player_id, team_id, season_id, metrics, now()
-          FROM jsonb_to_recordset(${JSON.stringify([...metrics.values()])}::jsonb)
-            AS data(player_id integer, team_id integer, season_id integer, metrics jsonb)
-          ON CONFLICT ("playerId", "teamId", "seasonId") DO UPDATE
-          SET metrics = EXCLUDED.metrics, "updatedAt" = EXCLUDED."updatedAt"
-        `
-      }, { maxWait: 10000, timeout: 30000 })
-    }
-    playerCount += playerLinks.length
-    seasonRows += metrics.size
-    console.log(`Page ${page}: ${metrics.size} verified player-season rows`)
-    if (page >= (result.paging?.total ?? page)) { page++; break }
+    visitedTeams++
   }
   console.log(JSON.stringify({ year, mode: write ? 'write' : 'dry-run', clubs: mappedTeams.size,
-    fixtures: links.length, newPlayerLinks: playerCount, seasonRows, providerCalls: calls, nextPage: page }))
+    fixtures: links.length, newPlayerLinks: playerCount, seasonRows, providerCalls: calls, visitedTeams, limitedTeams }))
 }
 
 void main().catch((error: Error) => {
