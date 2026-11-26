@@ -1,3 +1,4 @@
+import { fetchProvider, measureProviderCalls } from '@/lib/provider-timing'
 import { isPlaceholderPlayerName } from '@/lib/data-source'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
@@ -33,7 +34,7 @@ async function getPlayer(id: number) {
 
   if (player) return player
 
-  const response = await fetch(`${env.FOOTBALL_DATA_API_URL}/persons/${id}`, {
+  const response = await fetchProvider(`${env.FOOTBALL_DATA_API_URL}/persons/${id}`, {
     redirect: "error",    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
     next: { revalidate: 3600 },
   })
@@ -77,6 +78,7 @@ async function getTeamForComparison(
   fallback?: ComparisonTeam,
 ): Promise<ComparisonTeam | undefined> {
   if (!Number.isInteger(teamId) || teamId <= 0) return fallback
+  if (fallback?.id === teamId) return fallback
 
   const team = await prisma.team.findUnique({
     where: { id: teamId },
@@ -84,7 +86,7 @@ async function getTeamForComparison(
   })
   if (team) return team
 
-  const response = await fetch(`${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`, {
+  const response = await fetchProvider(`${env.FOOTBALL_DATA_API_URL}/teams/${teamId}`, {
     redirect: "error",    headers: { 'X-Auth-Token': env.FOOTBALL_DATA_API_KEY },
     next: { revalidate: 3600 },
   })
@@ -94,7 +96,11 @@ async function getTeamForComparison(
   return data.id === teamId && data.name ? data : undefined
 }
 
-export async function GET(req: NextRequest) {
+export function GET(req: NextRequest) {
+  return measureProviderCalls(() => load(req))
+}
+
+async function load(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
   const p1Str = searchParams.get('p1')
   const p2Str = searchParams.get('p2')
@@ -138,7 +144,23 @@ export async function GET(req: NextRequest) {
     const season = apiFootballSeasonYear()
     const availableSeasons = env.API_FOOTBALL_SEASON ? [season] : [season, season - 1]
 
-    if (team1Name && team2Name) {
+    if (team1 && team2) {
+      const snapshots = await prisma.playerSeasonSnapshot.findMany({
+        where: { OR: [{ playerId: p1Id, teamId: team1.id }, { playerId: p2Id, teamId: team2.id }] },
+        select: { playerId: true, seasonId: true, season: { select: { year: true } }, metrics: true },
+        orderBy: [{ season: { year: 'desc' } }, { seasonId: 'asc' }],
+      })
+      for (const first of snapshots.filter(({ playerId }) => playerId === p1Id)) {
+        const second = snapshots.find(({ playerId, seasonId }) => playerId === p2Id && seasonId === first.seasonId)
+        if (!second) continue
+        player1Stats = first.metrics as unknown as PlayerSeasonMetrics
+        player2Stats = second.metrics as unknown as PlayerSeasonMetrics
+        statsSource = 'API-Football'
+        statsSeason = first.season.year
+        break
+      }
+    }
+    if (!statsSource && team1Name && team2Name) {
       for (const season of availableSeasons) {
         const [apiFootballStats1, apiFootballStats2] = await Promise.all([
           getPlayerSeasonMetricsForTeam(p1.name, team1Name, season).catch(() => null),

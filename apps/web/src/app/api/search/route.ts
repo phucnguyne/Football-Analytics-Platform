@@ -1,3 +1,4 @@
+import { measureProviderCalls } from '@/lib/provider-timing'
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { searchPlayers } from '@/services/player.service'
@@ -16,7 +17,11 @@ function teamName(query: string) {
   return { OR: [{ name: contains }, { shortName: contains }] }
 }
 
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
+  return measureProviderCalls(() => load(request))
+}
+
+async function load(request: NextRequest) {
   const query = request.nextUrl.searchParams.get('query')?.trim() ?? ''
   if (query.length < MIN_SEARCH_LENGTH || query.length > MAX_SEARCH_LENGTH) {
     return NextResponse.json({ error: 'invalid search length' }, { status: 400 })

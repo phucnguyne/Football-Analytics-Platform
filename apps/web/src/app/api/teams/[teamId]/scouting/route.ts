@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@app/database/src/client'
 import { isPlaceholderPlayerName } from '@/lib/data-source'
 import type { ScoutingReportData } from '@/lib/scouting-report'
+import type { PlayerSeasonMetrics } from '@/lib/api-football'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ teamId: string }> }) {
   const id = Number((await params).teamId)
@@ -50,6 +51,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tea
       orderBy: [{ goals: 'desc' }, { assists: 'desc' }, { playerId: 'asc' }],
       select: { player: { select: { id: true, name: true } }, matchesPlayed: true, goals: true, assists: true },
     }) : []
+    const snapshots = players.length ? [] : await prisma.playerSeasonSnapshot.findMany({
+      where: { teamId: id },
+      select: { season: { select: { year: true } }, player: { select: { id: true, name: true } }, metrics: true },
+      orderBy: [{ season: { year: 'desc' } }, { playerId: 'asc' }],
+      take: 100,
+    })
+    const snapshotYear = snapshots[0]?.season.year
+    const coveredPlayers = snapshots.filter(({ season }) => season.year === snapshotYear).map(({ player, metrics }) => {
+      const { goals, assists, matchesPlayed } = metrics as unknown as PlayerSeasonMetrics
+      return { player, goals, assists, matchesPlayed }
+    }).sort((a, b) => (b.goals ?? -1) - (a.goals ?? -1) || (b.assists ?? -1) - (a.assists ?? -1) || a.player.id - b.player.id)
 
     const report: ScoutingReportData = {
       id, teamName: team.name, crest: team.crest, venue: team.venue, founded: team.founded,
@@ -73,9 +85,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tea
             goalsFor === goalsAgainst ? 'D' : goalsFor > goalsAgainst ? 'W' : 'L',
         }]
       }),
-      keyPlayers: players.filter(({ player }) => !isPlaceholderPlayerName(player.name)).slice(0, 5)
+      keyPlayers: (players.length ? players : coveredPlayers).filter(({ player }) => !isPlaceholderPlayerName(player.name)).slice(0, 5)
         .map(({ player, goals, assists, matchesPlayed }) => ({ ...player, goals, assists, matchesPlayed })),
-      playerStatsSeason: current?.season.year ?? null,
+      playerStatsSeason: snapshotYear ?? current?.season.year ?? null,
+      playerStatsSource: snapshots.length ? 'api-football' : 'database',
     }
     return NextResponse.json(report, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },

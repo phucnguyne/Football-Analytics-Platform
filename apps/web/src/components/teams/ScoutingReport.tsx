@@ -70,7 +70,7 @@ export function ScoutingReport({ report }: { report: ScoutingReportData }) {
       <section className="space-y-3 rounded-2xl border bg-card p-6">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-bold">{t('keyPlayers')}{report.playerStatsSeason ? ` · ${report.playerStatsSeason}` : ''}</h2>
-          <DataSourceLabel kind={keyPlayers.length ? 'real' : 'unavailable'} />
+          <DataSourceLabel kind={keyPlayers.length ? 'real' : 'unavailable'} detail={report.playerStatsSource === 'api-football' ? 'API-Football' : undefined} />
         </div>
         {keyPlayers.length ? (
           <div className="overflow-x-auto">
@@ -89,9 +89,9 @@ export function ScoutingReport({ report }: { report: ScoutingReportData }) {
                     <th scope="row" className="py-2 pr-4 text-left font-medium">
                       <Link href={`/players/${player.id}`} className="hover:underline">{player.name}</Link>
                     </th>
-                    <td className="px-2 text-right tabular-nums">{player.matchesPlayed}</td>
-                    <td className="px-2 text-right tabular-nums">{player.goals}</td>
-                    <td className="pl-2 text-right tabular-nums">{player.assists}</td>
+                    <td className="px-2 text-right tabular-nums">{player.matchesPlayed ?? '—'}</td>
+                    <td className="px-2 text-right tabular-nums">{player.goals ?? '—'}</td>
+                    <td className="pl-2 text-right tabular-nums">{player.assists ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

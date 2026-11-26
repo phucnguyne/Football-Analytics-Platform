@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { randomUUID } from 'node:crypto'
 import { env, getFootballDataEnv } from '@app/config'
 import { Prisma, PrismaClient, type MatchStatus, type Winner, type Duration, type Position } from '@prisma/client'
 
@@ -61,6 +62,8 @@ interface ProviderStanding {
 const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } })
 const { FOOTBALL_DATA_API_KEY, FOOTBALL_DATA_API_URL } = getFootballDataEnv()
 const competitionCode = process.argv.find((arg) => arg.startsWith('--competition='))?.slice('--competition='.length).toUpperCase() ?? 'PL'
+const seasonOption = process.argv.find((arg) => arg.startsWith('--season='))?.slice('--season='.length)
+const requestedYear = seasonOption === undefined ? undefined : Number(seasonOption)
 const statusMap: Record<string, MatchStatus> = {
   SCHEDULED: 'SCHEDULED', TIMED: 'TIMED', IN_PLAY: 'IN_PLAY', PAUSED: 'PAUSED',
   FINISHED: 'FINISHED', POSTPONED: 'POSTPONED', CANCELLED: 'CANCELLED', SUSPENDED: 'SUSPENDED',
@@ -136,8 +139,15 @@ async function syncCurrentSeason() {
     emblem?: string | null
     area?: { name?: string }
     currentSeason?: { startDate: string; endDate: string }
+    seasons?: { startDate: string; endDate: string }[]
   }>(path)
-  const sourceSeason = competition.currentSeason
+  const currentYear = competition.currentSeason?.startDate.slice(0, 4)
+  if (requestedYear !== undefined && (!Number.isInteger(requestedYear) || requestedYear < 1992)) {
+    throw new Error('Use a four-digit season start year')
+  }
+  const sourceSeason = requestedYear === undefined || String(requestedYear) === currentYear
+    ? competition.currentSeason
+    : competition.seasons?.find((item) => item.startDate.slice(0, 4) === String(requestedYear))
   if (!sourceSeason) throw new Error(`No current season returned for ${competitionCode}`)
   const startDate = new Date(sourceSeason.startDate)
   const endDate = new Date(sourceSeason.endDate)
@@ -178,44 +188,69 @@ async function syncCurrentSeason() {
     data: [...teamIds].map((teamId) => ({ teamId, seasonId: season.id })),
     skipDuplicates: true,
   })
-  const squadLinks = await importSquads(teams.teams)
-  let matchCount = 0
-  let skippedMatches = 0
-  for (const item of matches.matches) {
-    const homeTeamId = item.homeTeam?.id
-    const awayTeamId = item.awayTeam?.id
-    const utcDate = new Date(item.utcDate)
+  const importingCurrentSeason = String(year) === currentYear
+  const squadLinks = importingCurrentSeason ? await importSquads(teams.teams) : 0
+  const fixtures = matches.matches.flatMap((item) => {
+    const home = item.homeTeam?.id
+    const away = item.awayTeam?.id
+    const kickoff = new Date(item.utcDate)
     const status = statusMap[item.status]
-    if (!teamIds.has(homeTeamId) || !teamIds.has(awayTeamId) || !Number.isFinite(utcDate.getTime()) || !status) {
-      skippedMatches++
-      continue
-    }
-    const lastUpdated = item.lastUpdated ? new Date(item.lastUpdated) : null
-    const common = { utcDate, status, matchday: item.matchday, stage: item.stage, minute: item.minute,
-      lastUpdated, homeTeamId, awayTeamId, leagueId: league.id, seasonId: season.id }
-    const fullTime = item.score?.fullTime
-    await prisma.$transaction(async (tx) => {
-      const previous = await tx.match.findUnique({ where: { id: item.id }, select: { lastUpdated: true, rawData: true } })
-      if (lastUpdated && previous?.lastUpdated && previous.lastUpdated > lastUpdated) return
-      // Preserve already cached detailed provider data and fixture mappings.
-      const oldRaw = previous?.rawData
-      const rawData = oldRaw && typeof oldRaw === 'object' && !Array.isArray(oldRaw)
-        ? { ...oldRaw, ...item } : item
-      await tx.match.upsert({
-        where: { id: item.id }, update: { ...common, rawData }, create: { id: item.id, ...common, rawData },
-      })
-      if (typeof fullTime?.home === 'number' && typeof fullTime.away === 'number') {
-        const score = { homeTeamGoals: fullTime.home, awayTeamGoals: fullTime.away,
-          homeTeamGoalsHT: item.score?.halfTime?.home, awayTeamGoalsHT: item.score?.halfTime?.away,
-          winner: winner(item.score?.winner), duration: duration(item.score?.duration) }
-        await tx.matchScore.upsert({
-          where: { matchId: item.id }, update: score, create: { matchId: item.id, ...score },
-        })
-      }
-    })
-    matchCount++
+    if (!teamIds.has(home) || !teamIds.has(away) || !Number.isFinite(kickoff.getTime()) || !status) return []
+    const dateUpdated = item.lastUpdated ? new Date(item.lastUpdated) : null
+    return [{
+      id: item.id, home, away, status, kickoff: kickoff.toISOString(),
+      matchday: item.matchday ?? null, stage: item.stage ?? null, minute: item.minute ?? null,
+      updated: dateUpdated && Number.isFinite(dateUpdated.getTime()) ? dateUpdated.toISOString() : null,
+      payload: item,
+      score_id: randomUUID(), home_goals: item.score?.fullTime?.home ?? null, away_goals: item.score?.fullTime?.away ?? null,
+      home_half: item.score?.halfTime?.home ?? null, away_half: item.score?.halfTime?.away ?? null,
+      winner: winner(item.score?.winner), duration: duration(item.score?.duration),
+    }]
+  }).sort((a, b) => a.id - b.id)
+  if (!fixtures.length) throw new Error('No valid fixtures returned by the provider')
+  let matchCount = 0
+  for (let index = 0; index < fixtures.length; index += 75) {
+    const batch = fixtures.slice(index, index + 75)
+    matchCount += await prisma.$transaction(async (tx) => {
+      const updated = await tx.$queryRaw<{ id: number }[]>`
+        INSERT INTO "matches" (id, "utcDate", status, matchday, stage, minute, "lastUpdated", "homeTeamId",
+          "awayTeamId", "leagueId", "seasonId", "rawData", "updatedAt")
+        SELECT item.id, item.kickoff AT TIME ZONE 'UTC', item.status, item.matchday, item.stage, item.minute,
+          item.updated AT TIME ZONE 'UTC', item.home, item.away, ${league.id}, ${season.id}, item.payload, now()
+        FROM jsonb_to_recordset(${JSON.stringify(batch)}::jsonb) AS item(
+          id integer, kickoff timestamptz, status "MatchStatus", matchday integer, stage text, minute integer,
+          updated timestamptz, home integer, away integer, payload jsonb
+        )
+        ORDER BY item.id
+        ON CONFLICT (id) DO UPDATE SET
+          "utcDate" = EXCLUDED."utcDate", status = EXCLUDED.status, matchday = EXCLUDED.matchday,
+          stage = EXCLUDED.stage, minute = EXCLUDED.minute, "lastUpdated" = EXCLUDED."lastUpdated",
+          "homeTeamId" = EXCLUDED."homeTeamId", "awayTeamId" = EXCLUDED."awayTeamId",
+          "leagueId" = EXCLUDED."leagueId", "seasonId" = EXCLUDED."seasonId", "updatedAt" = EXCLUDED."updatedAt",
+          "rawData" = (CASE WHEN jsonb_typeof("matches"."rawData") = 'object' THEN "matches"."rawData" ELSE '{}'::jsonb END) || EXCLUDED."rawData"
+        WHERE "matches"."lastUpdated" IS NULL OR EXCLUDED."lastUpdated" >= "matches"."lastUpdated"
+        RETURNING id
+      `
+      const updatedIds = new Set(updated.map(({ id }) => id))
+      const scores = batch.filter((fixture) => updatedIds.has(fixture.id) && fixture.home_goals !== null && fixture.away_goals !== null)
+      if (scores.length) await tx.$executeRaw`
+        INSERT INTO "match_scores" (id, "matchId", "homeTeamGoals", "awayTeamGoals", "homeTeamGoalsHT", "awayTeamGoalsHT", winner, duration)
+        SELECT item.score_id, item.id, item.home_goals, item.away_goals, item.home_half, item.away_half, item.winner, item.duration
+        FROM jsonb_to_recordset(${JSON.stringify(scores)}::jsonb) AS item(
+          score_id text, id integer, home_goals integer, away_goals integer, home_half integer, away_half integer,
+          winner "Winner", duration "Duration"
+        )
+        ORDER BY item.id
+        ON CONFLICT ("matchId") DO UPDATE SET
+          "homeTeamGoals" = EXCLUDED."homeTeamGoals", "awayTeamGoals" = EXCLUDED."awayTeamGoals",
+          "homeTeamGoalsHT" = EXCLUDED."homeTeamGoalsHT", "awayTeamGoalsHT" = EXCLUDED."awayTeamGoalsHT",
+          winner = EXCLUDED.winner, duration = EXCLUDED.duration
+      `
+      return updated.length
+    }, { maxWait: 10000, timeout: 30000 })
+    console.log(`Checked ${Math.min(index + batch.length, fixtures.length)}/${fixtures.length} fixtures`)
   }
-  if (!matchCount) throw new Error('No valid fixtures returned by the provider')
+  const skippedMatches = matches.matches.length - matchCount
 
   const table = standings?.standings?.filter((entry) => entry.type === 'TOTAL' && Array.isArray(entry.table)).flatMap((entry) =>
     entry.table.filter((row) => teamIds.has(row.team.id)).map((row) => ({
@@ -225,13 +260,15 @@ async function syncCurrentSeason() {
     })),
   ) ?? []
   await prisma.$transaction(async (tx) => {
-    await tx.season.updateMany({ where: { leagueId: league.id, id: { not: season.id }, isCurrent: true }, data: { isCurrent: false } })
-    await tx.season.update({ where: { id: season.id }, data: { isCurrent: true } })
+    if (importingCurrentSeason) {
+      await tx.season.updateMany({ where: { leagueId: league.id, id: { not: season.id }, isCurrent: true }, data: { isCurrent: false } })
+      await tx.season.update({ where: { id: season.id }, data: { isCurrent: true } })
+    }
     if (table.length) {
       await tx.standing.deleteMany({ where: { seasonId: season.id, type: 'TOTAL' } })
       await tx.standing.createMany({ data: table })
     }
-  })
+  }, { maxWait: 10000, timeout: 30000 })
   console.log(`Synced ${competitionCode} season ${year}: ${matchCount} fixtures processed, ${skippedMatches} skipped, ${table.length} standings rows imported, ${squadLinks} new squad memberships.`)
 }
 

@@ -1,15 +1,18 @@
+import { measureProviderCalls } from '@/lib/provider-timing'
 import { NextRequest, NextResponse } from "next/server";
 import { getMatchDetail } from "@/services/match.service";
 
 const cacheControl = {
   live: "public, s-maxage=30, stale-while-revalidate=60",
+  finished: "public, s-maxage=120, stale-while-revalidate=300",
   historical: "public, s-maxage=3600, stale-while-revalidate=86400",
 };
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return measureProviderCalls(() => loadDetail(params));
+}
+
+async function loadDetail(params: Promise<{ id: string }>) {
   const { id } = await params;
   const matchId = Number(id);
 

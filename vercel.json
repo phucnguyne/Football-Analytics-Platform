@@ -2,5 +2,6 @@
   "buildCommand": "pnpm -w db:generate && pnpm -w check && pnpm --filter @app/web build",
   "outputDirectory": ".next",
   "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "regions": ["syd1"]
 }

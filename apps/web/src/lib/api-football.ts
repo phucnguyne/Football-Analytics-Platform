@@ -1,5 +1,6 @@
 import 'server-only'
 import { env } from '@/lib/env'
+import { fetchProvider } from '@/lib/provider-timing'
 
 type ApiFootballResponse<T> = { response?: T[] }
 
@@ -41,7 +42,7 @@ async function request<T>(
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined) url.searchParams.set(key, String(value))
   })
-  const response = await fetch(url, {
+  const response = await fetchProvider(url, {
     redirect: "error",
     headers: { 'x-apisports-key': env.API_FOOTBALL_API_KEY as string },
     next: { revalidate },
@@ -112,12 +113,13 @@ function normalizeTeamName(name: string): string {
 
 export async function resolveApiFootballFixtureId(input: {
   localMatchId: number
+  apiFootballId?: number | null
   rawData?: unknown
   utcDate: Date
   homeTeamName: string
   awayTeamName: string
 }): Promise<number | null> {
-  const mapped = getApiFootballFixtureId(input.localMatchId, input.rawData)
+  const mapped = input.apiFootballId ?? getApiFootballFixtureId(input.localMatchId, input.rawData)
   if (mapped || !isApiFootballConfigured()) return mapped
 
   const fixtures = await request<ApiFootballFixture>('fixtures', {
@@ -455,8 +457,8 @@ export function getApiFootballPlayerId(localPlayerId: number): number | null {
   return parseMap(env.API_FOOTBALL_PLAYER_MAP)[String(localPlayerId)] ?? null
 }
 
-export async function resolveApiFootballPlayerId(localPlayerId: number, playerName: string): Promise<number | null> {
-  const mapped = getApiFootballPlayerId(localPlayerId)
+export async function resolveApiFootballPlayerId(localPlayerId: number, playerName: string, apiFootballId?: number | null): Promise<number | null> {
+  const mapped = apiFootballId ?? getApiFootballPlayerId(localPlayerId)
   if (mapped || !isApiFootballConfigured()) return mapped
   const players = await request<{ player?: { id?: number; name?: string } }>('players', {
     search: playerName,

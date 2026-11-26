@@ -635,6 +635,22 @@ pnpm --filter @app/api       dev
 pnpm --filter @app/realtime  dev
 ```
 
+To populate verified historical Premier League scouting, career, and comparison
+data, import the official fixture IDs for a season first, then match the
+API-Football profiles. Pairing requires a matching player name and date of birth,
+or an existing verified provider ID. The importer keeps each club and season
+separate and supports a read-only preview with `--pages=1`.
+
+```bash
+pnpm db:sync-current:production --season=2024
+pnpm db:import-api-football production --season=2024 --pages=1
+pnpm db:import-api-football production --season=2024 --write
+```
+
+The API-Football importer reads the provider configuration from the shell or
+`apps/web/.env` and uses the named database environment. Resume a partial
+import with `--page=N` after the provider quota resets.
+
 ---
 
 ## Authentication and service access

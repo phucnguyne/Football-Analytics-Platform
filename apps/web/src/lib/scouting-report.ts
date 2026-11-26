@@ -27,6 +27,7 @@ export interface ScoutingReportData {
     goalsAgainst: number
     result: 'W' | 'D' | 'L'
   }[]
-  keyPlayers: { id: number; name: string; goals: number; assists: number; matchesPlayed: number }[]
+  keyPlayers: { id: number; name: string; goals: number | null; assists: number | null; matchesPlayed: number | null }[]
   playerStatsSeason: number | null
+  playerStatsSource?: 'api-football' | 'database'
 }

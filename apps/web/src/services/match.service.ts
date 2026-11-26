@@ -1,3 +1,4 @@
+import { fetchProvider } from '@/lib/provider-timing'
 import "server-only";
 import { unstable_cache } from "next/cache";
 import prisma from "@app/database/src/client";
@@ -28,7 +29,7 @@ const getRecentFinishedMatches = unstable_cache(
 
 /** Fetch and cache the provider's unmodified match details in the match record. */
 async function fetchAndCacheMatchDetails(matchId: number) {
-  const res = await fetch(`${API_URL}/matches/${matchId}`, {
+  const res = await fetchProvider(`${API_URL}/matches/${matchId}`, {
     redirect: "error",    headers: { "X-Auth-Token": API_KEY },
   });
   if (!res.ok) {
@@ -197,7 +198,7 @@ export async function getMatchDetail(matchId: number) {
   });
 
   if (!match) {
-    const res = await fetch(`${API_URL}/matches/${matchId}`, {
+    const res = await fetchProvider(`${API_URL}/matches/${matchId}`, {
       redirect: "error",      headers: { "X-Auth-Token": API_KEY },
     });
     if (!res.ok) return { data: { error: "not found" }, status: res.status };
@@ -227,12 +228,15 @@ export async function getMatchDetail(matchId: number) {
             },
           }
         : {};
-    return { data: { ...providerData, ...predictionField } };
+    return {
+      data: { ...providerData, ...predictionField },
+      cache: match.status === "FINISHED" ? "finished" as const : undefined,
+    };
   }
 
   if (match.status === "FINISHED" && !detailsAlreadyFetched) {
-    const providerData = await fetchAndCacheMatchDetails(matchId);
-    if (providerData) return { data: providerData };
+    const providerData = await fetchAndCacheMatchDetails(matchId).catch(() => null);
+    if (providerData) return { data: providerData, cache: "finished" as const };
   }
 
   // For IN_PLAY/PAUSED: fetch live data from provider (don't cache — score changes every minute)
@@ -243,7 +247,7 @@ export async function getMatchDetail(matchId: number) {
         // Short cache so CDN/Next cache doesn't serve stale score
         next: { revalidate: 30 },
       };
-      const res = await fetch(`${API_URL}/matches/${matchId}`, requestInit);
+      const res = await fetchProvider(`${API_URL}/matches/${matchId}`, requestInit);
       if (res.ok) {
         const liveData = await res.json();
         return { data: liveData, cache: "live" as const };
@@ -275,5 +279,8 @@ export async function getMatchDetail(matchId: number) {
     }
   }
 
-  return { data: toMatchDetailResponse(match) };
+  return {
+    data: toMatchDetailResponse(match),
+    cache: match.status === "FINISHED" ? "finished" as const : undefined,
+  };
 }

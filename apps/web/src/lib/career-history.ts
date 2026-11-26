@@ -14,4 +14,12 @@ export interface CareerHistory {
     goals: number
     assists: number
   } | null
+  verifiedSeasons?: {
+    year: number
+    team: string
+    matchesPlayed: number | null
+    minutesPlayed: number | null
+    goals: number | null
+    assists: number | null
+  }[]
 }

@@ -4,6 +4,7 @@ jest.mock('@app/database/src/client', () => ({
   __esModule: true,
   default: {
     player: { findUnique: jest.fn() },
+    playerSeasonSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
     team: { findMany: jest.fn(), findUnique: jest.fn() },
     match: { findMany: jest.fn() },
     favorite: { findMany: jest.fn() },
@@ -105,6 +106,25 @@ test('comparison requests the selected clubs for the same season and withholds u
     player1: { team: { id: 10 }, stats: null },
     player2: { team: { id: 20 }, stats: null },
     statsProvenance: 'unavailable',
+  })
+})
+
+test('comparison uses the latest shared recorded season without calling a provider', async () => {
+  prisma.player.findUnique
+    .mockResolvedValueOnce({ id: 1, name: 'First', teams: [{ team: { id: 10, name: 'Club A' } }], stats: null })
+    .mockResolvedValueOnce({ id: 2, name: 'Second', teams: [{ team: { id: 20, name: 'Club B' } }], stats: null })
+  prisma.playerSeasonSnapshot.findMany.mockResolvedValueOnce([
+    { playerId: 1, seasonId: 8, season: { year: 2025 }, metrics: { matchesPlayed: 24 } },
+    { playerId: 1, seasonId: 7, season: { year: 2024 }, metrics: { matchesPlayed: 22 } },
+    { playerId: 2, seasonId: 7, season: { year: 2024 }, metrics: { matchesPlayed: 28 } },
+  ])
+  const response = await compare.GET(request('/api/persons/compare?p1=1&p2=2&p1TeamId=10&p2TeamId=20'))
+  expect(apiFootball.getPlayerSeasonMetricsForTeam).not.toHaveBeenCalled()
+  expect(prisma.team.findUnique).not.toHaveBeenCalled()
+  expect(await response.json()).toMatchObject({
+    statsSeason: 2024, statsSource: 'API-Football',
+    player1: { stats: { matchesPlayed: 22 } },
+    player2: { stats: { matchesPlayed: 28 } },
   })
 })
 

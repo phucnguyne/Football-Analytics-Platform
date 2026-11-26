@@ -40,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
   try {
     const player = await prisma.player.findUnique({
       where: { id },
-      select: { name: true, teams: { where: { to: null }, select: { teamId: true } } },
+      select: { name: true, apiFootballId: true, teams: { where: { to: null }, select: { teamId: true } } },
     })
     if (player && isPlaceholderPlayerName(player.name)) {
       return NextResponse.json({ error: 'player not found' }, { status: 404 })
@@ -70,7 +70,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
         ],
       },
       select: {
-        id: true, utcDate: true, rawData: true,
+        id: true, utcDate: true, rawData: true, apiFootballId: true,
         homeTeam: { select: { id: true, name: true, shortName: true, crest: true } },
         awayTeam: { select: { id: true, name: true, shortName: true, crest: true } },
         score: { select: { homeTeamGoals: true, awayTeamGoals: true, winner: true } },
@@ -80,7 +80,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       take: 10,
     })
     const providerId = matches.length
-      ? await resolveApiFootballPlayerId(id, playerName).catch(() => null)
+      ? await resolveApiFootballPlayerId(id, playerName, player?.apiFootballId).catch(() => null)
       : null
 
     function matchDetails(match: typeof matches[number], isHome: boolean) {
@@ -106,7 +106,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       const form = await Promise.all(matches.map(async (match): Promise<FormMatch[]> => {
         try {
           const fixtureId = await resolveApiFootballFixtureId({
-            localMatchId: match.id, rawData: match.rawData, utcDate: match.utcDate,
+            localMatchId: match.id, rawData: match.rawData, utcDate: match.utcDate, apiFootballId: match.apiFootballId,
             homeTeamName: match.homeTeam.name, awayTeamName: match.awayTeam.name,
           })
           if (!fixtureId) return []

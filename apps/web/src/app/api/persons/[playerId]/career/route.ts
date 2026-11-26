@@ -3,6 +3,7 @@ import prisma from '@app/database/src/client'
 import { getPlayerCareerTeams, resolveApiFootballPlayerId } from '@/lib/api-football'
 import { isPlaceholderPlayerName } from '@/lib/data-source'
 import type { CareerHistory } from '@/lib/career-history'
+import type { PlayerSeasonMetrics } from '@/lib/api-football'
 import { env } from '@/lib/env'
 
 export async function GET(
@@ -19,6 +20,11 @@ export async function GET(
       where: { id },
       select: {
         name: true,
+        apiFootballId: true,
+        seasonSnapshots: {
+          select: { team: { select: { name: true } }, season: { select: { year: true } }, metrics: true },
+          orderBy: [{ season: { year: 'desc' } }, { teamId: 'asc' }],
+        },
         teams: {
           select: { from: true, to: true, team: { select: { id: true, name: true } } },
           orderBy: [{ from: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
@@ -47,13 +53,17 @@ export async function GET(
 
     const stats = player?.stats?.dataSource === 'REAL' ? player.stats : null
     const [providerClubs, season] = await Promise.all([
-      resolveApiFootballPlayerId(id, name)
+      resolveApiFootballPlayerId(id, name, player?.apiFootballId)
         .then((providerId) => providerId ? getPlayerCareerTeams(providerId) : [])
         .catch(() => []),
       stats?.seasonId
         ? prisma.season.findUnique({ where: { id: stats.seasonId }, select: { year: true } })
         : null,
     ])
+    const verifiedSeasons = player?.seasonSnapshots?.map(({ season, team, metrics }) => {
+      const { matchesPlayed, minutesPlayed, goals, assists } = metrics as unknown as PlayerSeasonMetrics
+      return { year: season.year, team: team.name, matchesPlayed, minutesPlayed, goals, assists }
+    })
     const history: CareerHistory = {
       clubs: providerClubs.length ? providerClubs.map(({ team, seasons }) => ({
         id: team.id, name: team.name, from: null, to: null, seasons, source: 'api-football',
@@ -65,6 +75,7 @@ export async function GET(
         season: season?.year ?? null, matchesPlayed: stats.matchesPlayed,
         minutesPlayed: stats.minutesPlayed, goals: stats.goals, assists: stats.assists,
       } : null,
+      ...(verifiedSeasons?.length ? { verifiedSeasons } : {}),
     }
     return NextResponse.json(history, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },

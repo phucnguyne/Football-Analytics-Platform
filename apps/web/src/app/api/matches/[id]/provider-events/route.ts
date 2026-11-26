@@ -32,6 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     where: { id: matchId },
     select: {
       homeTeamId: true,
+      apiFootballId: true,
       rawData: true,
       utcDate: true,
       homeTeam: { select: { name: true } },
@@ -41,6 +42,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!match) return NextResponse.json({ error: 'match not found' }, { status: 404 })
   const fixtureId = await resolveApiFootballFixtureId({
     localMatchId: matchId,
+    apiFootballId: match.apiFootballId,
     rawData: match.rawData,
     utcDate: match.utcDate,
     homeTeamName: match.homeTeam.name,

@@ -21,14 +21,14 @@ export function PlayerCareerTimeline({ playerId, playerName }: { playerId: numbe
     },
   })
   if (history.isLoading) return <ChartSkeleton className="h-40" />
-  const { clubs = [], seasonStats } = history.isError ? {} : history.data ?? {}
+  const { clubs = [], seasonStats, verifiedSeasons } = history.isError ? {} : history.data ?? {}
   const date = (value: string) => format.dateTime(new Date(value), { dateStyle: 'medium', timeZone: 'UTC' })
 
   return (
     <section className="space-y-4 rounded-2xl border bg-card p-6">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-xl font-bold">{t('career')}{playerName && ` · ${playerName}`}</h3>
-        <DataSourceLabel kind={clubs.length || seasonStats ? 'real' : 'unavailable'} detail={clubs[0]?.source === 'api-football' ? 'API-Football' : undefined} />
+        <DataSourceLabel kind={clubs.length || seasonStats || verifiedSeasons?.length ? 'real' : 'unavailable'} detail={clubs[0]?.source === 'api-football' ? 'API-Football' : undefined} />
       </div>
       {history.isError && <button type="button" onClick={() => history.refetch()}>{common('retry')}</button>}
       {clubs.length ? (
@@ -56,6 +56,37 @@ export function PlayerCareerTimeline({ playerId, playerName }: { playerId: numbe
               </div>
             ))}
           </dl>
+        </div>
+      )}
+      {!!verifiedSeasons?.length && (
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-semibold">{t('verifiedSeasonStats')}</h4>
+            <DataSourceLabel kind="real" detail="API-Football" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-sm">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="text-left" scope="col">{m('club')}</th>
+                  <th className="text-right" scope="col">{m('matches')}</th>
+                  <th className="text-right" scope="col">{m('minutes')}</th>
+                  <th className="text-right" scope="col">{m('goals')}</th>
+                  <th className="text-right" scope="col">{m('assists')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {verifiedSeasons.map((row) => (
+                  <tr key={`${row.year}-${row.team}`}>
+                    <th className="py-2 pr-4 text-left font-medium" scope="row">{row.team} · {row.year}/{String(row.year + 1).slice(-2)}</th>
+                    {(['matchesPlayed', 'minutesPlayed', 'goals', 'assists'] as const).map((key) => (
+                      <td key={key} className="px-2 text-right tabular-nums">{row[key] ?? '—'}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

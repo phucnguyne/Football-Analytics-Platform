@@ -65,7 +65,7 @@ export async function GET(
     const match = await prisma.match.findUnique({
       where: { id: matchId },
       select: {
-        status: true, utcDate: true, minute: true, rawData: true,
+        status: true, utcDate: true, minute: true, rawData: true, apiFootballId: true,
         homeTeam: { select: { name: true } },
         awayTeam: { select: { name: true } },
         statistics: true,
@@ -86,7 +86,7 @@ export async function GET(
     const hasStarted = playing || match.status === 'FINISHED'
     const providerStats = hasStarted && (playing || !storedHome || !storedAway)
       ? await resolveApiFootballFixtureId({
-        localMatchId: matchId, rawData: match.rawData, utcDate: match.utcDate,
+        localMatchId: matchId, rawData: match.rawData, utcDate: match.utcDate, apiFootballId: match.apiFootballId,
         homeTeamName: match.homeTeam.name, awayTeamName: match.awayTeam.name,
       }).then((fixtureId) => fixtureId
         ? getFixtureStatistics(fixtureId, match.homeTeam.name, match.awayTeam.name)

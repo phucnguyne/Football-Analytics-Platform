@@ -15,6 +15,7 @@
     "sync-current:dev": "tsx scripts/sync-current-env.ts development",
     "sync-current:production": "tsx scripts/sync-current-env.ts production",
     "audit-analytics": "tsx scripts/sync-current-env.ts --audit",
+    "import-api-football": "tsx scripts/sync-current-env.ts --api-football",
     "sync-live": "tsx scripts/sync-live.ts",
     "sync-live:watch": "tsx scripts/sync-live.ts --watch",
     "seed-statsbomb": "tsx scripts/seed-statsbomb.ts",

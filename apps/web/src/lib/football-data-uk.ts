@@ -1,3 +1,4 @@
+import { fetchProvider } from '@/lib/provider-timing'
 interface TeamRecord {
   id: number
   name: string
@@ -126,7 +127,7 @@ export async function getHistoricalPremierLeagueMatches(
   knownTeams: TeamRecord[],
 ): Promise<HistoricalMatch[]> {
   const seasonCode = `${String(seasonYear).slice(-2)}${String(seasonYear + 1).slice(-2)}`
-  const response = await fetch(
+  const response = await fetchProvider(
     `https://www.football-data.co.uk/mmz4281/${seasonCode}/E0.csv`,
     {
       headers: { 'User-Agent': 'FootballAnalyticsPlatform/1.0' },

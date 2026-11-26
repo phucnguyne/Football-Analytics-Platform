@@ -103,6 +103,7 @@ model Season {
   matches   Match[]
   standings Standing[]
   teams     TeamSeason[]
+  playerSnapshots PlayerSeasonSnapshot[]
 
   @@unique([leagueId, year])
   @@map("seasons")
@@ -125,6 +126,7 @@ model Team {
   standings    Standing[]
   stats        TeamStats?
   matchLineups MatchLineup[]
+  playerSnapshots PlayerSeasonSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -147,6 +149,7 @@ model TeamSeason {
 
 model Player {
   id          Int       @id
+  apiFootballId Int?    @unique
   name        String
   position    Position
   dateOfBirth DateTime?
@@ -159,6 +162,7 @@ model Player {
   events        MatchEvent[]  @relation("eventPlayer")
   relatedEvents MatchEvent[]  @relation("eventRelated")
   lineups       MatchLineup[]
+  seasonSnapshots PlayerSeasonSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -193,6 +197,7 @@ enum Position {
 
 model Match {
   id          Int         @id
+  apiFootballId Int?      @unique
   utcDate     DateTime
   status      MatchStatus
   minute      Int?
@@ -440,6 +445,21 @@ model PlayerStats {
 
   @@index([seasonId])
   @@map("player_stats")
+}
+
+model PlayerSeasonSnapshot {
+  playerId Int
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId   Int
+  team     Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  seasonId Int
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  metrics  Json
+  updatedAt DateTime @updatedAt
+
+  @@id([playerId, teamId, seasonId])
+  @@index([teamId, seasonId])
+  @@map("api_football_player_seasons")
 }
 
 // ── User Features ─────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@
     "db:sync-current:dev": "pnpm --filter @app/database run sync-current:dev",
     "db:sync-current:production": "pnpm --filter @app/database run sync-current:production",
     "db:audit-analytics": "pnpm --filter @app/database run audit-analytics",
+    "db:import-api-football": "pnpm --filter @app/database run import-api-football",
     "db:sync-live": "pnpm --filter @app/database run sync-live",
     "db:sync-live:watch": "pnpm --filter @app/database run sync-live:watch",
     "test": "jest",
