@@ -651,6 +651,46 @@ The API-Football importer reads the provider configuration from the shell or
 `apps/web/.env` and uses the named database environment. Resume a partial
 import with `--from-team=ID --page=N` after the provider quota resets.
 
+### Recorded Premier League player analytics
+
+Apply migrations before running the importers. The player profile and Similar
+Players can read existing API-Football season snapshots. Similar Players and
+the imported positional average compare the player's season and position
+against peers with at least 90 recorded minutes. Highlightly season totals are
+calculated from the available imported match rows, so the matches played value
+also shows the coverage of a partial import.
+
+Set `HIGHLIGHTLY_API_KEY` in `packages/database/.env.development` or the shell.
+The first run previews matching and coverage. Add `--write` to save rows.
+Player match imports use existing local fixtures and player mappings. The
+API-Football option requires previously linked fixture and player IDs. Use
+`--offset=N` to process the next group of fixtures in the season.
+
+```bash
+pnpm db:import-player-matches development --source=highlightly --season=2026 --limit=10
+pnpm db:import-player-matches development --source=api-football --season=2024 --limit=10 --write
+```
+
+For historical action heatmaps, download the [Wyscout public dataset](https://doi.org/10.6084/m9.figshare.c.4415000)
+and extract the England files. For player shot maps, the importer accepts the
+`pl-catalogue` fixtures, players, appearances and shots files. Confirm the
+[upstream data terms](https://github.com/oladeeayo/pl-catalogue#license-and-attribution)
+before publishing shot data. Both imports match player identities against the
+local database and skip records that cannot be resolved uniquely. Use absolute
+paths for input files and add `--write` to save the previewed data.
+
+```bash
+pnpm db:import-player-pitch development --source=wyscout --players=/data/players.json --fixtures=/data/matches_England.json --events=/data/events_England.json
+pnpm db:import-player-pitch development --source=shots --season=2026 --players=/data/players.csv --fixtures=/data/fixtures.csv --appearances=/data/gws/merged_gw.csv --events=/data/shots.csv
+```
+
+Premier League fixture predictions and season simulations share a Poisson
+model with a 365-day half-life and a six-match prior. The model uses
+[OpenFootball results](https://github.com/openfootball/football.json) from
+2018/19 through 2025/26 (CC0), supplemented by recorded results before the
+prediction day. The bundled archive records the input file hashes. Regenerate
+it with `node tools/build-openfootball-history.mjs /path/to/football.json`.
+
 ---
 
 ## Authentication and service access

@@ -25,6 +25,8 @@ export function SimilarPlayersCard({
   const { data, isLoading, isError } = useQuery<{
     similarPlayers: SimilarPlayerResult[]
     statsProvenance?: SourceKind
+    statsSeason?: number | null
+    statsSource?: string
   }>({
     queryKey: ['similar-players', playerId],
     queryFn: async () => {
@@ -53,8 +55,10 @@ export function SimilarPlayersCard({
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-purple-500 rounded-full" />
-            <h3 className="text-lg font-bold">{t('similar')}</h3>
-            <DataSourceLabel kind={data.statsProvenance ?? 'unavailable'} />
+            <h3 className="text-lg font-bold">{t('similar')}{data.statsSeason
+              ? ` · ${data.statsSeason}/${String(data.statsSeason + 1).slice(-2)}` : ''}</h3>
+            <DataSourceLabel kind={data.statsProvenance ?? 'unavailable'}
+              detail={data.statsSource === 'highlightly' ? 'Highlightly' : data.statsSource === 'api-football' ? 'API-Football' : undefined} />
             <DataSourceLabel kind="model" />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">

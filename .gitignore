@@ -84,6 +84,9 @@ packages/database/scripts/*
 !packages/database/scripts/sync-current-env.ts
 !packages/database/scripts/audit-analytics.ts
 !packages/database/scripts/import-api-football.ts
+!packages/database/scripts/import-player-matches.ts
+!packages/database/scripts/import-player-pitch.ts
+!packages/database/scripts/player-import-identity.ts
 !packages/database/scripts/apply-env.mjs
 !packages/database/scripts/seed-statsbomb.ts
 

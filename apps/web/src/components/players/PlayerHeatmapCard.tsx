@@ -2,11 +2,12 @@
 
 import { useTranslations } from 'next-intl'
 import { DataSourceLabel } from '@/components/ui/DataSourceLabel'
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { ChartSkeleton } from '@/components/ui/Skeleton'
 import { useQuery } from '@tanstack/react-query'
 import type { HeatPoint } from '@/lib/tactics-generator'
+import { PitchCanvas } from '@/components/tactics/PitchCanvas'
 
 const PlayerHeatmap = dynamic(
   () => import('@/components/tactics/PlayerHeatmap').then((module) => ({ default: module.PlayerHeatmap })),
@@ -26,10 +27,17 @@ interface PlayerHeatmapCardProps {
 
 export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
   const t = useTranslations('Player')
-  const { data, isPending } = useQuery<{ available: boolean; points: HeatPoint[] }>({
-    queryKey: ['player-heatmap', player.id],
+  const [view, setView] = useState<'heatmap' | 'shots'>('heatmap')
+  const { data, isPending } = useQuery<{
+    available: boolean
+    points: (HeatPoint & { xG?: number | null })[]
+    source: string
+    season?: number
+    matchCount: number
+  }>({
+    queryKey: ['player-heatmap', player.id, view],
     queryFn: async () => {
-      const response = await fetch(`/api/persons/${player.id}/heatmap`)
+      const response = await fetch(`/api/persons/${player.id}/heatmap?view=${view}`)
       if (!response.ok) throw new Error('Failed to fetch player heatmap')
       return response.json()
     },
@@ -71,40 +79,55 @@ export function PlayerHeatmapCard({ player }: PlayerHeatmapCardProps) {
     },
   }
 
-  if (isPending) return <ChartSkeleton className="h-[480px]" />
-
-  if (!data?.available) {
-    return (
-      <div className="bg-card p-6 rounded-2xl border text-center text-sm text-muted-foreground">
-        {t('heatmapUnavailable')}
-      </div>
-    )
-  }
-
+  const season = data?.season ? `${data.season}/${String(data.season + 1).slice(-2)}` : null
+  const provider = view === 'shots' ? 'Understat via pl-catalogue'
+    : data?.source === 'wyscout-open-data' ? 'Wyscout Open Data' : 'StatsBomb Open Data'
   return (
     <div className="bg-card p-6 rounded-2xl border space-y-4">
-      <div className="flex items-center justify-between border-b pb-4">
+      <div className="flex flex-wrap gap-3 items-center justify-between border-b pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-rose-500 rounded-full" />
-            <h3 className="text-lg font-bold">{t('heatmap')}</h3>
-            <DataSourceLabel kind="real" detail="StatsBomb Open Data" />
+            <h3 className="text-lg font-bold">{t(view === 'shots' ? 'shotMap' : 'heatmap')}{season ? ` · ${season}` : ''}</h3>
+            {data?.available && <DataSourceLabel kind="real" detail={provider} />}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {t('heatmapDescription')}
-          </p>
+          {data?.available && (
+            <p className="text-xs text-muted-foreground mt-0.5">{t('mapCoverage', { count: data.matchCount })}</p>
+          )}
         </div>
-        <span className="text-xs font-bold bg-muted px-2.5 py-1 rounded-md text-foreground">
-          {player.position?.replace('_', ' ') || 'Player'}
-        </span>
+        <div className="flex gap-1 rounded-lg bg-muted p-1">
+          {(['heatmap', 'shots'] as const).map((option) => (
+            <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === option ? 'bg-background' : 'text-muted-foreground'}`}>
+              {t(option === 'shots' ? 'shotMap' : 'heatmap')}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <PlayerHeatmap
-        teamPoints={points}
-        playersData={playerData}
-        singlePlayerMode={true}
-        selectedPlayerId={player.id}
-      />
+      {isPending ? <ChartSkeleton className="h-[480px]" /> : !data?.available ? (
+        <p className="py-3 text-center text-sm text-muted-foreground">
+          {t(view === 'shots' ? 'shotMapUnavailable' : 'heatmapUnavailable')}
+        </p>
+      ) : view === 'shots' ? (
+        <PitchCanvas theme="tactical-dark">
+          {data.points.map(({ x, y, xG }, index) => (
+            <span key={index} className="absolute block -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-amber-400/90"
+              title={xG == null ? t('shotMap') : `xG ${xG.toFixed(2)}`}
+              style={{ left: `${x}%`, top: `${y}%`, width: 7 + (xG ?? 0) * 16, height: 7 + (xG ?? 0) * 16 }} />
+          ))}
+        </PitchCanvas>
+      ) : (
+        <PlayerHeatmap teamPoints={points} playersData={playerData} singlePlayerMode selectedPlayerId={player.id} />
+      )}
+      {data?.available && data.source === 'wyscout-open-data' && (
+        <p className="text-xs text-muted-foreground">
+          <a className="underline" href="https://figshare.com/articles/dataset/Events/7770599">Wyscout · Pappalardo &amp; Massucco · CC BY 4.0</a>
+        </p>
+      )}
+      {data?.available && data.source === 'understat-shots' && (
+        <a className="text-xs text-muted-foreground underline" href="https://github.com/oladeeayo/pl-catalogue">pl-catalogue</a>
+      )}
     </div>
   )
 }

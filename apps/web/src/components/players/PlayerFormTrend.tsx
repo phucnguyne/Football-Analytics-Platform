@@ -123,7 +123,7 @@ export function PlayerFormTrend({ playerId }: PlayerFormTrendProps) {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-6 bg-primary rounded-full" />
             <h3 className="text-lg font-bold">{t('formTrend')}</h3>
-            <DataSourceLabel kind="real" detail={data.source === 'api-football' ? 'API-Football' : 'StatsBomb Open Data'} />
+            <DataSourceLabel kind="real" detail={data.source === 'highlightly' ? 'Highlightly' : data.source === 'api-football' ? 'API-Football' : 'StatsBomb Open Data'} />
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               Last {matches.length} Matches
             </span>

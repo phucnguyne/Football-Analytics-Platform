@@ -10,7 +10,7 @@ function average(values: number[]) {
   return values.length ? Number((values.reduce((total, value) => total + value, 0) / values.length).toFixed(2)) : null
 }
 
-function formResponse(matches: FormMatch[], source: 'api-football' | 'statsbomb-open-data' | 'unavailable') {
+function formResponse(matches: FormMatch[], source: 'highlightly' | 'api-football' | 'statsbomb-open-data' | 'unavailable') {
   const lastFive = matches.slice(-5)
   const ratings = matches.flatMap(({ rating }) => rating === null ? [] : [rating])
   const difference = ratings.length > 1 ? ratings[ratings.length - 1] - ratings[0] : null
@@ -60,6 +60,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       if (person.currentTeam?.id) teamIds.push(person.currentTeam.id)
     }
     if (!playerName) return formResponse([], 'unavailable')
+    const details = {
+      id: true, utcDate: true,
+      homeTeam: { select: { id: true, name: true, shortName: true, crest: true } },
+      awayTeam: { select: { id: true, name: true, shortName: true, crest: true } },
+      score: { select: { homeTeamGoals: true, awayTeamGoals: true, winner: true } },
+    } as const
+    const recorded = await prisma.playerMatchStat.findMany({
+      where: { playerId: id, match: { status: 'FINISHED' } },
+      include: { match: { select: details } },
+      orderBy: [{ match: { utcDate: 'desc' } }, { matchId: 'desc' }, { source: 'asc' }],
+      take: 20,
+    })
+    const newestSource = recorded[0]?.source
+    const storedForm = recorded.filter(({ source }) => source === newestSource).slice(0, 10).reverse()
+      .map(({ match, teamId, minutes, rating, goals, assists, xG, xA, keyPasses, tackles }) => ({
+        ...matchDetails(match, teamId === match.homeTeam.id), minutes, rating, goals, assists, xG, xA, keyPasses, tackles,
+      }))
+    if (storedForm.length) return formResponse(storedForm, newestSource === 'HIGHLIGHTLY' ? 'highlightly' : 'api-football')
+
     const matches = await prisma.match.findMany({
       where: {
         status: 'FINISHED',
@@ -70,10 +89,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
         ],
       },
       select: {
-        id: true, utcDate: true, rawData: true, apiFootballId: true,
-        homeTeam: { select: { id: true, name: true, shortName: true, crest: true } },
-        awayTeam: { select: { id: true, name: true, shortName: true, crest: true } },
-        score: { select: { homeTeamGoals: true, awayTeamGoals: true, winner: true } },
+        ...details, rawData: true, apiFootballId: true,
         lineups: { where: { playerId: id }, select: { teamId: true }, take: 1 },
       },
       orderBy: [{ utcDate: 'desc' }, { id: 'desc' }],
@@ -83,7 +99,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pla
       ? await resolveApiFootballPlayerId(id, playerName, player?.apiFootballId).catch(() => null)
       : null
 
-    function matchDetails(match: typeof matches[number], isHome: boolean) {
+    function matchDetails(match: Pick<typeof matches[number], keyof typeof details>, isHome: boolean) {
       const opponent = isHome ? match.awayTeam : match.homeTeam
       const score = match.score
       const winner = score?.winner

@@ -1,12 +1,11 @@
 import "server-only";
 import { env } from "@/lib/env";
+import { fitPremierLeaguePoisson, FORM_HALF_LIFE_DAYS, PRIOR_MATCHES, type ScoredLeagueFixture } from "@/lib/epl-poisson";
 
 const SIMULATIONS = 10_000;
 const TOP_FOUR_PLACES = 4;
 const RELEGATION_PLACES = 3;
 const COMPETITION_CODE = "PL";
-const FORM_HALF_LIFE_DAYS = 45;
-const PRIOR_MATCHES = 3;
 
 interface ProviderTeam {
   id: number;
@@ -32,19 +31,6 @@ interface TeamStats {
   currentPlayed: number;
   currentGF: number;
   currentGA: number;
-  homeWeight: number;
-  homeWeightedGoalsScored: number;
-  homeWeightedGoalsConceded: number;
-  awayWeight: number;
-  awayWeightedGoalsScored: number;
-  awayWeightedGoalsConceded: number;
-}
-
-interface TeamStrength {
-  homeAttack: number;
-  homeDefense: number;
-  awayAttack: number;
-  awayDefense: number;
 }
 
 async function fetchProvider<T>(endpoint: string): Promise<T> {
@@ -73,20 +59,6 @@ function poissonSample(lambda: number): number {
   } while (probability > threshold);
 
   return goals - 1;
-}
-
-function weightedRate(
-  weightedTotal: number,
-  weight: number,
-  leagueAverage: number,
-): number {
-  return (
-    (weightedTotal + leagueAverage * PRIOR_MATCHES) / (weight + PRIOR_MATCHES)
-  );
-}
-
-function strength(rate: number, leagueAverage: number): number {
-  return leagueAverage > 0 ? rate / leagueAverage : 1;
 }
 
 export async function getSeasonPrediction() {
@@ -126,12 +98,6 @@ export async function getSeasonPrediction() {
       currentPlayed: 0,
       currentGF: 0,
       currentGA: 0,
-      homeWeight: 0,
-      homeWeightedGoalsScored: 0,
-      homeWeightedGoalsConceded: 0,
-      awayWeight: 0,
-      awayWeightedGoalsScored: 0,
-      awayWeightedGoalsConceded: 0,
     };
     stats.set(team.id, teamStats);
     return teamStats;
@@ -142,10 +108,7 @@ export async function getSeasonPrediction() {
     ensureTeam(match.awayTeam);
   }
 
-  let scoredMatchCount = 0;
-  let leagueWeight = 0;
-  let weightedHomeGoals = 0;
-  let weightedAwayGoals = 0;
+  const completed: ScoredLeagueFixture[] = [];
   const now = Date.now();
   for (const match of matches) {
     const homeGoals = match.score?.fullTime?.home;
@@ -155,16 +118,9 @@ export async function getSeasonPrediction() {
 
     const home = ensureTeam(match.homeTeam);
     const away = ensureTeam(match.awayTeam);
-    scoredMatchCount++;
-
-    const ageDays = Math.max(
-      0,
-      (now - new Date(match.utcDate).getTime()) / (24 * 60 * 60 * 1000),
-    );
-    const recencyWeight = Math.pow(2, -ageDays / FORM_HALF_LIFE_DAYS);
-    leagueWeight += recencyWeight;
-    weightedHomeGoals += homeGoals * recencyWeight;
-    weightedAwayGoals += awayGoals * recencyWeight;
+    completed.push({
+      date: match.utcDate, home: home.name, away: away.name, homeGoals, awayGoals,
+    });
 
     home.currentPlayed++;
     away.currentPlayed++;
@@ -172,13 +128,6 @@ export async function getSeasonPrediction() {
     home.currentGA += awayGoals;
     away.currentGF += awayGoals;
     away.currentGA += homeGoals;
-
-    home.homeWeight += recencyWeight;
-    home.homeWeightedGoalsScored += homeGoals * recencyWeight;
-    home.homeWeightedGoalsConceded += awayGoals * recencyWeight;
-    away.awayWeight += recencyWeight;
-    away.awayWeightedGoalsScored += awayGoals * recencyWeight;
-    away.awayWeightedGoalsConceded += homeGoals * recencyWeight;
 
     if (homeGoals > awayGoals) home.currentPoints += 3;
     else if (homeGoals < awayGoals) away.currentPoints += 3;
@@ -188,7 +137,7 @@ export async function getSeasonPrediction() {
     }
   }
 
-  if (scoredMatchCount === 0 || stats.size === 0) {
+  if (completed.length === 0 || stats.size === 0) {
     return {
       data: {
         error:
@@ -198,51 +147,14 @@ export async function getSeasonPrediction() {
     };
   }
 
+  const model = fitPremierLeaguePoisson(completed, new Date(now));
+  if (!model) return { data: { error: "Prediction history is unavailable" }, status: 503 };
   const remaining = matches.filter(
-    (match) =>
-      (match.status === "SCHEDULED" || match.status === "TIMED") &&
+    (match) => (match.status === "SCHEDULED" || match.status === "TIMED") &&
       new Date(match.utcDate).getTime() >= now,
-  );
-  const leagueAvgHome = weightedHomeGoals / leagueWeight;
-  const leagueAvgAway = weightedAwayGoals / leagueWeight;
+  ).map((match) => ({ ...match, expected: model.expectedGoals(match.homeTeam.name, match.awayTeam.name) }));
+  const { leagueAvgHome, leagueAvgAway } = model;
   const teamList = [...stats.values()];
-  const strengths = new Map<number, TeamStrength>();
-  for (const team of teamList) {
-    strengths.set(team.teamId, {
-      homeAttack: strength(
-        weightedRate(
-          team.homeWeightedGoalsScored,
-          team.homeWeight,
-          leagueAvgHome,
-        ),
-        leagueAvgHome,
-      ),
-      homeDefense: strength(
-        weightedRate(
-          team.homeWeightedGoalsConceded,
-          team.homeWeight,
-          leagueAvgAway,
-        ),
-        leagueAvgAway,
-      ),
-      awayAttack: strength(
-        weightedRate(
-          team.awayWeightedGoalsScored,
-          team.awayWeight,
-          leagueAvgAway,
-        ),
-        leagueAvgAway,
-      ),
-      awayDefense: strength(
-        weightedRate(
-          team.awayWeightedGoalsConceded,
-          team.awayWeight,
-          leagueAvgHome,
-        ),
-        leagueAvgHome,
-      ),
-    });
-  }
   const currentRank = new Map(
     [...teamList]
       .sort(
@@ -274,16 +186,9 @@ export async function getSeasonPrediction() {
     for (const match of remaining) {
       const home = stats.get(match.homeTeam.id);
       const away = stats.get(match.awayTeam.id);
-      const homeStrength = strengths.get(match.homeTeam.id);
-      const awayStrength = strengths.get(match.awayTeam.id);
-      if (!home || !away || !homeStrength || !awayStrength) continue;
-
-      const expectedHomeGoals =
-        leagueAvgHome * homeStrength.homeAttack * awayStrength.awayDefense;
-      const expectedAwayGoals =
-        leagueAvgAway * awayStrength.awayAttack * homeStrength.homeDefense;
-      const homeGoals = poissonSample(expectedHomeGoals);
-      const awayGoals = poissonSample(expectedAwayGoals);
+      if (!home || !away) continue;
+      const homeGoals = poissonSample(match.expected.home);
+      const awayGoals = poissonSample(match.expected.away);
       goalsFor.set(home.teamId, (goalsFor.get(home.teamId) ?? 0) + homeGoals);
       goalsAgainst.set(
         home.teamId,
@@ -367,9 +272,9 @@ export async function getSeasonPrediction() {
       competition: competition.name,
       season,
       source:
-        "Football-data.org current-season results and fixtures (cached for 5 minutes)",
+        "OpenFootball 2018/19–2025/26 and Football-data.org current-season fixtures and results",
       simulations: SIMULATIONS,
-      matchesPlayed: scoredMatchCount,
+      matchesPlayed: completed.length,
       matchesRemaining: remaining.length,
       leagueAvgHomeGoals: Math.round(leagueAvgHome * 100) / 100,
       leagueAvgAwayGoals: Math.round(leagueAvgAway * 100) / 100,

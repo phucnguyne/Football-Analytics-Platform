@@ -163,6 +163,8 @@ model Player {
   relatedEvents MatchEvent[]  @relation("eventRelated")
   lineups       MatchLineup[]
   seasonSnapshots PlayerSeasonSnapshot[]
+  matchStats    PlayerMatchStat[]
+  pitchPoints   PlayerPitchPoint[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -228,6 +230,7 @@ model Match {
   events      MatchEvent[]
   lineups     MatchLineup[]
   predictions Prediction[]
+  playerStats PlayerMatchStat[]
 
   rawData Json?
   winProbHome Float?
@@ -460,6 +463,60 @@ model PlayerSeasonSnapshot {
   @@id([playerId, teamId, seasonId])
   @@index([teamId, seasonId])
   @@map("api_football_player_seasons")
+}
+
+enum PlayerMatchSource {
+  HIGHLIGHTLY
+  API_FOOTBALL
+}
+
+model PlayerMatchStat {
+  matchId       Int
+  playerId      Int
+  teamId        Int
+  source        PlayerMatchSource
+  match         Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player        Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  minutes       Int
+  rating        Float?
+  goals         Int?
+  assists       Int?
+  xG            Float?
+  xA            Float?
+  shots         Int?
+  passes        Int?
+  passesCompleted Int?
+  keyPasses     Int?
+  tackles       Int?
+  interceptions Int?
+  dribbles      Int?
+  dribblesCompleted Int?
+
+  @@id([matchId, playerId, source])
+  @@index([playerId, source])
+  @@map("player_match_stats")
+}
+
+enum PlayerPitchSource {
+  WYSCOUT_OPEN_DATA
+  UNDERSTAT_SHOTS
+}
+
+model PlayerPitchPoint {
+  source        PlayerPitchSource
+  externalId    String
+  externalMatchId String
+  playerId      Int
+  player        Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  season        Int
+  date          DateTime
+  x             Float
+  y             Float
+  xG            Float?
+
+  @@id([source, externalId])
+  @@index([playerId, source, season, date])
+  @@map("player_pitch_points")
 }
 
 // ── User Features ─────────────────────────────────────────────────────────────

@@ -72,6 +72,8 @@ export default function PlayerDetailsPage({
   if (isError || !player) return <ErrorMessage />;
 
   const stats = player.stats;
+  const statsProvider = player.statsSource === 'highlightly' ? 'Highlightly'
+    : player.statsSource === 'api-football' ? 'API-Football' : undefined;
   const currentTeam = player.teams?.[0];
 
   return (
@@ -152,8 +154,9 @@ export default function PlayerDetailsPage({
           {/* Basic Stats Summary */}
           {stats ? (
             <div className="bg-card p-6 rounded-2xl border">
-              <h3 className="text-lg font-bold mb-2">{t('seasonSummary')}{player.statsSeason ? ` · ${player.statsSeason}` : ''}</h3>
-              <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={player.statsSource === 'api-football' ? 'API-Football' : undefined} className="mb-4" />
+              <h3 className="text-lg font-bold mb-2">{t('seasonSummary')}{player.statsSeason ? ` · ${player.statsSeason}/${String(player.statsSeason + 1).slice(-2)}` : ''}</h3>
+              <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={statsProvider} className="mb-4" />
+              {player.statsTeam && <p className="mb-3 text-sm text-muted-foreground">{player.statsTeam}</p>}
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-muted/20 rounded-xl">
                   <p className="text-3xl font-black tabular-nums text-primary mb-1">
@@ -214,7 +217,7 @@ export default function PlayerDetailsPage({
 
           <SimilarPlayersCard
             playerId={player.id}
-            playerTeamId={currentTeam?.id ?? player.currentTeam?.id}
+            playerTeamId={player.statsTeamId ?? currentTeam?.id ?? player.currentTeam?.id}
           />
 
           {stats && (
@@ -223,7 +226,7 @@ export default function PlayerDetailsPage({
                 <span className="text-xl">📊</span> {t('detailed')}
               </h3>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={player.statsSource === 'api-football' ? 'API-Football' : undefined} />
+                <DataSourceLabel kind={dataSourceFor([stats.dataSource])} detail={statsProvider} />
                 <DataExport
                   filename={`player-${player.id}-statistics`}
                   title={metric("playerStats", { name: player.name })}

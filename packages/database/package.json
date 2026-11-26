@@ -22,7 +22,9 @@
     "seed-statsbomb:events": "tsx scripts/seed-statsbomb.ts --events --lineups",
     "seed-statsbomb:dry": "tsx scripts/seed-statsbomb.ts --dry-run",
     "migrate:deploy": "prisma migrate deploy",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "import-player-matches": "tsx scripts/sync-current-env.ts --player-matches",
+    "import-player-pitch": "tsx scripts/sync-current-env.ts --player-pitch"
   },
   "dependencies": {
     "@app/config": "workspace:*",

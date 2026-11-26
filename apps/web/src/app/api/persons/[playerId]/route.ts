@@ -3,6 +3,7 @@ import prisma from '@app/database/src/client'
 import { env } from '@/lib/env'
 import { getPlayerSeasonMetricsForTeam, apiFootballSeasonYear } from '@/lib/api-football'
 import { isPlaceholderPlayerName } from '@/lib/data-source'
+import { eligibleSeasonPeers, getPositionalAverages, getRecordedPlayerSeason } from '@/lib/player-seasons'
 
 export async function GET(
   _req: NextRequest,
@@ -40,9 +41,10 @@ export async function GET(
 
     const trustedStats = player.stats?.dataSource === 'REAL' ? player.stats : null
     const currentTeam = player.teams.find(({ to }) => to === null)?.team
-    const providerStats = !trustedStats && currentTeam
+    const recorded = trustedStats ? null : await getRecordedPlayerSeason(player, currentTeam?.id)
+    const providerStats = recorded?.target.stats ?? (!trustedStats && currentTeam
       ? await getPlayerSeasonMetricsForTeam(player.name, currentTeam.name, apiFootballSeasonYear()).catch(() => null)
-      : null
+      : null)
     const positionalStats = trustedStats?.seasonId ? await prisma.playerStats.aggregate({
       where: {
         player: { position: player.position }, dataSource: 'REAL',
@@ -78,9 +80,13 @@ export async function GET(
         crest: t.team.crest,
       })),
       stats: trustedStats ?? (providerStats ? { ...providerStats, dataSource: 'REAL', yellowCards: null, redCards: null } : null),
-      statsSource: trustedStats ? 'database' : providerStats ? 'api-football' : 'unavailable',
-      statsSeason: databaseSeason?.year ?? providerStats?.season ?? null,
-      positionalAverages: positionalStats?._avg ?? null,
+      statsSource: trustedStats ? 'database' : recorded?.source ?? (providerStats ? 'api-football' : 'unavailable'),
+      statsSeason: databaseSeason?.year ?? recorded?.season ?? providerStats?.season ?? null,
+      statsTeam: recorded?.source === 'api-football' ? recorded.target.team?.name ?? null : null,
+      statsTeamId: recorded?.source === 'api-football' ? recorded.target.team?.id ?? null : null,
+      positionalAverages: recorded
+        ? getPositionalAverages(eligibleSeasonPeers(recorded.cohort, id))
+        : positionalStats?._avg ?? null,
     }
 
     return NextResponse.json(response, {

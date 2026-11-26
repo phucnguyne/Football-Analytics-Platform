@@ -5,6 +5,7 @@ import prisma from "@app/database/src/client";
 import { toMatchDetailResponse } from "@/lib/db-helpers";
 import { env } from "@/lib/env";
 import { computeTeamStrengths, computeMatchProbabilities } from "@/lib/poisson";
+import { fitPremierLeaguePoisson, PREMIER_LEAGUE_ID } from "@/lib/epl-poisson";
 import { getHistoricalPremierLeagueMatchById } from "@/lib/football-data-uk";
 
 const API_URL = env.FOOTBALL_DATA_API_URL;
@@ -24,6 +25,18 @@ const getRecentFinishedMatches = unstable_cache(
       take: 200,
     }),
   ["recent-finished-matches-for-prediction"],
+  { revalidate: 300 },
+);
+
+const getPremierLeagueResults = unstable_cache(
+  () => prisma.match.findMany({
+    where: { leagueId: PREMIER_LEAGUE_ID, status: "FINISHED", score: { isNot: null } },
+    select: {
+      utcDate: true, homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } },
+      score: { select: { homeTeamGoals: true, awayTeamGoals: true } },
+    },
+  }),
+  ["premier-league-results-for-regularized-poisson"],
   { revalidate: 300 },
 );
 
@@ -212,13 +225,25 @@ export async function getMatchDetail(matchId: number) {
       ? match.rawData
       : null;
   const detailsAlreadyFetched = Boolean(rawData?.[DETAILS_FETCHED_AT]);
+  const upcoming = match.status === "SCHEDULED" || match.status === "TIMED";
+  const usePremierLeagueModel = match.league.id === PREMIER_LEAGUE_ID && upcoming;
+  let premierLeaguePrediction = null;
+  if (usePremierLeagueModel && match.utcDate.getTime() > Date.now()) {
+    const results = await getPremierLeagueResults().catch(() => []);
+    const model = fitPremierLeaguePoisson(results.flatMap(({ utcDate, homeTeam, awayTeam, score }) => score ? [{
+      date: utcDate, home: homeTeam.name, away: awayTeam.name,
+      homeGoals: score.homeTeamGoals, awayGoals: score.awayTeamGoals,
+    }] : []), new Date());
+    const goals = model?.expectedGoals(match.homeTeam.name, match.awayTeam.name);
+    premierLeaguePrediction = goals ? computeMatchProbabilities(goals.home, goals.away, 15) : null;
+  }
 
   if (detailsAlreadyFetched && rawData) {
     const providerData = { ...rawData };
     delete providerData[DETAILS_FETCHED_AT];
     // For SCHEDULED/TIMED only: attach Poisson prediction if stored
-    const predictionField =
-      (match.status === "SCHEDULED" || match.status === "TIMED") &&
+    const predictionField = usePremierLeagueModel ? { prediction: premierLeaguePrediction } :
+      upcoming &&
       match.winProbHome != null
         ? {
             prediction: {
@@ -259,7 +284,7 @@ export async function getMatchDetail(matchId: number) {
 
   // For upcoming matches: compute Poisson prediction if not yet stored
   if (
-    (match.status === "SCHEDULED" || match.status === "TIMED") &&
+    !usePremierLeagueModel && upcoming &&
     match.winProbHome === null
   ) {
     const prediction = await computeAndCachePrediction(
@@ -280,7 +305,9 @@ export async function getMatchDetail(matchId: number) {
   }
 
   return {
-    data: toMatchDetailResponse(match),
+    data: usePremierLeagueModel
+      ? { ...toMatchDetailResponse(match), prediction: premierLeaguePrediction }
+      : toMatchDetailResponse(match),
     cache: match.status === "FINISHED" ? "finished" as const : undefined,
   };
 }

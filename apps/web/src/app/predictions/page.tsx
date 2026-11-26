@@ -365,8 +365,8 @@ export default function PredictionsPage() {
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           The current position and points come from real completed matches.
-          Forecasts use this season&apos;s results and remaining fixtures from
-          Football-data.org.
+          Forecasts use the OpenFootball archive from 2018/19 through 2025/26
+          and this season&apos;s results and fixtures from Football-data.org.
         </p>
         <ol className="mt-5 grid gap-5 text-sm text-muted-foreground lg:grid-cols-2">
           <li>
@@ -395,7 +395,7 @@ export default function PredictionsPage() {
               average to get its attack or defense strength.
             </p>
             <code className="mt-2 block overflow-x-auto rounded bg-muted p-2 text-xs text-foreground">
-              team rate = (Σ(weight × goals) + 3 × league avg) / (Σ weight + 3)
+              team rate = (Σ(weight × goals) + {data.strengthPriorMatches} × league avg) / (Σ weight + {data.strengthPriorMatches})
             </code>
             <code className="mt-2 block overflow-x-auto rounded bg-muted p-2 text-xs text-foreground">
               attack/defense strength = team rate / league rate

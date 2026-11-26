@@ -27,7 +27,9 @@
     "db:sync-live:watch": "pnpm --filter @app/database run sync-live:watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "db:import-player-matches": "pnpm --filter @app/database run import-player-matches",
+    "db:import-player-pitch": "pnpm --filter @app/database run import-player-pitch"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",

@@ -5,6 +5,11 @@ jest.mock('@app/database/src/client', () => ({
   default: {
     player: { findUnique: jest.fn() },
     playerSeasonSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
+    playerMatchStat: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    playerPitchPoint: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
     team: { findMany: jest.fn(), findUnique: jest.fn() },
     match: { findMany: jest.fn() },
     favorite: { findMany: jest.fn() },
@@ -34,12 +39,79 @@ const matches = require('@/app/api/matches/route')
 const dashboard = require('@/app/api/dashboard/route')
 const matchPrediction = require('@/app/api/predictions/matches/[matchId]/route')
 const form = require('@/app/api/persons/[playerId]/form/route')
+const profile = require('@/app/api/persons/[playerId]/route')
+const similar = require('@/app/api/persons/[playerId]/similar/route')
+const heatmap = require('@/app/api/persons/[playerId]/heatmap/route')
 const career = require('@/app/api/persons/[playerId]/career/route')
 const apiFootball = require('@/lib/api-football')
 
 function request(path, init) {
   return new NextRequest(new URL(path, 'http://localhost'), init)
 }
+
+test('player profile and similarities use the imported historical season and a same-position cohort', async () => {
+  const target = { id: 1, name: 'Verified Player', position: 'FORWARD' }
+  const peers = [
+    { player: target, team: { id: 10, name: 'Prior Club' }, metrics: { minutesPlayed: 900, shotsPer90: 2, tacklesPer90: 1, interceptions: 0.5 } },
+    { player: { id: 2, name: 'Peer', position: 'FORWARD' }, team: { id: 20 }, metrics: { minutesPlayed: 900, shotsPer90: 3, tacklesPer90: 1, interceptions: 0.4 } },
+    { player: { id: 3, name: 'Limited Minutes', position: 'FORWARD' }, team: { id: 30 }, metrics: { minutesPlayed: 20, shotsPer90: 4, tacklesPer90: 2, interceptions: 1 } },
+  ]
+  const snapshot = { season: { year: 2024 }, seasonId: 8, teamId: 10, metrics: peers[0].metrics }
+  prisma.player.findUnique
+    .mockResolvedValueOnce({ ...target, teams: [{ to: null, team: { id: 30 } }], stats: null })
+    .mockResolvedValueOnce({ ...target, teams: [{ teamId: 30 }], stats: null })
+  prisma.playerSeasonSnapshot.findMany.mockResolvedValueOnce([snapshot]).mockResolvedValueOnce(peers)
+    .mockResolvedValueOnce([snapshot]).mockResolvedValueOnce(peers)
+  const context = { params: Promise.resolve({ playerId: '1' }) }
+
+  const result = await profile.GET(request('/api/persons/1'), context)
+  expect(await result.json()).toMatchObject({
+    statsSource: 'api-football', statsSeason: 2024, statsTeam: 'Prior Club',
+    stats: { minutesPlayed: 900, dataSource: 'REAL' },
+    positionalAverages: { shotsPer90: 3, xG: null },
+  })
+  const comparison = await similar.GET(request('/api/persons/1/similar'), context)
+  expect(await comparison.json()).toMatchObject({
+    statsSeason: 2024, statsSource: 'api-football', similarPlayers: [{ id: 2 }],
+  })
+  expect(prisma.playerSeasonSnapshot.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    where: { seasonId: 8, player: { position: 'FORWARD' } },
+  }))
+  expect(apiFootball.getPlayerSeasonMetricsForTeam).not.toHaveBeenCalled()
+})
+
+test('latest saved form is returned without provider calls and retains its source and match side', async () => {
+  prisma.player.findUnique.mockResolvedValueOnce({ name: 'Verified Player', teams: [] })
+  prisma.playerMatchStat.findMany.mockResolvedValueOnce([{
+    source: 'HIGHLIGHTLY', teamId: 2, minutes: 71, rating: 7.2, goals: 0, assists: 1, xG: null, xA: 0.5, keyPasses: 3, tackles: 2,
+    match: {
+      id: 8, utcDate: new Date('2026-11-02T19:00Z'),
+      homeTeam: { id: 1, name: 'Home' }, awayTeam: { id: 2, name: 'Away' },
+      score: { winner: 'AWAY', homeTeamGoals: 0, awayTeamGoals: 1 },
+    },
+  }])
+  const result = await form.GET(request('/api/persons/1/form'), { params: Promise.resolve({ playerId: '1' }) })
+  expect(await result.json()).toMatchObject({
+    source: 'highlightly', matches: [{ isHome: false, result: 'W', minutes: 71, xG: null, xA: 0.5 }],
+  })
+  expect(apiFootball.getFixturePlayerPerformance).not.toHaveBeenCalled()
+})
+
+test('player shot map keeps source and coverage distinct from action events', async () => {
+  prisma.playerPitchPoint.findFirst.mockResolvedValueOnce({ season: 2026 })
+  prisma.playerPitchPoint.findMany.mockResolvedValueOnce([
+    { x: 84, y: 60, xG: 0.2, externalMatchId: '10' },
+    { x: 90, y: 40, xG: null, externalMatchId: '10' },
+  ])
+  const result = await heatmap.GET(request('/api/persons/1/heatmap?view=shots'), { params: Promise.resolve({ playerId: '1' }) })
+  expect(await result.json()).toMatchObject({
+    source: 'understat-shots', available: true, season: 2026, matchCount: 1,
+    points: [{ x: 84, y: 60, xG: 0.2 }, { x: 90, y: 40, xG: null }],
+  })
+  expect(prisma.playerPitchPoint.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+    where: { playerId: 1, source: 'UNDERSTAT_SHOTS' },
+  }))
+})
 
 test('global search returns bounded, grouped results with links backed by entity IDs', async () => {
   searchPlayers.mockResolvedValue({ data: { players: [{ id: 4, name: 'Player', team: { name: 'Arsenal' } }] } })
